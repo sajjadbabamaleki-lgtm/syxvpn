@@ -62,6 +62,19 @@ cd android
 The Gradle wrapper is not committed here (it is a binary jar); generate it with
 `gradle wrapper --gradle-version 8.11` on first checkout.
 
+## Seeing the screen before you can build
+
+`preview/connect-screen.html` is a mockup of the connect screen — the same
+layout, spacing and colours as `ui/Screens.kt`, rendered as HTML so the design
+can be reviewed on a machine with no Android toolchain. **It is a mockup, not a
+screenshot**: it connects to nothing and measures nothing. Open it in any
+browser.
+
+It shows both states deliberately: the left phone is what the skeleton does
+today (the bridge is not wired, so pressing connect surfaces that error and the
+counters stay at zero), and the right one is the same screen once a real Xray
+runtime is in place.
+
 ## Files
 
 | Path | What it does |
@@ -73,4 +86,6 @@ The Gradle wrapper is not committed here (it is a binary jar); generate it with
 | `core/XrayConfigBuilder.kt` | Client config, with the control plane routed direct |
 | `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
 | `vpn/XrayBridge.kt` | The seam where the native runtime plugs in |
-| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow and the connect screen |
+| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen, account tab |
+| `core/Latency.kt` | Real TCP handshake timing behind the PING button |
+| `preview/connect-screen.html` | Mockup of the connect screen (not a screenshot) |

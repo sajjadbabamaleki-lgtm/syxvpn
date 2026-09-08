@@ -1,27 +1,48 @@
 package net.jordanvpn.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import net.jordanvpn.app.JordanApp as JordanApplication
+import net.jordanvpn.app.core.Latency
 import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.XrayConfigBuilder
 import net.jordanvpn.app.vpn.JordanVpnService
 
 private val Background = Color(0xFF0A0C0F)
 private val Surface = Color(0xFF12161C)
+private val SurfaceHigh = Color(0xFF171C23)
+private val Border = Color(0xFF232A34)
 private val Accent = Color(0xFFC8F24A)
+private val Ok = Color(0xFF5FD97A)
+private val Warn = Color(0xFFF0B02E)
+private val Bad = Color(0xFFF2665F)
 private val TextDim = Color(0xFF98A3B2)
+private val TextFaint = Color(0xFF6C7684)
 
 @Composable
 fun JordanTheme(content: @Composable () -> Unit) {
@@ -36,14 +57,102 @@ fun JordanTheme(content: @Composable () -> Unit) {
     )
 }
 
+private enum class Tab { CONNECT, ACCOUNT }
+
 /**
- * The connect screen.
+ * Two tabs, mirroring the web app: the tunnel, and the account behind it.
  *
- * It shows the state the tunnel is actually in. There is no optimistic
- * "connected" while the bridge is not wired: the error is surfaced instead.
+ * Everything on screen reflects real state. The status text follows the VPN
+ * service, the counters come from the Xray instance, and the latency figure is
+ * an actual TCP handshake to the gateway. With no Xray runtime bundled yet,
+ * pressing connect surfaces that error instead of showing a fake CONNECTED.
  */
 @Composable
 fun JordanRoot(
+    app: JordanApplication,
+    onConnect: (String) -> Unit,
+    onDisconnect: () -> Unit,
+    onOpenStore: () -> Unit = {},
+) {
+    var signedIn by remember { mutableStateOf(app.session.token != null) }
+    var tab by remember { mutableStateOf(Tab.CONNECT) }
+
+    if (!signedIn) {
+        SignInScreen(app) { signedIn = true }
+        return
+    }
+
+    Scaffold(
+        containerColor = Background,
+        bottomBar = { BottomBar(tab) { tab = it } },
+    ) { padding ->
+        Box(Modifier.padding(padding)) {
+            when (tab) {
+                Tab.CONNECT -> ConnectScreen(app, onConnect, onDisconnect)
+                Tab.ACCOUNT -> AccountScreen(app, onOpenStore) { signedIn = false }
+            }
+        }
+    }
+}
+
+/**
+ * The power symbol, drawn rather than typed: the glyph is missing from several
+ * Android system fonts and would render as a blank box on those devices.
+ */
+@Composable
+private fun PowerIcon(size: androidx.compose.ui.unit.Dp, color: Color, strokeWidth: Float = 6f) {
+    Canvas(Modifier.size(size)) {
+        val inset = strokeWidth
+        val arc = Size(this.size.width - inset * 2, this.size.height - inset * 2)
+        drawArc(
+            color = color,
+            startAngle = -60f,
+            sweepAngle = 300f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = arc,
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+        )
+        drawLine(
+            color = color,
+            start = Offset(this.size.width / 2, this.size.height * 0.12f),
+            end = Offset(this.size.width / 2, this.size.height * 0.46f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
+    NavigationBar(containerColor = Color(0xFF0E1116), tonalElevation = 0.dp) {
+        NavigationBarItem(
+            selected = current == Tab.CONNECT,
+            onClick = { onSelect(Tab.CONNECT) },
+            icon = { PowerIcon(22.dp, if (current == Tab.CONNECT) Accent else TextFaint, strokeWidth = 4f) },
+            label = { Text("Connect") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Accent, selectedTextColor = Color.White,
+                unselectedIconColor = TextFaint, unselectedTextColor = TextFaint,
+                indicatorColor = SurfaceHigh,
+            ),
+        )
+        NavigationBarItem(
+            selected = current == Tab.ACCOUNT,
+            onClick = { onSelect(Tab.ACCOUNT) },
+            icon = { Icon(Icons.Filled.Person, contentDescription = null) },
+            label = { Text("Account") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Accent, selectedTextColor = Color.White,
+                unselectedIconColor = TextFaint, unselectedTextColor = TextFaint,
+                indicatorColor = SurfaceHigh,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun ConnectScreen(
     app: JordanApplication,
     onConnect: (String) -> Unit,
     onDisconnect: () -> Unit,
@@ -51,13 +160,14 @@ fun JordanRoot(
     val scope = rememberCoroutineScope()
     val tunnelState by JordanVpnService.state.collectAsState()
     val tunnelError by JordanVpnService.lastError.collectAsState()
+    val traffic by JordanVpnService.traffic.collectAsState()
+    val uptime by JordanVpnService.uptimeSeconds.collectAsState()
 
-    var email by remember { mutableStateOf(app.session.email ?: "") }
-    var password by remember { mutableStateOf("") }
-    var signedIn by remember { mutableStateOf(app.session.token != null) }
     var profiles by remember { mutableStateOf<List<VlessProfile>>(emptyList()) }
     var selected by remember { mutableStateOf<VlessProfile?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
+    var pingMs by remember { mutableStateOf<Long?>(null) }
+    var pinging by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
 
     fun refresh() {
@@ -74,130 +184,332 @@ fun JordanRoot(
         }
     }
 
-    LaunchedEffect(signedIn) { if (signedIn) refresh() }
+    LaunchedEffect(Unit) { refresh() }
 
-    Scaffold(containerColor = Background) { padding ->
-        Column(
-            modifier = Modifier.padding(padding).fillMaxSize().padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text("JORDAN", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = tunnelState == JordanVpnService.State.CONNECTING
 
-            if (!signedIn) {
-                OutlinedTextField(
-                    value = email, onValueChange = { email = it },
-                    label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = password, onValueChange = { password = it },
-                    label = { Text("Password") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                )
-                Button(
-                    onClick = {
-                        scope.launch {
-                            busy = true
-                            runCatching { app.api.signIn(email.trim(), password) }
-                                .onSuccess { signedIn = true; status = null }
-                                .onFailure { status = it.message }
-                            busy = false
-                        }
-                    },
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) { Text("Sign in") }
-                status?.let { Text(it, color = Color(0xFFF2665F), fontSize = 13.sp) }
-                Text(
-                    "Buy a plan on the website; this app connects with the subscription on your account.",
-                    color = TextDim, fontSize = 12.sp,
-                )
-                return@Column
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(18.dp))
+        Text("Jordan VPN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-            Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(30.dp))
 
-            val connected = tunnelState == JordanVpnService.State.CONNECTED
-            val connecting = tunnelState == JordanVpnService.State.CONNECTING
-            Box(
-                modifier = Modifier
-                    .size(160.dp)
-                    .background(if (connected) Accent.copy(alpha = 0.15f) else Surface, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                IconButton(
-                    onClick = {
-                        val profile = selected
-                        if (connected) onDisconnect()
-                        else if (profile != null) {
+        // The power control. Disabled when there is no server to connect to,
+        // rather than pretending a connection is one tap away.
+        Box(
+            modifier = Modifier
+                .size(180.dp)
+                .clip(CircleShape)
+                .background(if (connected) Accent.copy(alpha = 0.12f) else Surface)
+                .border(1.dp, if (connected) Accent else Border, CircleShape)
+                .clickable(enabled = selected != null || connected) {
+                    if (connected) {
+                        onDisconnect()
+                    } else {
+                        selected?.let { profile ->
                             onConnect(
                                 XrayConfigBuilder.build(
                                     profile,
-                                    app.session.subscriptionUrl?.let { runCatching { java.net.URL(it).host }.getOrNull() },
+                                    app.session.subscriptionUrl
+                                        ?.let { runCatching { java.net.URL(it).host }.getOrNull() },
                                 ),
                             )
                         }
-                    },
-                    enabled = selected != null || connected,
-                    modifier = Modifier.size(96.dp),
-                ) {
-                    Text(
-                        if (connected) "STOP" else "START",
-                        color = if (connected) Accent else Color.White,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            Text(
-                when (tunnelState) {
-                    JordanVpnService.State.CONNECTED -> "CONNECTED"
-                    JordanVpnService.State.CONNECTING -> "CONNECTING…"
-                    JordanVpnService.State.FAILED -> "NOT CONNECTED"
-                    else -> "NOT CONNECTED"
+                    }
                 },
-                color = if (connected) Accent else TextDim,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
+            contentAlignment = Alignment.Center,
+        ) {
+            PowerIcon(
+                size = 76.dp,
+                color = when {
+                    connected -> Accent
+                    selected == null -> TextFaint
+                    else -> Color(0xFFD6DCE5)
+                },
+                strokeWidth = 9f,
             )
+        }
 
-            if (tunnelError != null && !connected && !connecting) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+        Spacer(Modifier.height(22.dp))
+
+        Text(
+            when (tunnelState) {
+                JordanVpnService.State.CONNECTED -> "CONNECTED"
+                JordanVpnService.State.CONNECTING -> "CONNECTING…"
+                else -> "NOT CONNECTED"
+            },
+            color = when (tunnelState) {
+                JordanVpnService.State.CONNECTED -> Ok
+                JordanVpnService.State.CONNECTING -> Warn
+                else -> TextDim
+            },
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp,
+        )
+        if (connected) {
+            Spacer(Modifier.height(4.dp))
+            Text(formatUptime(uptime), color = TextFaint, fontSize = 12.sp)
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Surface),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(14.dp)),
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text("ACTIVE CONFIGURATION", color = TextFaint, fontSize = 10.sp, letterSpacing = 1.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            selected?.label ?: "No server available",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            selected?.let { "${it.host}:${it.port}" } ?: "buy a plan or refresh",
+                            color = TextDim,
+                            fontSize = 12.sp,
+                        )
+                    }
                     Text(
-                        tunnelError!!,
-                        color = Color(0xFFF2665F),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(14.dp),
+                        if (selected?.tls == true) "vless · ws · tls" else "vless · ws",
+                        color = TextFaint,
+                        fontSize = 11.sp,
                     )
                 }
-            }
 
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = {
+                            val profile = selected ?: return@TextButton
+                            scope.launch {
+                                pinging = true
+                                pingMs = Latency.measure(profile.host, profile.port)
+                                pinging = false
+                            }
+                        },
+                        enabled = selected != null && !pinging,
+                    ) {
+                        Text(if (pinging) "PINGING…" else "PING", color = Warn, fontSize = 12.sp, letterSpacing = 1.sp)
+                    }
+                    Text(
+                        when {
+                            pinging -> ""
+                            pingMs != null -> "$pingMs ms"
+                            else -> "not measured"
+                        },
+                        color = if (pingMs != null) Ok else TextFaint,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (profiles.size > 1) {
+                        Text("${profiles.size} servers", color = TextFaint, fontSize = 11.sp)
+                    }
+                }
+
+                HorizontalDivider(color = Border)
+                Spacer(Modifier.height(14.dp))
+
+                Row(Modifier.fillMaxWidth()) {
+                    TrafficColumn("Downlink", "↓", traffic.second, Modifier.weight(1f))
+                    TrafficColumn("Uplink", "↑", traffic.first, Modifier.weight(1f))
+                }
+            }
+        }
+
+        if (tunnelError != null && !connected && !connecting) {
+            Spacer(Modifier.height(12.dp))
             Card(
-                colors = CardDefaults.cardColors(containerColor = Surface),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Active configuration", color = TextDim, fontSize = 12.sp)
-                    Text(selected?.label ?: "No server available", color = Color.White, fontWeight = FontWeight.Medium)
-                    selected?.let {
-                        Text("${it.host}:${it.port}", color = TextDim, fontSize = 12.sp)
+                Text(
+                    tunnelError!!,
+                    color = Bad,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(14.dp),
+                )
+            }
+        }
+
+        status?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, color = TextDim, fontSize = 12.sp, textAlign = TextAlign.Center)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = { refresh() }, enabled = !busy) {
+            Text(if (busy) "Refreshing…" else "Refresh servers", color = TextDim, fontSize = 13.sp)
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun TrafficColumn(label: String, arrow: String, bytes: Long, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(arrow, color = if (bytes > 0) Ok else TextFaint, fontSize = 14.sp)
+            Spacer(Modifier.width(6.dp))
+            Text(formatBytes(bytes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun AccountScreen(
+    app: JordanApplication,
+    onOpenStore: () -> Unit,
+    onSignedOut: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var subscription by remember { mutableStateOf<net.jordanvpn.app.data.ControlPlaneClient.Subscription?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { app.api.subscription() }
+            .onSuccess { subscription = it }
+            .onFailure { error = it.message }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Account", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(app.session.email ?: "", color = TextDim, fontSize = 13.sp)
+
+        val sub = subscription
+        if (sub == null) {
+            Text(
+                error ?: "No subscription on this account yet.",
+                color = if (error != null) Bad else TextDim,
+                fontSize = 13.sp,
+            )
+        } else {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Surface),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(14.dp)),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LabelledRow("Status", if (sub.active) "active" else sub.state, if (sub.active) Ok else Bad)
+                    LabelledRow("Used", formatBytes(sub.usedBytes), Color.White)
+                    LabelledRow(
+                        "Included",
+                        if (sub.quotaBytes > 0) formatBytes(sub.quotaBytes) else "unmetered",
+                        Color.White,
+                    )
+                    if (sub.quotaBytes > 0) {
+                        LinearProgressIndicator(
+                            progress = { (sub.usedBytes.toFloat() / sub.quotaBytes).coerceIn(0f, 1f) },
+                            color = Accent,
+                            trackColor = Border,
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                        )
                     }
-                    if (profiles.size > 1) {
-                        Text("${profiles.size} servers in your subscription", color = TextDim, fontSize = 12.sp)
-                    }
+                    LabelledRow("Expires", sub.expiresAt.take(10), Color.White)
                 }
             }
+        }
 
-            status?.let { Text(it, color = TextDim, fontSize = 12.sp) }
+        Button(
+            onClick = onOpenStore,
+            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text("Add data or time", fontWeight = FontWeight.SemiBold) }
 
-            TextButton(onClick = { refresh() }, enabled = !busy) { Text("Refresh servers") }
-            TextButton(onClick = {
-                scope.launch { app.api.signOut(); signedIn = false; profiles = emptyList() }
-            }) { Text("Sign out", color = TextDim) }
+        Text(
+            "Plans are bought on the website; the app picks the new balance up automatically.",
+            color = TextFaint,
+            fontSize = 12.sp,
+        )
+
+        TextButton(onClick = {
+            scope.launch { app.api.signOut(); onSignedOut() }
+        }) { Text("Sign out", color = TextDim) }
+    }
+}
+
+@Composable
+private fun LabelledRow(label: String, value: String, valueColor: Color) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = TextFaint, fontSize = 13.sp)
+        Text(value, color = valueColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun SignInScreen(app: JordanApplication, onSignedIn: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var email by remember { mutableStateOf(app.session.email ?: "") }
+    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().background(Background).padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("JORDAN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+        Text("Sign in with your account", color = TextDim, fontSize = 13.sp)
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = {
+                scope.launch {
+                    busy = true
+                    runCatching { app.api.signIn(email.trim(), password) }
+                        .onSuccess { onSignedIn() }
+                        .onFailure { error = it.message }
+                    busy = false
+                }
+            },
+            enabled = !busy,
+            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text(if (busy) "Signing in…" else "Sign in", fontWeight = FontWeight.SemiBold) }
+        error?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, color = Bad, fontSize = 13.sp)
         }
     }
 }

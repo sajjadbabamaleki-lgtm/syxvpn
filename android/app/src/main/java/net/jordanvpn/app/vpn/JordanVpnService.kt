@@ -8,10 +8,14 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import net.jordanvpn.app.R
 
 /**
@@ -28,6 +32,8 @@ class JordanVpnService : VpnService() {
 
     private val scope = CoroutineScope(SupervisorJob())
     private var tun: ParcelFileDescriptor? = null
+    private var statsJob: Job? = null
+    private var connectedAt: Long = 0L
 
     // Replace with the real implementation once the AAR is in place.
     private val bridge: XrayBridge = NotWiredXrayBridge()
@@ -69,7 +75,10 @@ class JordanVpnService : VpnService() {
             }
             tun = descriptor
             bridge.start(configJson, descriptor, net.jordanvpn.app.core.XrayConfigBuilder.SOCKS_PORT)
+            connectedAt = System.currentTimeMillis()
             state.value = State.CONNECTED
+            lastError.value = null
+            startStatsLoop()
             updateNotification("Connected")
         } catch (error: Throwable) {
             fail(error.message ?: "Could not start the tunnel")
@@ -89,7 +98,27 @@ class JordanVpnService : VpnService() {
         stopSelf()
     }
 
+    /**
+     * Publishes the counters the connect screen shows. They come from the Xray
+     * instance, so with no runtime wired they stay at zero rather than being
+     * animated to look alive.
+     */
+    private fun startStatsLoop() {
+        statsJob?.cancel()
+        statsJob = scope.launch {
+            while (isActive) {
+                traffic.value = runCatching { bridge.trafficStats() }.getOrDefault(0L to 0L)
+                uptimeSeconds.value = (System.currentTimeMillis() - connectedAt) / 1000
+                delay(1000)
+            }
+        }
+    }
+
     private fun cleanUp() {
+        statsJob?.cancel()
+        statsJob = null
+        traffic.value = 0L to 0L
+        uptimeSeconds.value = 0L
         runCatching { bridge.stop() }
         runCatching { tun?.close() }
         tun = null
@@ -136,6 +165,9 @@ class JordanVpnService : VpnService() {
 
         val state = MutableStateFlow(State.DISCONNECTED)
         val lastError = MutableStateFlow<String?>(null)
+        /** uplink to downlink bytes, cumulative for the current session. */
+        val traffic = MutableStateFlow(0L to 0L)
+        val uptimeSeconds = MutableStateFlow(0L)
         val observableState: StateFlow<State> get() = state
     }
 }

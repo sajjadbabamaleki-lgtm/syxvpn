@@ -2,6 +2,7 @@ package net.jordanvpn.app.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
                     app = app,
                     onConnect = ::requestTunnel,
                     onDisconnect = ::stopTunnel,
+                    onOpenStore = ::openStore,
                 )
             }
         }
@@ -59,6 +61,11 @@ class MainActivity : ComponentActivity() {
                 .setAction(JordanVpnService.ACTION_CONNECT)
                 .putExtra(JordanVpnService.EXTRA_CONFIG, configJson),
         )
+    }
+
+    /** Buying happens on the web storefront; the app just opens it. */
+    private fun openStore() {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL)))
     }
 
     private fun stopTunnel() {

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Jordan VPN — connect screen mockup</title>
+<style>
+  /*
+   * MOCKUP, NOT A SCREENSHOT.
+   * This mirrors the layout, spacing and colours of ui/Screens.kt so the design
+   * can be reviewed before the Android toolchain is available. It is HTML: it
+   * connects to nothing and measures nothing.
+   */
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: #14171c;
+    color: #e7ecf3;
+    font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .frame { width: 390px; }
+  .caption { font-size: 12px; color: #98a3b2; margin-bottom: 8px; text-align: center; }
+  .caption b { color: #e7ecf3; display: block; font-size: 13px; margin-bottom: 2px; }
+  .phone {
+    width: 390px; height: 800px;
+    background: #0a0c0f;
+    border: 1px solid #2a323d;
+    border-radius: 26px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .statusbar {
+    height: 34px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; font-size: 12px; color: #8b95a3;
+  }
+  .screen { flex: 1; padding: 0 20px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+  h1 { font-size: 22px; font-weight: 700; margin-top: 14px; }
+
+  .power {
+    width: 180px; height: 180px; border-radius: 50%;
+    background: #12161c; border: 1px solid #232a34;
+    display: grid; place-items: center; margin-top: 30px;
+    color: #d6dce5;
+  }
+  .power.on { background: rgba(200,242,74,0.12); border-color: #c8f24a; color: #c8f24a; }
+  .power svg, .nav svg { display: block; }
+
+  .status { margin-top: 22px; font-size: 16px; font-weight: 700; letter-spacing: 2px; color: #98a3b2; }
+  .status.on { color: #5fd97a; }
+  .uptime { margin-top: 4px; font-size: 12px; color: #6c7684; }
+
+  .card {
+    width: 100%; margin-top: 24px; padding: 16px;
+    background: #12161c; border: 1px solid #232a34; border-radius: 14px;
+  }
+  .card-label { font-size: 10px; letter-spacing: 1px; color: #6c7684; }
+  .config-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .config-row .name { font-weight: 500; }
+  .config-row .addr { font-size: 12px; color: #98a3b2; margin-top: 2px; }
+  .config-row .proto { margin-left: auto; font-size: 11px; color: #6c7684; white-space: nowrap; }
+
+  .ping-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; min-height: 40px; }
+  .ping-btn { color: #f0b02e; font-size: 12px; letter-spacing: 1px; font-weight: 600; }
+  .ping-val { font-size: 12px; color: #6c7684; flex: 1; }
+  .ping-val.measured { color: #5fd97a; }
+  .servers { font-size: 11px; color: #6c7684; }
+
+  hr { border: 0; border-top: 1px solid #232a34; margin: 0; }
+  .traffic { display: flex; margin-top: 14px; }
+  .traffic > div { flex: 1; text-align: center; }
+  .traffic .label { font-size: 12px; color: #98a3b2; }
+  .traffic .value { margin-top: 4px; font-size: 15px; font-weight: 500; }
+  .traffic .arrow { color: #6c7684; margin-right: 6px; }
+  .traffic .arrow.live { color: #5fd97a; }
+
+  .errorcard {
+    width: 100%; margin-top: 12px; padding: 14px;
+    background: #2c1516; border-radius: 12px; color: #f2665f; font-size: 12px; line-height: 1.45;
+  }
+  .refresh { margin-top: 14px; font-size: 13px; color: #98a3b2; }
+
+  .nav {
+    height: 64px; border-top: 1px solid #232a34; background: #0e1116;
+    display: grid; grid-template-columns: 1fr 1fr; align-items: center;
+  }
+  .nav div { text-align: center; font-size: 11px; color: #6c7684; }
+  .nav div span { display: flex; justify-content: center; margin-bottom: 3px; }
+  .nav div.active { color: #fff; }
+  .nav div.active span { color: #c8f24a; }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="caption"><b>Disconnected — no Xray runtime bundled yet</b>what the skeleton does today</div>
+  <div class="phone">
+    <div class="statusbar"><span>20:31</span><span>▮▮ ▾ 39%</span></div>
+    <div class="screen">
+      <h1>Jordan VPN</h1>
+      <div class="power"><svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></div>
+      <div class="status">NOT CONNECTED</div>
+
+      <div class="card">
+        <div class="card-label">ACTIVE CONFIGURATION</div>
+        <div class="config-row">
+          <div>
+            <div class="name">Frankfurt Edge · de-fra</div>
+            <div class="addr">gw1.example.net:443</div>
+          </div>
+          <div class="proto">vless · ws · tls</div>
+        </div>
+        <div class="ping-row">
+          <div class="ping-btn">PING</div>
+          <div class="ping-val">not measured</div>
+          <div class="servers">2 servers</div>
+        </div>
+        <hr />
+        <div class="traffic">
+          <div>
+            <div class="label">Downlink</div>
+            <div class="value"><span class="arrow">↓</span>0 B</div>
+          </div>
+          <div>
+            <div class="label">Uplink</div>
+            <div class="value"><span class="arrow">↑</span>0 B</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="errorcard">
+        No Xray runtime bundled. See android/README.md: add the libXray AAR and a
+        tun2socks implementation, then replace NotWiredXrayBridge.
+      </div>
+
+      <div class="refresh">Refresh servers</div>
+    </div>
+    <div class="nav">
+      <div class="active"><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></span>Connect</div>
+      <div><span><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5c0-3-4-5.5-9-5.5z"/></svg></span>Account</div>
+    </div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="caption"><b>Connected — once the runtime is wired</b>same screen, real counters from Xray</div>
+  <div class="phone">
+    <div class="statusbar"><span>20:34</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h1>Jordan VPN</h1>
+      <div class="power on"><svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></div>
+      <div class="status on">CONNECTED</div>
+      <div class="uptime">03:12</div>
+
+      <div class="card">
+        <div class="card-label">ACTIVE CONFIGURATION</div>
+        <div class="config-row">
+          <div>
+            <div class="name">Frankfurt Edge · de-fra</div>
+            <div class="addr">gw1.example.net:443</div>
+          </div>
+          <div class="proto">vless · ws · tls</div>
+        </div>
+        <div class="ping-row">
+          <div class="ping-btn">PING</div>
+          <div class="ping-val measured">84 ms</div>
+          <div class="servers">2 servers</div>
+        </div>
+        <hr />
+        <div class="traffic">
+          <div>
+            <div class="label">Downlink</div>
+            <div class="value"><span class="arrow live">↓</span>18.4 MB</div>
+          </div>
+          <div>
+            <div class="label">Uplink</div>
+            <div class="value"><span class="arrow live">↑</span>2.1 MB</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="refresh">Refresh servers</div>
+    </div>
+    <div class="nav">
+      <div class="active"><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></span>Connect</div>
+      <div><span><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5c0-3-4-5.5-9-5.5z"/></svg></span>Account</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
