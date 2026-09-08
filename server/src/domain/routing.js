@@ -92,13 +92,17 @@ export function reevaluateGateway(db, gatewayId, trigger = 'health-change') {
   db.prepare('INSERT INTO route_switches (gateway_id, from_egress_id, to_egress_id, reason, created_at) VALUES (?,?,?,?,?)')
     .run(gatewayId, gateway.active_egress_id, nextId, `${trigger}: ${reason}`, now);
 
+  const nameOf = (id) => (id
+    ? db.prepare('SELECT name FROM egresses WHERE id = ?').get(id)?.name || id
+    : 'none');
+
   if (nextId) {
     recordEvent(db, {
       type: EVENT.ROUTE_SWITCHED,
       severity: gateway.active_egress_id ? 'warning' : 'info',
       targetType: 'gateway',
       targetId: gatewayId,
-      message: `${gateway.name}: egress ${gateway.active_egress_id || 'none'} → ${nextId}`,
+      message: `${gateway.name}: egress ${nameOf(gateway.active_egress_id)} -> ${nameOf(nextId)} (${reason})`,
       data: { from: gateway.active_egress_id, to: nextId, reason, trigger },
     });
   } else {
@@ -107,7 +111,7 @@ export function reevaluateGateway(db, gatewayId, trigger = 'health-change') {
       severity: 'critical',
       targetType: 'gateway',
       targetId: gatewayId,
-      message: `${gateway.name}: no usable egress path — traffic fails closed`,
+      message: `${gateway.name}: no usable egress path (was ${nameOf(gateway.active_egress_id)}) — traffic fails closed`,
       data: { from: gateway.active_egress_id, trigger },
     });
   }

@@ -1,0 +1,125 @@
+const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const TOKEN_KEY = 'jordan.session';
+
+let session = readSession();
+const listeners = new Set();
+
+function readSession() {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || new Date(parsed.expiresAt).getTime() <= Date.now()) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(value) {
+  session = value;
+  try {
+    if (value) localStorage.setItem(TOKEN_KEY, JSON.stringify(value));
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* private mode: session lives in memory only */ }
+  listeners.forEach((fn) => fn(session));
+}
+
+export const auth = {
+  get current() { return session; },
+  subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+  signOut() { writeSession(null); },
+};
+
+export class ApiError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+async function request(path, { method = 'GET', body, auth: needsAuth = true } = {}) {
+  let response;
+  try {
+    response = await fetch(BASE + path, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        ...(needsAuth && session ? { authorization: `Bearer ${session.token}` } : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Control plane unreachable');
+  }
+
+  const text = await response.text();
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : null; } catch { /* non-JSON response */ }
+
+  if (response.status === 401 && needsAuth) {
+    writeSession(null);
+    throw new ApiError(401, 'UNAUTHORIZED', 'Session expired — sign in again');
+  }
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      payload?.error?.code || 'ERROR',
+      payload?.error?.message || `Request failed (${response.status})`,
+      payload?.error?.details,
+    );
+  }
+  return payload?.data;
+}
+
+export const api = {
+  async signIn(username, password) {
+    const data = await request('/api/v1/auth/login', {
+      method: 'POST', body: { username, password }, auth: false,
+    });
+    writeSession({ token: data.token, expiresAt: data.expiresAt, admin: data.admin });
+    return data;
+  },
+  async signOut() {
+    try { await request('/api/v1/auth/logout', { method: 'POST' }); } catch { /* already gone */ }
+    writeSession(null);
+  },
+  changePassword: (currentPassword, newPassword) =>
+    request('/api/v1/auth/password', { method: 'POST', body: { currentPassword, newPassword } }),
+
+  overview: () => request('/api/v1/overview'),
+  routes: () => request('/api/v1/routes'),
+  reevaluateRoutes: () => request('/api/v1/routes/reevaluate', { method: 'POST' }),
+
+  gateways: () => request('/api/v1/gateways'),
+  gateway: (id) => request(`/api/v1/gateways/${id}`),
+  createGateway: (body) => request('/api/v1/gateways', { method: 'POST', body }),
+  updateGateway: (id, body) => request(`/api/v1/gateways/${id}`, { method: 'PATCH', body }),
+  deleteGateway: (id) => request(`/api/v1/gateways/${id}`, { method: 'DELETE' }),
+  checkGateway: (id) => request(`/api/v1/gateways/${id}/check`, { method: 'POST' }),
+  rotateAgentKey: (id) => request(`/api/v1/gateways/${id}/agent-key`, { method: 'POST' }),
+  gatewayConfig: (id) => request(`/api/v1/gateways/${id}/xray-config`),
+  assignEgress: (id, body) => request(`/api/v1/gateways/${id}/egresses`, { method: 'POST', body }),
+  unassignEgress: (id, egressId) => request(`/api/v1/gateways/${id}/egresses/${egressId}`, { method: 'DELETE' }),
+
+  egresses: () => request('/api/v1/egresses'),
+  egress: (id) => request(`/api/v1/egresses/${id}`),
+  createEgress: (body) => request('/api/v1/egresses', { method: 'POST', body }),
+  updateEgress: (id, body) => request(`/api/v1/egresses/${id}`, { method: 'PATCH', body }),
+  deleteEgress: (id) => request(`/api/v1/egresses/${id}`, { method: 'DELETE' }),
+
+  subscribers: (query = '') => request(`/api/v1/subscribers${query}`),
+  subscriber: (id) => request(`/api/v1/subscribers/${id}`),
+  createSubscriber: (body) => request('/api/v1/subscribers', { method: 'POST', body }),
+  updateSubscriber: (id, body) => request(`/api/v1/subscribers/${id}`, { method: 'PATCH', body }),
+  deleteSubscriber: (id) => request(`/api/v1/subscribers/${id}`, { method: 'DELETE' }),
+  rotateToken: (id) => request(`/api/v1/subscribers/${id}/rotate-token`, { method: 'POST' }),
+  rotateCredential: (id, graceMinutes) =>
+    request(`/api/v1/subscribers/${id}/rotate-credential`, { method: 'POST', body: { graceMinutes } }),
+
+  events: (limit = 50) => request(`/api/v1/events?limit=${limit}`),
+  healthChecks: (query = '') => request(`/api/v1/health-checks${query}`),
+  health: () => request('/health', { auth: false }),
+};
