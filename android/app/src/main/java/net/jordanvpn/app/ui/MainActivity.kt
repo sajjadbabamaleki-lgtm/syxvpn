@@ -13,8 +13,8 @@ import net.jordanvpn.app.JordanApp
 import net.jordanvpn.app.vpn.JordanVpnService
 
 /**
- * Single activity. The app has two screens — connect and account — matching the
- * web storefront, so a navigation library would cost more than it earns.
+ * Single activity. Four screens — connect, premium, support and account — swap
+ * inside it, so a navigation library would cost more than it earns.
  */
 class MainActivity : ComponentActivity() {
 
@@ -63,7 +63,11 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    /** Buying happens on the web storefront; the app just opens it. */
+    /**
+     * Opens the web storefront. Only used by a build with `IN_APP_ORDERS` off
+     * (see app/build.gradle.kts); otherwise the Premium tab opens the order
+     * itself.
+     */
     private fun openStore() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL)))
     }

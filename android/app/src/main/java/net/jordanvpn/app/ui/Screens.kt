@@ -19,8 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -48,11 +46,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.jordanvpn.app.BuildConfig
 import net.jordanvpn.app.JordanApp as JordanApplication
 import net.jordanvpn.app.core.Latency
+import net.jordanvpn.app.core.supportLink
 import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.XrayConfigBuilder
+import net.jordanvpn.app.data.ControlPlaneClient
 import net.jordanvpn.app.vpn.JordanVpnService
 
 private val Background = Color(0xFF0A0C0F)
@@ -79,10 +81,11 @@ fun JordanTheme(content: @Composable () -> Unit) {
     )
 }
 
-private enum class Tab { CONNECT, ACCOUNT }
+private enum class Tab { CONNECT, PREMIUM, SUPPORT, ACCOUNT }
 
 /**
- * Two tabs, mirroring the web app: the tunnel, and the account behind it.
+ * Four tabs: the tunnel, what is for sale, how to reach a human, and the
+ * account behind it — the same four things the web app offers.
  *
  * Everything on screen reflects real state. The switch follows the VPN service,
  * the counters come from the Xray instance, and the latency figure is an actual
@@ -111,7 +114,13 @@ fun JordanRoot(
         Box(Modifier.padding(padding)) {
             when (tab) {
                 Tab.CONNECT -> ConnectScreen(app, onConnect, onDisconnect)
-                Tab.ACCOUNT -> AccountScreen(app, onOpenStore) { signedIn = false }
+                Tab.PREMIUM -> PremiumScreen(app, onOpenStore)
+                Tab.SUPPORT -> SupportScreen(app)
+                Tab.ACCOUNT -> AccountScreen(
+                    app,
+                    onOpenPremium = { tab = Tab.PREMIUM },
+                    onSignedOut = { signedIn = false },
+                )
             }
         }
     }
@@ -295,6 +304,11 @@ private const val ICON_SHARE =
     "M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6z" +
         "M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"
 private const val ICON_TRASH = "M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"
+private const val ICON_POWER = "M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"
+private const val ICON_CROWN = "M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"
+private const val ICON_CHAT = "M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"
+private const val ICON_USER = "M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"
+private const val ICON_WALLET = "M3 8a2 2 0 012-2h13a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8zM3 9h18M16.5 13.5h.01"
 
 /** Draws one of the outlines above, scaled into the given size. */
 @Composable
@@ -398,54 +412,68 @@ private fun ConfigRow(
     }
 }
 
+/**
+ * The bottom bar.
+ *
+ * Hand-drawn rather than a Material NavigationBar: the default one puts a wide
+ * indicator capsule behind the selected icon and mixes its own metrics with
+ * this app's, and the four icons here are one stroked set at one weight. The
+ * bar is a floating rounded slab in the same language as the cards above it,
+ * with a small accent block marking the selected tab.
+ */
 @Composable
-private fun PowerIcon(size: androidx.compose.ui.unit.Dp, color: Color, strokeWidth: Float = 6f) {
-    Canvas(Modifier.size(size)) {
-        val inset = strokeWidth
-        val arc = Size(this.size.width - inset * 2, this.size.height - inset * 2)
-        drawArc(
-            color = color,
-            startAngle = -60f,
-            sweepAngle = 300f,
-            useCenter = false,
-            topLeft = Offset(inset, inset),
-            size = arc,
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-        )
-        drawLine(
-            color = color,
-            start = Offset(this.size.width / 2, this.size.height * 0.12f),
-            end = Offset(this.size.width / 2, this.size.height * 0.46f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round,
-        )
+private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(66.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Surface)
+                .border(1.dp, Border, RoundedCornerShape(28.dp))
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BottomBarItem(ICON_POWER, "Connect", current == Tab.CONNECT, Modifier.weight(1f)) { onSelect(Tab.CONNECT) }
+            BottomBarItem(ICON_CROWN, "Premium", current == Tab.PREMIUM, Modifier.weight(1f)) { onSelect(Tab.PREMIUM) }
+            BottomBarItem(ICON_CHAT, "Support", current == Tab.SUPPORT, Modifier.weight(1f)) { onSelect(Tab.SUPPORT) }
+            BottomBarItem(ICON_USER, "Account", current == Tab.ACCOUNT, Modifier.weight(1f)) { onSelect(Tab.ACCOUNT) }
+        }
     }
 }
 
 @Composable
-private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
-    NavigationBar(containerColor = Color(0xFF0E1116), tonalElevation = 0.dp) {
-        NavigationBarItem(
-            selected = current == Tab.CONNECT,
-            onClick = { onSelect(Tab.CONNECT) },
-            icon = { PowerIcon(22.dp, if (current == Tab.CONNECT) Accent else TextFaint, strokeWidth = 4f) },
-            label = { Text("Connect") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Accent, selectedTextColor = Color.White,
-                unselectedIconColor = TextFaint, unselectedTextColor = TextFaint,
-                indicatorColor = SurfaceHigh,
-            ),
-        )
-        NavigationBarItem(
-            selected = current == Tab.ACCOUNT,
-            onClick = { onSelect(Tab.ACCOUNT) },
-            icon = { Icon(Icons.Filled.Person, contentDescription = null) },
-            label = { Text("Account") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Accent, selectedTextColor = Color.White,
-                unselectedIconColor = TextFaint, unselectedTextColor = TextFaint,
-                indicatorColor = SurfaceHigh,
-            ),
+private fun BottomBarItem(
+    pathData: String,
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier
+            .height(54.dp)
+            .clip(RoundedCornerShape(22.dp))
+            // The tint marks the selected tab without an indicator capsule that
+            // would be wider than the icon it is meant to point at.
+            .background(if (selected) Accent.copy(alpha = 0.12f) else Color.Transparent)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        PathIcon(pathData, 21.dp, if (selected) Accent else TextFaint)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            color = if (selected) Color.White else TextFaint,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
         )
     }
 }
@@ -786,14 +814,473 @@ private fun TileValue(arrow: String, value: String, live: Boolean) {
     }
 }
 
+/**
+ * Premium: what is on sale, and the USDT order that pays for it.
+ *
+ * Everything here is the storefront's own state. Plans come from
+ * `/api/v1/shop/plans`, an order is opened through `/api/v1/shop/orders`, and
+ * the screen then polls that order: settlement happens on chain, so the app
+ * waits for the control plane to see the transfer rather than claiming anything
+ * itself. Nothing is unlocked before the order says fulfilled.
+ */
+@Composable
+private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
+    val scope = rememberCoroutineScope()
+
+    var shopConfig by remember { mutableStateOf<ControlPlaneClient.ShopConfig?>(null) }
+    var plans by remember { mutableStateOf<List<ControlPlaneClient.Plan>>(emptyList()) }
+    var order by remember { mutableStateOf<ControlPlaneClient.Order?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var busyPlan by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching {
+            shopConfig = app.api.shopConfig()
+            plans = app.api.plans()
+            order = app.api.openOrder()
+        }.onFailure { error = it.message }
+        loading = false
+    }
+
+    // While an order is outstanding the only thing that can change it is a
+    // transfer arriving on chain, so the screen asks the control plane.
+    LaunchedEffect(order?.id, order?.status) {
+        val open = order ?: return@LaunchedEffect
+        if (open.status != "pending" && open.status != "paid") return@LaunchedEffect
+        while (true) {
+            delay(10_000)
+            runCatching { app.api.order(open.id) }.onSuccess { order = it }
+        }
+    }
+
+    val payments = shopConfig
+    val canOrder = payments?.paymentsConfigured == true && BuildConfig.IN_APP_ORDERS
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Premium", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+        val current = order
+        if (current != null) {
+            OrderPanel(
+                order = current,
+                contract = payments?.contract,
+                onCancel = {
+                    scope.launch {
+                        runCatching { app.api.cancelOrder(current.id) }
+                            .onSuccess { order = null }
+                            .onFailure { error = it.message }
+                    }
+                },
+                onDone = { order = null },
+            )
+        } else {
+            if (loading) {
+                Text("Loading plans…", color = TextDim, fontSize = 13.sp)
+            }
+            if (payments != null && !payments.paymentsConfigured) {
+                NoticeCard(
+                    "Payments are not set up yet",
+                    "This deployment has no USDT address configured, so an order cannot be opened." +
+                        (payments.supportContact?.let { " Contact $it." } ?: ""),
+                )
+            }
+            if (!BuildConfig.IN_APP_ORDERS) {
+                NoticeCard("Buying happens on the website", "This build opens the storefront in a browser to pay.")
+            }
+            plans.forEach { plan ->
+                PlanCard(
+                    plan = plan,
+                    busy = busyPlan == plan.id,
+                    canOrder = canOrder,
+                    onBuy = {
+                        if (!BuildConfig.IN_APP_ORDERS) {
+                            onOpenStore()
+                            return@PlanCard
+                        }
+                        scope.launch {
+                            busyPlan = plan.id
+                            error = null
+                            runCatching { app.api.createOrder(plan.id) }
+                                .onSuccess { order = it }
+                                .onFailure { error = it.message }
+                            busyPlan = null
+                        }
+                    },
+                )
+            }
+            if (!loading && plans.isEmpty() && error == null) {
+                Text("No plans have been published yet.", color = TextDim, fontSize = 13.sp)
+            }
+            if (plans.isNotEmpty() && payments != null) {
+                Text(
+                    "Payment is ${payments.asset} on ${payments.chain.uppercase(java.util.Locale.US)}. " +
+                        "You send the exact amount shown on the next screen; the order settles by " +
+                        "itself after ${payments.confirmations} confirmations. Nothing is unlocked before that.",
+                    color = TextFaint,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+
+        error?.let { Text(it, color = Bad, fontSize = 13.sp) }
+    }
+}
+
+@Composable
+private fun PlanCard(
+    plan: ControlPlaneClient.Plan,
+    busy: Boolean,
+    canOrder: Boolean,
+    onBuy: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Surface)
+            .border(1.dp, Border, RoundedCornerShape(28.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text(plan.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(4.dp))
+                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                if (plan.quotaBytes > 0) formatBytes(plan.quotaBytes) else "Unmetered",
+                color = TextDim,
+                fontSize = 13.sp,
+            )
+            Text("${plan.durationDays} days", color = TextDim, fontSize = 13.sp)
+        }
+        Button(
+            onClick = onBuy,
+            enabled = (canOrder && !busy) || !BuildConfig.IN_APP_ORDERS,
+            colors = ButtonDefaults.buttonColors(containerColor = Accent, disabledContainerColor = Border),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Text(
+                when {
+                    !BuildConfig.IN_APP_ORDERS -> "Buy on the website"
+                    busy -> "Opening order…"
+                    canOrder -> "Buy with USDT"
+                    else -> "Payments unavailable"
+                },
+                fontWeight = FontWeight.SemiBold,
+                color = if (canOrder || !BuildConfig.IN_APP_ORDERS) Color(0xFF0B0F06) else TextFaint,
+            )
+        }
+    }
+}
+
+/**
+ * An open order: the exact amount, the address, and what the control plane has
+ * seen so far. The amount is the identifier — the watcher matches a transfer to
+ * an order by it — so it is shown exactly as the API returned it and is
+ * copyable rather than retyped.
+ */
+@Composable
+private fun OrderPanel(
+    order: ControlPlaneClient.Order,
+    contract: String?,
+    onCancel: () -> Unit,
+    onDone: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    var note by remember { mutableStateOf<String?>(null) }
+
+    val amount = formatUsdt(order.payAmountMicro)
+    val open = order.status == "pending" || order.status == "paid"
+
+    val title = when (order.status) {
+        "pending" -> "Waiting for your payment"
+        "paid" -> "Payment seen on chain"
+        "fulfilled" -> "Paid and activated"
+        "expired" -> "Order expired"
+        "cancelled" -> "Order cancelled"
+        else -> order.status
+    }
+    val body = when (order.status) {
+        "pending" -> "Send the exact amount below. The order settles by itself once the transfer is confirmed."
+        "paid" -> "The transfer was found and is waiting for confirmations (${order.confirmations} so far). Nothing else to do."
+        "fulfilled" -> "Your servers are on the Connect tab."
+        "expired" -> "No payment arrived in time. Nothing was charged — start a new order."
+        "cancelled" -> "This order was cancelled."
+        else -> ""
+    }
+    val tone = when (order.status) {
+        "fulfilled" -> Ok
+        "expired" -> Bad
+        "pending", "paid" -> Warn
+        else -> TextDim
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Surface)
+            .border(1.dp, Border, RoundedCornerShape(28.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(order.planName, color = TextFaint, fontSize = 11.sp, letterSpacing = 1.sp)
+        Text(title, color = tone, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(body, color = TextDim, fontSize = 12.sp)
+
+        if (open && order.payAddress != null) {
+            Spacer(Modifier.height(2.dp))
+            Text("SEND EXACTLY", color = TextFaint, fontSize = 10.sp, letterSpacing = 1.sp)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(amount, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(5.dp))
+                Text(order.asset ?: "USDT", color = TextDim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 5.dp))
+            }
+            Text(
+                "The exact amount is how your payment is matched to this order. A different amount will not settle it automatically.",
+                color = TextFaint,
+                fontSize = 11.sp,
+            )
+            Text("TO THIS ADDRESS", color = TextFaint, fontSize = 10.sp, letterSpacing = 1.sp)
+            Text(
+                order.payAddress,
+                color = Color.White,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceHigh)
+                    .padding(12.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SmallAction("Copy amount", Modifier.weight(1f)) {
+                    clipboard.setText(AnnotatedString(amount))
+                    note = "Amount copied"
+                }
+                SmallAction("Copy address", Modifier.weight(1f)) {
+                    clipboard.setText(AnnotatedString(order.payAddress))
+                    note = "Address copied"
+                }
+            }
+            SmallAction("Open in a wallet app", Modifier.fillMaxWidth()) {
+                // TRON wallets understand this URI; the amount and asset are
+                // prefilled, and the customer still confirms in their wallet.
+                val uri = android.net.Uri.parse(
+                    "tron:${order.payAddress}?amount=$amount" +
+                        (contract?.let { "&contractAddress=$it" } ?: ""),
+                )
+                val opened = runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.isSuccess
+                if (!opened) note = "No wallet app answered that link — copy the address instead."
+            }
+            LabelledRow("Status", if (order.status == "paid") "seen, ${order.confirmations} confirmations" else "waiting", tone)
+            LabelledRow("Order expires", formatRemaining(order.expiresAt), Color.White)
+            LabelledRow(
+                "Plan",
+                "${if (order.quotaBytes > 0) formatBytes(order.quotaBytes) else "Unmetered"} · ${order.durationDays} days",
+                Color.White,
+            )
+        }
+
+        if (order.status == "fulfilled") {
+            order.txHash?.let { LabelledRow("Transaction", it.take(12) + "…", TextDim) }
+        }
+
+        note?.let { Text(it, color = TextDim, fontSize = 12.sp) }
+
+        if (order.status == "pending") {
+            TextButton(onClick = onCancel) { Text("Cancel this order", color = TextDim, fontSize = 13.sp) }
+        } else if (!open) {
+            TextButton(onClick = onDone) { Text("Back to plans", color = Accent, fontSize = 13.sp) }
+        }
+    }
+}
+
+@Composable
+private fun SmallAction(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceHigh)
+            .border(1.dp, Border, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+}
+
+@Composable
+private fun NoticeCard(title: String, body: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF2A2213))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(title, color = Warn, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(body, color = TextDim, fontSize = 12.sp)
+    }
+}
+
+/**
+ * Support: how to reach a human, and the facts that make the answer quick.
+ *
+ * The contact comes from the deployment (`SUPPORT_CONTACT`), so the operator
+ * can change it without shipping a new APK, and when none is set the screen
+ * says exactly that instead of showing a dead button.
+ *
+ * The diagnostics block deliberately carries no secrets: no session token, no
+ * subscription URL, no UUID — the subscription URL alone is enough to use the
+ * account, and support does not need it.
+ */
+@Composable
+private fun SupportScreen(app: JordanApplication) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val tunnelError by JordanVpnService.lastError.collectAsState()
+
+    var contact by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var note by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { app.api.shopConfig() }
+            .onSuccess { contact = it.supportContact?.takeIf(String::isNotBlank) }
+            .onFailure { error = it.message }
+        loading = false
+    }
+
+    val host = runCatching { java.net.URL(BuildConfig.CONTROL_PLANE_URL).host }.getOrNull()
+        ?: BuildConfig.CONTROL_PLANE_URL
+
+    val diagnostics = buildString {
+        appendLine("Jordan VPN ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        appendLine("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+        appendLine("Device ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        appendLine("Control plane $host")
+        appendLine("Account ${app.session.email ?: "not signed in"}")
+        appendLine("Tunnel ${tunnelState.name.lowercase(java.util.Locale.US)}")
+        tunnelError?.let { appendLine("Last error $it") }
+    }.trim()
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Support", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(Surface)
+                .border(1.dp, Border, RoundedCornerShape(28.dp))
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val current = contact
+            when {
+                loading -> Text("Loading…", color = TextDim, fontSize = 13.sp)
+                current == null -> Text(
+                    error ?: "This deployment has not published a support channel.",
+                    color = if (error != null) Bad else TextDim,
+                    fontSize = 13.sp,
+                )
+                else -> {
+                    Text("Talk to us", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(current, color = TextDim, fontSize = 13.sp)
+                    val link = supportLink(current)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        if (link != null) {
+                            SmallAction("Open", Modifier.weight(1f)) {
+                                val opened = runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(link))
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }.isSuccess
+                                if (!opened) note = "No app on this phone can open that link."
+                            }
+                        }
+                        SmallAction("Copy", Modifier.weight(1f)) {
+                            clipboard.setText(AnnotatedString(current))
+                            note = "Contact copied"
+                        }
+                    }
+                }
+            }
+        }
+
+        Text("Before you write", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SupportTip("A server that will not connect is usually one gateway, not the account — switch server on the Connect tab.")
+            SupportTip("If everything fails at once, check the Account tab: an exhausted quota or an expired subscription stops every server.")
+            SupportTip("Nothing to connect to? A new subscription appears after the order says fulfilled on the Premium tab.")
+        }
+
+        Text("Diagnostics", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            diagnostics,
+            color = TextDim,
+            fontSize = 12.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Surface)
+                .border(1.dp, Border, RoundedCornerShape(20.dp))
+                .padding(14.dp),
+        )
+        SmallAction("Copy diagnostics", Modifier.fillMaxWidth()) {
+            clipboard.setText(AnnotatedString(diagnostics))
+            note = "Diagnostics copied — paste them in your message"
+        }
+        Text(
+            "No password, token or subscription link is in that text.",
+            color = TextFaint,
+            fontSize = 11.sp,
+        )
+
+        note?.let { Text(it, color = TextDim, fontSize = 12.sp) }
+    }
+}
+
+@Composable
+private fun SupportTip(text: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Text("·", color = Accent, fontSize = 13.sp)
+        Spacer(Modifier.width(8.dp))
+        Text(text, color = TextDim, fontSize = 12.sp)
+    }
+}
+
+
 @Composable
 private fun AccountScreen(
     app: JordanApplication,
-    onOpenStore: () -> Unit,
+    onOpenPremium: () -> Unit,
     onSignedOut: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var subscription by remember { mutableStateOf<net.jordanvpn.app.data.ControlPlaneClient.Subscription?>(null) }
+    var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -844,13 +1331,14 @@ private fun AccountScreen(
         }
 
         Button(
-            onClick = onOpenStore,
+            onClick = onOpenPremium,
             colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            shape = RoundedCornerShape(18.dp),
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) { Text("Add data or time", fontWeight = FontWeight.SemiBold) }
 
         Text(
-            "Plans are bought on the website; the app picks the new balance up automatically.",
+            "Data and days are added to this same account once an order settles.",
             color = TextFaint,
             fontSize = 12.sp,
         )

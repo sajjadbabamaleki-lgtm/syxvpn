@@ -12,10 +12,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Thin client for the Jordan storefront API (`/api/v1/shop/...`).
+ * Thin client for the Jordan storefront API (`/api/v1/shop/...`): sign in, the
+ * customer's subscription, the plans on sale and the USDT orders that pay for
+ * them.
  *
  * Deliberately built on HttpURLConnection: the app should stay small, and the
- * whole surface is four endpoints.
+ * whole surface is a handful of endpoints returning `{ data }`.
  */
 class ControlPlaneClient(
     private val baseUrl: String,
@@ -34,6 +36,114 @@ class ControlPlaneClient(
         val subscriptionUrl: String?,
         val profiles: List<String>,
     )
+
+    /** What the deployment sells and how it takes payment. Public: no session. */
+    data class ShopConfig(
+        val paymentsConfigured: Boolean,
+        val payAddress: String?,
+        val chain: String,
+        val asset: String,
+        /** TRC-20 contract of the asset, for the wallet deep link. */
+        val contract: String?,
+        val confirmations: Int,
+        val windowMinutes: Int,
+        val supportContact: String?,
+    )
+
+    data class Plan(
+        val id: String,
+        val name: String,
+        val description: String?,
+        val quotaBytes: Long,
+        val durationDays: Int,
+        val priceMicro: Long,
+    )
+
+    /**
+     * An order. Amounts stay in micro-USDT (1 USDT = 1_000_000) — the same
+     * integer precision as TRC-20 USDT on chain, so the amount the app shows is
+     * exactly the amount the watcher matches against.
+     */
+    data class Order(
+        val id: String,
+        val planName: String,
+        val status: String,
+        val quotaBytes: Long,
+        val durationDays: Int,
+        val payAmountMicro: Long,
+        val payAddress: String?,
+        val chain: String?,
+        val asset: String?,
+        val confirmations: Int,
+        val txHash: String?,
+        val expiresAt: String,
+    )
+
+    suspend fun shopConfig(): ShopConfig = withContext(Dispatchers.IO) {
+        val data = request("GET", "/api/v1/shop/config", null, authenticated = false)
+        val payment = data["payment"]?.jsonObject
+        ShopConfig(
+            paymentsConfigured = payment?.get("configured")?.jsonPrimitive?.content.toBoolean(),
+            payAddress = payment?.get("address")?.jsonPrimitive?.contentOrNullSafe(),
+            chain = payment?.get("chain")?.jsonPrimitive?.content ?: "tron",
+            asset = payment?.get("asset")?.jsonPrimitive?.content ?: "USDT-TRC20",
+            contract = payment?.get("contract")?.jsonPrimitive?.contentOrNullSafe(),
+            confirmations = payment?.get("confirmations")?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            windowMinutes = payment?.get("windowMinutes")?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            supportContact = data["supportContact"]?.jsonPrimitive?.contentOrNullSafe(),
+        )
+    }
+
+    suspend fun plans(): List<Plan> = withContext(Dispatchers.IO) {
+        requestArray("GET", "/api/v1/shop/plans", null, authenticated = false).map { element ->
+            val plan = element.jsonObject
+            Plan(
+                id = plan["id"]!!.jsonPrimitive.content,
+                name = plan["name"]!!.jsonPrimitive.content,
+                description = plan["description"]?.jsonPrimitive?.contentOrNullSafe(),
+                quotaBytes = plan["quotaBytes"]!!.jsonPrimitive.content.toLong(),
+                durationDays = plan["durationDays"]!!.jsonPrimitive.content.toInt(),
+                priceMicro = plan["priceMicro"]!!.jsonPrimitive.content.toLong(),
+            )
+        }
+    }
+
+    suspend fun createOrder(planId: String): Order = withContext(Dispatchers.IO) {
+        orderOf(request("POST", "/api/v1/shop/orders", "{\"planId\":" + quote(planId) + "}"))
+    }
+
+    suspend fun order(id: String): Order = withContext(Dispatchers.IO) {
+        orderOf(request("GET", "/api/v1/shop/orders/" + encode(id), null))
+    }
+
+    /** The order the customer still has to pay, if there is one. */
+    suspend fun openOrder(): Order? = withContext(Dispatchers.IO) {
+        requestArray("GET", "/api/v1/shop/orders", null)
+            .map { orderOf(it.jsonObject) }
+            .firstOrNull { it.status == "pending" || it.status == "paid" }
+    }
+
+    suspend fun cancelOrder(id: String) = withContext(Dispatchers.IO) {
+        request("POST", "/api/v1/shop/orders/" + encode(id) + "/cancel", "{}")
+        Unit
+    }
+
+    private fun orderOf(order: JsonObject) = Order(
+        id = order["id"]!!.jsonPrimitive.content,
+        planName = order["planName"]!!.jsonPrimitive.content,
+        status = order["status"]!!.jsonPrimitive.content,
+        quotaBytes = order["quotaBytes"]!!.jsonPrimitive.content.toLong(),
+        durationDays = order["durationDays"]!!.jsonPrimitive.content.toInt(),
+        payAmountMicro = order["payAmountMicro"]!!.jsonPrimitive.content.toLong(),
+        payAddress = order["payAddress"]?.jsonPrimitive?.contentOrNullSafe(),
+        chain = order["chain"]?.jsonPrimitive?.contentOrNullSafe(),
+        asset = order["asset"]?.jsonPrimitive?.contentOrNullSafe(),
+        confirmations = order["confirmations"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+        txHash = order["txHash"]?.jsonPrimitive?.contentOrNullSafe(),
+        expiresAt = order["expiresAt"]!!.jsonPrimitive.content,
+    )
+
+    private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
     suspend fun signIn(email: String, password: String): String = withContext(Dispatchers.IO) {
         val body = buildString {
@@ -98,12 +208,29 @@ class ControlPlaneClient(
         }
     }
 
+    /** `{ data: {...} }` responses. */
     private fun request(
         method: String,
         path: String,
         body: String?,
         authenticated: Boolean = true,
-    ): JsonObject {
+    ): JsonObject = send(method, path, body, authenticated).jsonObject
+
+    /** `{ data: [...] }` responses — plans and orders come back as lists. */
+    private fun requestArray(
+        method: String,
+        path: String,
+        body: String?,
+        authenticated: Boolean = true,
+    ): List<kotlinx.serialization.json.JsonElement> =
+        send(method, path, body, authenticated).jsonArray
+
+    private fun send(
+        method: String,
+        path: String,
+        body: String?,
+        authenticated: Boolean,
+    ): kotlinx.serialization.json.JsonElement {
         val connection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 10_000
@@ -131,7 +258,7 @@ class ControlPlaneClient(
                     error?.get("message")?.jsonPrimitive?.content ?: "Request failed ($status)",
                 )
             }
-            return payload?.get("data")?.jsonObject
+            return payload?.get("data")
                 ?: throw ApiException(status, "MALFORMED", "Unexpected response")
         }
     }

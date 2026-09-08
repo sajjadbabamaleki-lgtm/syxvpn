@@ -155,7 +155,9 @@
   /* Exactly four whole rows: 4 x 62 + 3 x 13. A half-visible fifth row reads as
      a rendering accident rather than as "there is more below". */
   .configs {
-    flex: none; max-height: 287px; overflow-y: auto;
+    /* Mirrors Compose: weight(1f) with heightIn(max = 287) — it takes what is
+       left and never more than four whole rows. */
+    flex: 1 1 auto; min-height: 0; max-height: 287px; overflow-y: auto;
     margin-top: 14px;
     display: flex; flex-direction: column; gap: 13px;
     scrollbar-width: none;
@@ -183,15 +185,68 @@
   }
   .cfg .act svg { display: block; }
 
+  /* The bottom bar is a floating slab in the same language as the cards: one
+     stroked icon set at one weight, and a tinted block marking the tab you are
+     on instead of a capsule wider than the icon it points at. */
+  .navwrap { flex: none; padding: 12px 16px; }
   .nav {
-    height: 62px; border-top: 1px solid #232a34; background: #0e1116; flex: none;
-    display: grid; grid-template-columns: 1fr 1fr; align-items: center;
+    height: 66px; border: 1px solid #232a34; background: #12161c; border-radius: 28px;
+    padding: 0 6px;
+    display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
   }
-  .nav div { text-align: center; font-size: 11px; color: #6c7684; }
-  .nav div span { display: flex; justify-content: center; margin-bottom: 3px; }
-  .nav div.active { color: #fff; }
-  .nav div.active span { color: #c8f24a; }
+  .nav div {
+    height: 54px; border-radius: 22px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; font-size: 10px; color: #6c7684;
+  }
+  .nav div.active { color: #fff; background: rgba(200,242,74,0.12); font-weight: 600; }
+  .nav div.active svg { color: #c8f24a; }
   .nav svg { display: block; }
+
+  /* ---- premium and support ---- */
+  .screen h2 { font-size: 20px; font-weight: 700; margin: 14px 0 0; flex: none; }
+  .stack { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; }
+  .stack::-webkit-scrollbar { display: none; }
+  .panel { background: #12161c; border: 1px solid #232a34; border-radius: 28px; padding: 18px; }
+  .plan-head { display: flex; align-items: flex-start; gap: 12px; }
+  .plan-head b { display: block; font-size: 16px; font-weight: 600; color: #fff; }
+  .plan-head p { font-size: 12px; color: #98a3b2; margin-top: 2px; }
+  .price { margin-left: auto; display: flex; align-items: flex-end; gap: 4px; white-space: nowrap; }
+  .price b { font-size: 22px; font-weight: 700; color: #c8f24a; }
+  .price small { font-size: 11px; color: #6c7684; padding-bottom: 3px; }
+  .specs { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: #98a3b2; }
+  .btn {
+    margin-top: 12px; height: 48px; border-radius: 18px; background: #c8f24a; color: #0b0f06;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;
+  }
+  .btn.off { background: #232a34; color: #6c7684; }
+  .quiet { font-size: 12px; color: #6c7684; line-height: 1.5; }
+  .eyebrow { font-size: 10px; letter-spacing: 1px; color: #6c7684; margin-top: 6px; }
+  .amount { display: flex; align-items: flex-end; gap: 5px; }
+  .amount b { font-size: 26px; font-weight: 700; color: #fff; }
+  .amount span { font-size: 12px; color: #98a3b2; padding-bottom: 5px; }
+  .pay-addr { background: #171c23; border-radius: 16px; padding: 12px; font-size: 13px; color: #fff; word-break: break-all; }
+  .actions { display: flex; gap: 8px; }
+  .act-btn {
+    flex: 1; height: 44px; border-radius: 16px; background: #171c23; border: 1px solid #232a34;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: #fff;
+  }
+  .lrow { display: flex; justify-content: space-between; font-size: 13px; }
+  .lrow span:first-child { color: #6c7684; }
+  .lrow span:last-child { color: #fff; font-weight: 500; }
+  .panel .note { font-size: 11px; color: #6c7684; line-height: 1.5; }
+  .panel .title { font-size: 16px; font-weight: 600; }
+  .panel .body { font-size: 12px; color: #98a3b2; line-height: 1.5; }
+  .warn { color: #f0b02e; }
+  .tips { display: flex; flex-direction: column; gap: 6px; }
+  .tip { display: flex; gap: 8px; font-size: 12px; color: #98a3b2; line-height: 1.5; }
+  .tip i { color: #c8f24a; font-style: normal; }
+  .section { font-size: 14px; font-weight: 600; color: #fff; }
+  .diag { background: #12161c; border: 1px solid #232a34; border-radius: 20px; padding: 14px;
+          font-size: 12px; color: #98a3b2; line-height: 1.6; white-space: pre-line; }
+  .notice-warn { background: #2a2213; border-radius: 24px; padding: 16px; }
+  .notice-warn b { display: block; color: #f0b02e; font-size: 14px; }
+  .notice-warn p { color: #98a3b2; font-size: 12px; margin-top: 4px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -275,10 +330,7 @@
         <div class="cfg"><div class="dot"></div><div class="who"><b>Dubai Edge · ae-dxb</b><span>gw7.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
       </div>
     </div>
-    <div class="nav">
-      <div class="active"><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></span>Connect</div>
-      <div><span><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5c0-3-4-5.5-9-5.5z"/></svg></span>Account</div>
-    </div>
+    <div class="navwrap"><div class="nav"><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>
 </div>
 
@@ -325,10 +377,7 @@
         <div class="cfg"><div class="dot"></div><div class="who"><b>Dubai Edge · ae-dxb</b><span>gw7.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
       </div>
     </div>
-    <div class="nav">
-      <div class="active"><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></span>Connect</div>
-      <div><span><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5c0-3-4-5.5-9-5.5z"/></svg></span>Account</div>
-    </div>
+    <div class="navwrap"><div class="nav"><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>
 </div>
 
@@ -379,10 +428,129 @@
         <div class="cfg"><div class="dot"></div><div class="who"><b>Baku Edge · az-bak</b><span>gw10.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
       </div>
     </div>
-    <div class="nav">
-      <div class="active"><span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2.5v8"/></svg></span>Connect</div>
-      <div><span><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 2.5-9 5.5V22h18v-2.5c0-3-4-5.5-9-5.5z"/></svg></span>Account</div>
+    <div class="navwrap"><div class="nav"><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
+  </div>
+</div>
+
+
+<div class="frame">
+  <div class="caption"><b>Premium — what is on sale</b>plans come from the control plane</div>
+  <div class="phone">
+    <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h2>Premium</h2>
+      <div class="stack">
+        <div class="panel">
+          <div class="plan-head">
+            <div><b>Starter</b><p>30 days, enough for daily browsing</p></div>
+            <div class="price"><b>3.5</b><small>USDT</small></div>
+          </div>
+          <div class="specs"><span>50 GB</span><span>30 days</span></div>
+          <div class="btn">Buy with USDT</div>
+        </div>
+        <div class="panel">
+          <div class="plan-head">
+            <div><b>Standard</b><p>Video without thinking about it</p></div>
+            <div class="price"><b>6</b><small>USDT</small></div>
+          </div>
+          <div class="specs"><span>150 GB</span><span>30 days</span></div>
+          <div class="btn">Buy with USDT</div>
+        </div>
+        <div class="panel">
+          <div class="plan-head">
+            <div><b>Long haul</b><p>Three months, one payment</p></div>
+            <div class="price"><b>15</b><small>USDT</small></div>
+          </div>
+          <div class="specs"><span>400 GB</span><span>90 days</span></div>
+          <div class="btn">Buy with USDT</div>
+        </div>
+        <p class="quiet">Payment is USDT-TRC20 on TRON. You send the exact amount shown on the
+        next screen; the order settles by itself after 19 confirmations. Nothing is unlocked
+        before that.</p>
+      </div>
     </div>
+    <div class="navwrap"><div class="nav"><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="caption"><b>Premium — an open order</b>exact amount, address, live status</div>
+  <div class="phone">
+    <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h2>Premium</h2>
+      <div class="stack">
+        <div class="panel">
+          <div class="eyebrow" style="margin-top:0">STANDARD</div>
+          <div class="title warn" style="margin-top:6px">Waiting for your payment</div>
+          <div class="body" style="margin-top:6px">Send the exact amount below. The order settles by
+            itself once the transfer is confirmed.</div>
+
+          <div class="eyebrow">SEND EXACTLY</div>
+          <div class="amount" style="margin-top:6px"><b>6.041832</b><span>USDT-TRC20</span></div>
+          <p class="note" style="margin-top:6px">The exact amount is how your payment is matched to
+            this order. A different amount will not settle it automatically.</p>
+
+          <div class="eyebrow">TO THIS ADDRESS</div>
+          <div class="pay-addr" style="margin-top:6px">TJ9xExampleAddressNotARealWallet7dQ2</div>
+
+          <div class="actions" style="margin-top:10px">
+            <div class="act-btn">Copy amount</div>
+            <div class="act-btn">Copy address</div>
+          </div>
+          <div class="act-btn" style="margin-top:8px">Open in a wallet app</div>
+
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px">
+            <div class="lrow"><span>Status</span><span class="warn">waiting</span></div>
+            <div class="lrow"><span>Order expires</span><span>in 52 min</span></div>
+            <div class="lrow"><span>Plan</span><span>150 GB · 30 days</span></div>
+          </div>
+          <div style="margin-top:12px; font-size:13px; color:#98a3b2">Cancel this order</div>
+        </div>
+      </div>
+    </div>
+    <div class="navwrap"><div class="nav"><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="caption"><b>Support</b>contact, self-help, copyable diagnostics</div>
+  <div class="phone">
+    <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h2>Support</h2>
+      <div class="stack">
+        <div class="panel">
+          <div class="title" style="color:#fff">Talk to us</div>
+          <div class="body" style="margin-top:6px">@jordanhelp</div>
+          <div class="actions" style="margin-top:10px">
+            <div class="act-btn">Open</div>
+            <div class="act-btn">Copy</div>
+          </div>
+        </div>
+
+        <div class="section">Before you write</div>
+        <div class="tips">
+          <div class="tip"><i>·</i><span>A server that will not connect is usually one gateway, not
+            the account — switch server on the Connect tab.</span></div>
+          <div class="tip"><i>·</i><span>If everything fails at once, check the Account tab: an
+            exhausted quota or an expired subscription stops every server.</span></div>
+          <div class="tip"><i>·</i><span>Nothing to connect to? A new subscription appears after the
+            order says fulfilled on the Premium tab.</span></div>
+        </div>
+
+        <div class="section">Diagnostics</div>
+        <div class="diag">Jordan VPN 0.1.0 (1)
+Android 14 (API 34)
+Device Samsung SM-A546E
+Control plane control.example.net
+Account you@example.net
+Tunnel connected</div>
+        <div class="act-btn">Copy diagnostics</div>
+        <p class="quiet">No password, token or subscription link is in that text.</p>
+      </div>
+    </div>
+    <div class="navwrap"><div class="nav"><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>Connect</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div class="active"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>
 </div>
 

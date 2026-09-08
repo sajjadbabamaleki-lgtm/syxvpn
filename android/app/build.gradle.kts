@@ -18,6 +18,14 @@ android {
 
         // Where the app talks to the control plane. Override per build.
         buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.example.net\"")
+
+        // Whether the Premium tab may open a USDT order inside the app.
+        //
+        // True is right for a directly distributed APK. A Google Play build must
+        // set it to false: Play's payments policy does not allow selling digital
+        // goods for crypto in-app, and the tab then lists the plans read-only and
+        // sends the customer to the web storefront to pay.
+        buildConfigField("boolean", "IN_APP_ORDERS", "true")
     }
 
     buildTypes {
@@ -46,7 +54,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")

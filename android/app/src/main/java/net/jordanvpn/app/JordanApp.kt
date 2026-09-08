@@ -9,10 +9,13 @@ import net.jordanvpn.app.data.SubscriptionRepository
  * Jordan VPN — Android client.
  *
  * The app talks to the same control plane as the web storefront: it signs in
- * with the customer's email and password, reads their subscription, and runs
- * the tunnel locally. Buying is deliberately handled by the web storefront
- * (a store listing that sells VPN access for crypto inside the app runs into
- * both payment policy and review problems); the app opens it in a browser.
+ * with the customer's email and password, reads their subscription, opens USDT
+ * orders, and runs the tunnel locally.
+ *
+ * In-app ordering is right for a directly distributed APK and wrong for Google
+ * Play, whose payments policy does not allow selling digital goods for crypto
+ * in-app, so it sits behind the `IN_APP_ORDERS` build flag: with it off the
+ * Premium tab lists the plans and sends the customer to the web storefront.
  */
 class JordanApp : Application() {
     lateinit var session: SessionStore

@@ -59,13 +59,46 @@ fifth row reads as a rendering accident rather than as "there is more below". Se
 different config while connected re-establishes the tunnel on it rather than
 leaving traffic on the old one.
 
-## Deliberate product decision: no in-app purchase
+## The four tabs
 
-Buying stays on the web storefront. Selling VPN access for cryptocurrency
-inside a store-distributed app runs into both the store's payment rules and its
-review policies; keeping payment on the web keeps the app itself simple and
-reviewable. The app opens the storefront in a browser when a subscription has
-run out.
+`Connect` is the tunnel and the list of servers. The other three are one screen
+each:
+
+**Premium** is the storefront. Plans come from `/api/v1/shop/plans`, "Buy with
+USDT" opens a real order through `/api/v1/shop/orders`, and the screen then
+shows the exact amount, the receiving address and the order's live state,
+polling `/api/v1/shop/orders/:id` every ten seconds. Settlement happens on
+chain: the app waits for the control plane's watcher to see the transfer and
+never claims anything itself. The exact amount is the thing that attributes a
+payment to an order, so it is copyable and is formatted from the integer
+micro-USDT value the API returns — never through a float.
+
+Ordering inside the app is right for a directly distributed APK and wrong for
+Google Play, whose payments policy does not allow selling digital goods for
+crypto in-app. It therefore sits behind one build flag, `IN_APP_ORDERS` in
+`app/build.gradle.kts`: with it off, the same tab lists the plans and sends the
+customer to the web storefront to pay.
+
+**Support** shows the contact the deployment publishes (`SUPPORT_CONTACT` on
+the control plane, served through `/api/v1/shop/config`), so the operator can
+change it without shipping a new APK; when none is set the screen says exactly
+that instead of offering a button that goes nowhere. A handle becomes a
+`t.me` link, an address becomes mail, a URL is opened as it is. Below that sit
+three things worth checking before writing, and a diagnostics block the
+customer can copy into their message: app and Android version, device, control
+plane host, account email, tunnel state and last error. It deliberately carries
+no session token, no subscription URL and no UUID — the subscription URL alone
+is enough to use the account, and support does not need it.
+
+**Account** is the subscription: state, data used against the quota, expiry,
+and a button that goes to Premium.
+
+The bottom bar is drawn by hand rather than being a Material `NavigationBar`.
+The default one puts a wide indicator capsule behind the selected icon and
+brings its own metrics; this one is a floating slab in the same language as the
+cards above it (radius 28, 1px border, `Surface` fill) with a small accent-tinted
+block marking the tab you are on, and its four icons are one stroked set at one
+weight.
 
 ## Build (on a machine with the Android SDK)
 
@@ -79,9 +112,25 @@ cd android
 The Gradle wrapper is not committed here (it is a binary jar); generate it with
 `gradle wrapper --gradle-version 8.11` on first checkout.
 
+## What can be checked without the SDK
+
+Most of the app cannot be compiled without the Android SDK, but the parts that
+are ordinary Kotlin can — and they are the parts where a quiet mistake is
+expensive, since a wrong amount does not settle an order:
+
+```sh
+kotlinc android/app/src/main/java/net/jordanvpn/app/core/SupportContact.kt \
+        android/app/src/main/java/net/jordanvpn/app/ui/Format.kt \
+        android/tools/PureLogicChecks.kt -include-runtime -d /tmp/checks.jar
+java -jar /tmp/checks.jar
+```
+
+That covers micro-USDT formatting, byte and countdown formatting, ISO parsing
+and support-contact parsing.
+
 ## Seeing the screen before you can build
 
-`preview/connect-screen.html` is a mockup of the connect screen — the same
+`preview/connect-screen.html` is a mockup of the screens — the same
 layout, spacing and colours as `ui/Screens.kt`, rendered as HTML so the design
 can be reviewed on a machine with no Android toolchain. **It is a mockup, not a
 screenshot**: it connects to nothing and measures nothing. Open it in any
@@ -90,7 +139,8 @@ browser.
 The page opens with the switch enlarged in all three states so its geometry can
 be judged on its own, then shows the whole screen: OFF, connecting (the switch
 has moved but the thumb is still grey, with a green light travelling around
-it), and connected (the thumb itself turns green and the light is gone).
+it), and connected (the thumb itself turns green and the light is gone). Three
+more frames follow: the Premium tab's plans, an open USDT order, and Support.
 
 The switch is a two-segment control: both labels stay visible and the thumb
 slides over the active one. Its geometry follows a single rule — the inset
@@ -135,14 +185,16 @@ counters stay at zero.
 
 | Path | What it does |
 | --- | --- |
-| `data/ControlPlaneClient.kt` | Sign in, read the subscription, fetch profiles |
+| `data/ControlPlaneClient.kt` | Sign in, subscription, plans, USDT orders, profiles |
 | `data/SessionStore.kt` | Session token and subscription URL in EncryptedSharedPreferences |
 | `data/SubscriptionRepository.kt` | Refresh-then-fallback profile loading |
 | `core/VlessProfile.kt` | Parses `vless://` — first hop only |
 | `core/XrayConfigBuilder.kt` | Client config, with the control plane routed direct |
 | `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
 | `vpn/XrayBridge.kt` | The seam where the native runtime plugs in |
-| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, account tab |
+| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, premium, support and account tabs |
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
-| `preview/connect-screen.html` | Mockup of the connect screen (not a screenshot) |
+| `core/SupportContact.kt` | Turns a support contact into an openable link |
+| `preview/connect-screen.html` | Mockup of the screens (not a screenshot) |
+| `tools/PureLogicChecks.kt` | Checks the SDK-free logic; runs with only `kotlinc` |
