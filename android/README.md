@@ -42,6 +42,16 @@ reaches the app the same way it reaches every other client — the subscription
 returns a different gateway set. That is why the app refetches the subscription
 URL on every refresh instead of caching a config forever.
 
+## Why the configs are on the connect screen
+
+Other clients put the config list on its own tab. Switching server is the thing
+people do most often, and a separate screen turns a one-tap action into
+navigation: leave the screen, find the row, come back to connect. Here the list
+sits under the card and scrolls on its own, so the switch, the active
+configuration and the choice of server are all visible at once. Selecting a
+different config while connected re-establishes the tunnel on it rather than
+leaving traffic on the old one.
+
 ## Deliberate product decision: no in-app purchase
 
 Buying stays on the web storefront. Selling VPN access for cryptocurrency
@@ -70,10 +80,14 @@ can be reviewed on a machine with no Android toolchain. **It is a mockup, not a
 screenshot**: it connects to nothing and measures nothing. Open it in any
 browser.
 
-It shows both states deliberately: the left phone is what the skeleton does
-today (the bridge is not wired, so pressing connect surfaces that error and the
-counters stay at zero), and the right one is the same screen once a real Xray
-runtime is in place.
+It shows three states: OFF, connecting (the switch has moved and the halo
+pulses, but nothing is connected yet), and connected. The third frame is
+deliberately mid-scroll to make the layout rule visible — only the config list
+moves; the switch and the card above it stay where they are.
+
+Note that the skeleton cannot actually reach the connected state yet: with no
+Xray runtime bundled, moving the switch surfaces the bridge error and the
+counters stay at zero.
 
 ## Files
 
@@ -86,6 +100,6 @@ runtime is in place.
 | `core/XrayConfigBuilder.kt` | Client config, with the control plane routed direct |
 | `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
 | `vpn/XrayBridge.kt` | The seam where the native runtime plugs in |
-| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen, account tab |
+| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, account tab |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
 | `preview/connect-screen.html` | Mockup of the connect screen (not a screenshot) |

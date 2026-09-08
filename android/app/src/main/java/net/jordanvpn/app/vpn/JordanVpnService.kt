@@ -51,6 +51,14 @@ class JordanVpnService : VpnService() {
             fail("No configuration supplied")
             return
         }
+        // Switching server while connected: tear the old tunnel down first so
+        // traffic cannot keep flowing through the server the user just left.
+        if (tun != null) {
+            statsJob?.cancel()
+            runCatching { bridge.stop() }
+            runCatching { tun?.close() }
+            tun = null
+        }
         state.value = State.CONNECTING
         startForeground(NOTIFICATION_ID, notification("Connecting…"))
 

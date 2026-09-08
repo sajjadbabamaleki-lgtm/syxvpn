@@ -1,9 +1,19 @@
 package net.jordanvpn.app.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,12 +25,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,10 +73,10 @@ private enum class Tab { CONNECT, ACCOUNT }
 /**
  * Two tabs, mirroring the web app: the tunnel, and the account behind it.
  *
- * Everything on screen reflects real state. The status text follows the VPN
- * service, the counters come from the Xray instance, and the latency figure is
- * an actual TCP handshake to the gateway. With no Xray runtime bundled yet,
- * pressing connect surfaces that error instead of showing a fake CONNECTED.
+ * Everything on screen reflects real state. The switch follows the VPN service,
+ * the counters come from the Xray instance, and the latency figure is an actual
+ * TCP handshake to the gateway. With no Xray runtime bundled yet, moving the
+ * switch surfaces that error instead of showing a fake CONNECTED.
  */
 @Composable
 fun JordanRoot(
@@ -96,9 +107,171 @@ fun JordanRoot(
 }
 
 /**
- * The power symbol, drawn rather than typed: the glyph is missing from several
- * Android system fonts and would render as a blank box on those devices.
+ * The connect control: a sliding OFF/ON switch rather than a push button.
+ *
+ * A switch represents a state that is held, which is what a tunnel is, and it
+ * is harder to trigger by accident than a large button in the middle of a
+ * phone screen.
+ *
+ * While the tunnel is coming up the pill carries a pulsing green halo: the
+ * switch has moved, but the connection is not established yet and the screen
+ * must not imply that it is. Once connected the halo settles to a steady glow.
  */
+@Composable
+private fun ConnectSwitch(
+    state: JordanVpnService.State,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+) {
+    val width = 236.dp
+    val height = 66.dp
+    val padding = 6.dp
+    val on = state == JordanVpnService.State.CONNECTED || state == JordanVpnService.State.CONNECTING
+
+    val thumbFraction by animateFloatAsState(
+        targetValue = if (on) 1f else 0f,
+        animationSpec = tween(durationMillis = 320),
+        label = "thumb",
+    )
+    val pulse = rememberInfiniteTransition(label = "halo")
+    val pulseAlpha by pulse.animateFloat(
+        initialValue = 0.20f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+        label = "halo-alpha",
+    )
+    val haloAlpha = when (state) {
+        JordanVpnService.State.CONNECTING -> pulseAlpha
+        JordanVpnService.State.CONNECTED -> 0.55f
+        else -> 0f
+    }
+
+    val density = LocalDensity.current
+    val thumbWidth = width / 2 - padding
+    val travel = width - thumbWidth - padding * 2
+
+    Box(contentAlignment = Alignment.Center) {
+        // Halo, drawn as widening rounded outlines so it needs no blur support
+        // (Modifier.blur is API 31+, and this app supports 24).
+        if (haloAlpha > 0f) {
+            Canvas(Modifier.size(width + 44.dp, height + 44.dp)) {
+                // Many thin rings at decreasing alpha read as a glow; a real
+                // blur would need API 31.
+                val ringCount = 9
+                for (ring in 1..ringCount) {
+                    val spread = with(density) { (ring * 2.4f).dp.toPx() }
+                    val radius = with(density) { ((height / 2) + (ring * 2.4f).dp).toPx() }
+                    val falloff = (1f - (ring - 1f) / ringCount)
+                    drawRoundRect(
+                        color = Ok.copy(alpha = haloAlpha * falloff * falloff * 0.55f),
+                        topLeft = Offset(
+                            (size.width - with(density) { width.toPx() }) / 2 - spread,
+                            (size.height - with(density) { height.toPx() }) / 2 - spread,
+                        ),
+                        size = Size(
+                            with(density) { width.toPx() } + spread * 2,
+                            with(density) { height.toPx() } + spread * 2,
+                        ),
+                        cornerRadius = CornerRadius(radius, radius),
+                        style = Stroke(width = with(density) { 2.4f.dp.toPx() }),
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(width, height)
+                .clip(RoundedCornerShape(percent = 50))
+                .background(if (on) Ok.copy(alpha = 0.10f) else SurfaceHigh)
+                .border(1.dp, if (on) Ok.copy(alpha = 0.55f) else Border, RoundedCornerShape(percent = 50))
+                .clickable(enabled = enabled, onClick = onToggle),
+        ) {
+            // The label on the side the thumb is not covering.
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 30.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "OFF",
+                    color = if (on) TextFaint else Color.Transparent,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+                Text(
+                    "ON",
+                    color = if (on) Color.Transparent else TextFaint,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .offset(x = travel * thumbFraction)
+                    .size(thumbWidth, height - padding * 2)
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(if (on) Ok else Color(0xFF2A323D)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (on) "ON" else "OFF",
+                    color = if (on) Color(0xFF06210E) else Color(0xFFD6DCE5),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+            }
+        }
+    }
+}
+
+/** One row in the config list that scrolls under the card. */
+@Composable
+private fun ConfigRow(
+    profile: VlessProfile,
+    selected: Boolean,
+    connected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) SurfaceHigh else Surface)
+            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(12.dp))
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        selected && connected -> Ok
+                        selected -> Accent
+                        else -> Border
+                    },
+                ),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                profile.label,
+                color = Color.White,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("${profile.host}:${profile.port}", color = TextDim, fontSize = 11.sp)
+        }
+        Text(if (profile.tls) "tls" else "plain", color = TextFaint, fontSize = 11.sp)
+    }
+}
+
 @Composable
 private fun PowerIcon(size: androidx.compose.ui.unit.Dp, color: Color, strokeWidth: Float = 6f) {
     Canvas(Modifier.size(size)) {
@@ -151,6 +324,15 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
+/**
+ * The whole tunnel on one screen: switch, what it is connected through, and the
+ * configs to choose between.
+ *
+ * The config list is deliberately here rather than on its own tab. Switching
+ * server is the thing people do most often, and making it a separate screen
+ * turns a one-tap action into navigation. Only the list scrolls; the switch and
+ * the card stay put.
+ */
 @Composable
 private fun ConnectScreen(
     app: JordanApplication,
@@ -170,13 +352,23 @@ private fun ConnectScreen(
     var pinging by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
 
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+
+    fun configFor(profile: VlessProfile) = XrayConfigBuilder.build(
+        profile,
+        app.session.subscriptionUrl?.let { runCatching { java.net.URL(it).host }.getOrNull() },
+    )
+
     fun refresh() {
         scope.launch {
             busy = true
             runCatching { app.subscriptions.load(app.session) }
                 .onSuccess { result ->
                     profiles = result.profiles
-                    selected = result.profiles.firstOrNull()
+                    // Keep the current choice if it is still offered.
+                    selected = result.profiles.firstOrNull { it.host == selected?.host && it.port == selected?.port }
+                        ?: result.profiles.firstOrNull()
                     status = result.error ?: if (result.stale) "Showing the last known servers" else null
                 }
                 .onFailure { status = it.message }
@@ -186,59 +378,29 @@ private fun ConnectScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
-    val connected = tunnelState == JordanVpnService.State.CONNECTED
-    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Jordan VPN",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(18.dp))
-        Text("Jordan VPN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-
-        Spacer(Modifier.height(30.dp))
-
-        // The power control. Disabled when there is no server to connect to,
-        // rather than pretending a connection is one tap away.
-        Box(
-            modifier = Modifier
-                .size(180.dp)
-                .clip(CircleShape)
-                .background(if (connected) Accent.copy(alpha = 0.12f) else Surface)
-                .border(1.dp, if (connected) Accent else Border, CircleShape)
-                .clickable(enabled = selected != null || connected) {
-                    if (connected) {
-                        onDisconnect()
-                    } else {
-                        selected?.let { profile ->
-                            onConnect(
-                                XrayConfigBuilder.build(
-                                    profile,
-                                    app.session.subscriptionUrl
-                                        ?.let { runCatching { java.net.URL(it).host }.getOrNull() },
-                                ),
-                            )
-                        }
-                    }
+        Spacer(Modifier.height(26.dp))
+        Box(Modifier.align(Alignment.CenterHorizontally)) {
+            ConnectSwitch(
+                state = tunnelState,
+                enabled = selected != null || connected || connecting,
+                onToggle = {
+                    if (connected || connecting) onDisconnect()
+                    else selected?.let { onConnect(configFor(it)) }
                 },
-            contentAlignment = Alignment.Center,
-        ) {
-            PowerIcon(
-                size = 76.dp,
-                color = when {
-                    connected -> Accent
-                    selected == null -> TextFaint
-                    else -> Color(0xFFD6DCE5)
-                },
-                strokeWidth = 9f,
             )
         }
 
-        Spacer(Modifier.height(22.dp))
-
+        Spacer(Modifier.height(16.dp))
         Text(
             when (tunnelState) {
                 JordanVpnService.State.CONNECTED -> "CONNECTED"
@@ -250,16 +412,22 @@ private fun ConnectScreen(
                 JordanVpnService.State.CONNECTING -> Warn
                 else -> TextDim
             },
-            fontSize = 16.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         if (connected) {
-            Spacer(Modifier.height(4.dp))
-            Text(formatUptime(uptime), color = TextFaint, fontSize = 12.sp)
+            Spacer(Modifier.height(3.dp))
+            Text(
+                formatUptime(uptime),
+                color = TextFaint,
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(18.dp))
 
         Card(
             colors = CardDefaults.cardColors(containerColor = Surface),
@@ -292,7 +460,7 @@ private fun ConnectScreen(
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -308,6 +476,7 @@ private fun ConnectScreen(
                             }
                         },
                         enabled = selected != null && !pinging,
+                        contentPadding = PaddingValues(horizontal = 4.dp),
                     ) {
                         Text(if (pinging) "PINGING…" else "PING", color = Warn, fontSize = 12.sp, letterSpacing = 1.sp)
                     }
@@ -321,14 +490,10 @@ private fun ConnectScreen(
                         fontSize = 12.sp,
                         modifier = Modifier.weight(1f),
                     )
-                    if (profiles.size > 1) {
-                        Text("${profiles.size} servers", color = TextFaint, fontSize = 11.sp)
-                    }
                 }
 
                 HorizontalDivider(color = Border)
-                Spacer(Modifier.height(14.dp))
-
+                Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth()) {
                     TrafficColumn("Downlink", "↓", traffic.second, Modifier.weight(1f))
                     TrafficColumn("Uplink", "↑", traffic.first, Modifier.weight(1f))
@@ -337,7 +502,7 @@ private fun ConnectScreen(
         }
 
         if (tunnelError != null && !connected && !connecting) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
                 shape = RoundedCornerShape(12.dp),
@@ -353,16 +518,67 @@ private fun ConnectScreen(
             }
         }
 
-        status?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = TextDim, fontSize = 12.sp, textAlign = TextAlign.Center)
-        }
-
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = { refresh() }, enabled = !busy) {
-            Text(if (busy) "Refreshing…" else "Refresh servers", color = TextDim, fontSize = 13.sp)
-        }
         Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (profiles.isEmpty()) "YOUR CONFIGS" else "YOUR CONFIGS · ${profiles.size}",
+                color = TextFaint,
+                fontSize = 10.sp,
+                letterSpacing = 1.sp,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { refresh() }, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text(if (busy) "REFRESHING…" else "REFRESH", color = TextDim, fontSize = 11.sp, letterSpacing = 1.sp)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+
+        // Only this list scrolls: the switch and the card above it stay in place.
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
+        ) {
+            if (profiles.isEmpty()) {
+                item {
+                    Text(
+                        status ?: "No configs yet. Buy a plan on the Account tab.",
+                        color = TextDim,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    )
+                }
+            } else {
+                items(profiles, key = { "${it.host}:${it.port}:${it.uuid}" }) { profile ->
+                    val isSelected = profile.host == selected?.host && profile.port == selected?.port
+                    ConfigRow(
+                        profile = profile,
+                        selected = isSelected,
+                        connected = connected,
+                        onSelect = {
+                            if (isSelected) return@ConfigRow
+                            selected = profile
+                            pingMs = null
+                            // Switching server while connected re-establishes the
+                            // tunnel on the new one rather than silently keeping
+                            // traffic on the old.
+                            if (connected || connecting) onConnect(configFor(profile))
+                        },
+                    )
+                }
+                if (status != null) {
+                    item {
+                        Text(
+                            status!!,
+                            color = TextDim,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
