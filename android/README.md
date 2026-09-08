@@ -80,10 +80,14 @@ can be reviewed on a machine with no Android toolchain. **It is a mockup, not a
 screenshot**: it connects to nothing and measures nothing. Open it in any
 browser.
 
-It shows three states: OFF, connecting (the switch has moved and the halo
-pulses, but nothing is connected yet), and connected. The third frame is
-deliberately mid-scroll to make the layout rule visible — only the config list
-moves; the switch and the card above it stay where they are.
+It shows three states: OFF, connecting (the switch has moved but the thumb is
+still grey, with a green light travelling around it), and connected (the thumb
+itself turns green and the light is gone). The third frame is deliberately
+mid-scroll to make the layout rule visible — only the config list moves; the
+switch and the card above it stay where they are.
+
+The colour rule is the point: green means the tunnel is up, never that it is
+being attempted.
 
 Note that the skeleton cannot actually reach the connected state yet: with no
 Xray runtime bundled, moving the switch surfaces the bridge error and the

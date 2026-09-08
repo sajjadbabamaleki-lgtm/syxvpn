@@ -28,10 +28,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,9 +114,10 @@ fun JordanRoot(
  * is harder to trigger by accident than a large button in the middle of a
  * phone screen.
  *
- * While the tunnel is coming up the pill carries a pulsing green halo: the
- * switch has moved, but the connection is not established yet and the screen
- * must not imply that it is. Once connected the halo settles to a steady glow.
+ * The thumb turns green only when the tunnel is actually up. While it is coming
+ * up the thumb stays grey and a green light travels around it: the switch has
+ * moved, the connection has not happened yet, and the colour should not say
+ * otherwise.
  */
 @Composable
 private fun ConnectSwitch(
@@ -123,106 +125,128 @@ private fun ConnectSwitch(
     enabled: Boolean,
     onToggle: () -> Unit,
 ) {
-    val width = 236.dp
-    val height = 66.dp
-    val padding = 6.dp
-    val on = state == JordanVpnService.State.CONNECTED || state == JordanVpnService.State.CONNECTING
+    val width = 184.dp
+    val height = 64.dp
+    val padding = 8.dp
+    val thumbWidth = 78.dp
+    val thumbHeight = 44.dp
+
+    val connected = state == JordanVpnService.State.CONNECTED
+    val connecting = state == JordanVpnService.State.CONNECTING
+    val on = connected || connecting
 
     val thumbFraction by animateFloatAsState(
         targetValue = if (on) 1f else 0f,
-        animationSpec = tween(durationMillis = 320),
+        animationSpec = tween(durationMillis = 300),
         label = "thumb",
     )
-    val pulse = rememberInfiniteTransition(label = "halo")
-    val pulseAlpha by pulse.animateFloat(
-        initialValue = 0.20f,
-        targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
-        label = "halo-alpha",
-    )
-    val haloAlpha = when (state) {
-        JordanVpnService.State.CONNECTING -> pulseAlpha
-        JordanVpnService.State.CONNECTED -> 0.55f
-        else -> 0f
-    }
-
-    val density = LocalDensity.current
-    val thumbWidth = width / 2 - padding
     val travel = width - thumbWidth - padding * 2
 
-    Box(contentAlignment = Alignment.Center) {
-        // Halo, drawn as widening rounded outlines so it needs no blur support
-        // (Modifier.blur is API 31+, and this app supports 24).
-        if (haloAlpha > 0f) {
-            Canvas(Modifier.size(width + 44.dp, height + 44.dp)) {
-                // Many thin rings at decreasing alpha read as a glow; a real
-                // blur would need API 31.
-                val ringCount = 9
-                for (ring in 1..ringCount) {
-                    val spread = with(density) { (ring * 2.4f).dp.toPx() }
-                    val radius = with(density) { ((height / 2) + (ring * 2.4f).dp).toPx() }
-                    val falloff = (1f - (ring - 1f) / ringCount)
-                    drawRoundRect(
-                        color = Ok.copy(alpha = haloAlpha * falloff * falloff * 0.55f),
-                        topLeft = Offset(
-                            (size.width - with(density) { width.toPx() }) / 2 - spread,
-                            (size.height - with(density) { height.toPx() }) / 2 - spread,
-                        ),
-                        size = Size(
-                            with(density) { width.toPx() } + spread * 2,
-                            with(density) { height.toPx() } + spread * 2,
-                        ),
-                        cornerRadius = CornerRadius(radius, radius),
-                        style = Stroke(width = with(density) { 2.4f.dp.toPx() }),
-                    )
-                }
-            }
+    Box(
+        modifier = Modifier
+            .size(width, height)
+            .clip(RoundedCornerShape(percent = 50))
+            .background(if (connected) Ok.copy(alpha = 0.10f) else SurfaceHigh)
+            .border(
+                1.dp,
+                if (connected) Ok.copy(alpha = 0.50f) else Border,
+                RoundedCornerShape(percent = 50),
+            )
+            .clickable(enabled = enabled, onClick = onToggle),
+    ) {
+        // The label on the side the thumb is not covering.
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                "OFF",
+                color = if (on) TextFaint else Color.Transparent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                letterSpacing = 1.5.sp,
+            )
+            Text(
+                "ON",
+                color = if (on) Color.Transparent else TextFaint,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                letterSpacing = 1.5.sp,
+            )
         }
 
         Box(
             modifier = Modifier
-                .size(width, height)
-                .clip(RoundedCornerShape(percent = 50))
-                .background(if (on) Ok.copy(alpha = 0.10f) else SurfaceHigh)
-                .border(1.dp, if (on) Ok.copy(alpha = 0.55f) else Border, RoundedCornerShape(percent = 50))
-                .clickable(enabled = enabled, onClick = onToggle),
+                .align(Alignment.CenterStart)
+                .offset(x = padding + travel * thumbFraction),
+            contentAlignment = Alignment.Center,
         ) {
-            // The label on the side the thumb is not covering.
-            Row(
-                Modifier.fillMaxSize().padding(horizontal = 30.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "OFF",
-                    color = if (on) TextFaint else Color.Transparent,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                )
-                Text(
-                    "ON",
-                    color = if (on) Color.Transparent else TextFaint,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                )
-            }
-
+            OrbitLight(
+                width = thumbWidth + 10.dp,
+                height = thumbHeight + 10.dp,
+                spinning = connecting,
+            )
             Box(
                 modifier = Modifier
-                    .padding(padding)
-                    .offset(x = travel * thumbFraction)
-                    .size(thumbWidth, height - padding * 2)
+                    .size(thumbWidth, thumbHeight)
                     .clip(RoundedCornerShape(percent = 50))
-                    .background(if (on) Ok else Color(0xFF2A323D)),
+                    // Grey while connecting; green only once the tunnel is up.
+                    .background(if (connected) Ok else Color(0xFF2A323D)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     if (on) "ON" else "OFF",
-                    color = if (on) Color(0xFF06210E) else Color(0xFFD6DCE5),
+                    color = if (connected) Color(0xFF06210E) else Color(0xFFD6DCE5),
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
+                    fontSize = 14.sp,
+                    letterSpacing = 1.5.sp,
                 )
             }
+        }
+    }
+}
+
+/**
+ * A green light travelling around the thumb while the tunnel comes up.
+ *
+ * It exists only in that waiting state: once connected the thumb itself turns
+ * green and the light is gone, so the two states cannot be confused.
+ *
+ * Drawn as a rotating sweep gradient stroked along a stadium outline, which
+ * needs no blur support (Modifier.blur is API 31; this app supports 24).
+ */
+@Composable
+private fun OrbitLight(
+    width: androidx.compose.ui.unit.Dp,
+    height: androidx.compose.ui.unit.Dp,
+    spinning: Boolean,
+) {
+    val transition = rememberInfiniteTransition(label = "orbit")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
+        label = "orbit-angle",
+    )
+
+    Canvas(Modifier.size(width, height)) {
+        if (!spinning) return@Canvas
+        val radius = size.height / 2
+        val stroke = Stroke(width = 3.dp.toPx())
+
+        // Most of the sweep is transparent, so a single bright arc chases the
+        // outline instead of the whole ring glowing.
+        val brush = Brush.sweepGradient(
+            0.00f to Color.Transparent,
+            0.55f to Color.Transparent,
+            0.78f to Ok.copy(alpha = 0.25f),
+            0.94f to Ok,
+            1.00f to Color.Transparent,
+            center = center,
+        )
+        rotate(degrees = angle) {
+            drawRoundRect(brush = brush, cornerRadius = CornerRadius(radius, radius), style = stroke)
         }
     }
 }

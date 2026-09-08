@@ -43,53 +43,62 @@
   h1 { font-size: 20px; font-weight: 700; text-align: center; margin-top: 14px; flex: none; }
 
   /* ---- the OFF / ON switch ---- */
-  .switch-wrap { display: flex; justify-content: center; margin-top: 26px; flex: none; position: relative; }
+  .switch-wrap { display: flex; justify-content: center; margin-top: 26px; flex: none; }
   .switch {
     position: relative;
-    width: 236px; height: 66px;
+    width: 184px; height: 64px;
     border-radius: 999px;
     background: #171c23;
     border: 1px solid #232a34;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 30px;
-    font-weight: 700; letter-spacing: 2px; font-size: 15px;
+    padding: 0 24px;
+    font-weight: 700; letter-spacing: 1.5px; font-size: 13px;
     color: #6c7684;
   }
-  .switch .thumb {
-    position: absolute; top: 6px; left: 6px;
-    width: 112px; height: 54px;
-    border-radius: 999px;
-    background: #2a323d;
-    color: #d6dce5;
-    display: grid; place-items: center;
-    transition: transform .32s ease, background .32s ease, color .32s ease;
-  }
-  .switch.on { background: rgba(95,217,122,0.10); border-color: rgba(95,217,122,0.55); }
-  .switch.on .thumb { transform: translateX(112px); background: #5fd97a; color: #06210e; }
+  .switch.live { background: rgba(95,217,122,0.10); border-color: rgba(95,217,122,0.50); }
   .switch .off-label { visibility: hidden; }
   .switch.on .off-label { visibility: visible; }
   .switch.on .on-label { visibility: hidden; }
 
-  /* Halo: concentric rings, pulsing while the tunnel comes up. */
-  .halo { position: absolute; inset: -22px; border-radius: 999px; pointer-events: none; filter: blur(3px); }
-  .halo i {
-    position: absolute; border-radius: 999px; border: 3px solid #5fd97a;
+  /* The thumb: smaller than half the pill, so there is real space around it. */
+  .thumb {
+    position: absolute; top: 10px; left: 8px;
+    width: 78px; height: 44px;
+    border-radius: 999px;
+    transition: transform .3s ease;
+  }
+  .switch.on .thumb { transform: translateX(90px); }
+  .thumb .face {
+    position: absolute; inset: 0;
+    border-radius: 999px;
+    background: #2a323d;
+    color: #d6dce5;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px; letter-spacing: 1.5px;
+  }
+  .switch.live .thumb .face { background: #5fd97a; color: #06210e; }
+
+  /* A single bright arc chasing the thumb outline while connecting. */
+  .orbit {
+    position: absolute; inset: -5px;
+    border-radius: 999px;
+    overflow: hidden;
     opacity: 0;
   }
-  .halo i:nth-child(1) { inset: 17px; }
-  .halo i:nth-child(2) { inset: 12px; }
-  .halo i:nth-child(3) { inset: 7px; }
-  .halo i:nth-child(4) { inset: 2px; }
-  .connecting .halo i { animation: pulse .9s ease-in-out infinite alternate; }
-  .connecting .halo i:nth-child(1) { opacity: .40 }
-  .connecting .halo i:nth-child(2) { opacity: .22 }
-  .connecting .halo i:nth-child(3) { opacity: .14 }
-  .connecting .halo i:nth-child(4) { opacity: .10 }
-  .connected .halo i:nth-child(1) { opacity: .26 }
-  .connected .halo i:nth-child(2) { opacity: .14 }
-  .connected .halo i:nth-child(3) { opacity: .09 }
-  .connected .halo i:nth-child(4) { opacity: .06 }
-  @keyframes pulse { from { opacity: .18 } to { opacity: .85 } }
+  .orbit::before {
+    content: ""; position: absolute; inset: -60%;
+    background: conic-gradient(from 0deg,
+      transparent 0deg, transparent 200deg,
+      rgba(95,217,122,0.25) 280deg,
+      #5fd97a 338deg, transparent 360deg);
+    animation: spin 1.2s linear infinite;
+  }
+  .orbit::after {
+    content: ""; position: absolute; inset: 5px;
+    border-radius: 999px; background: #171c23;
+  }
+  .connecting .orbit { opacity: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .status { margin-top: 16px; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: #98a3b2; text-align: center; flex: none; }
   .status.on { color: #5fd97a; }
@@ -166,7 +175,7 @@
 
 <!-- ============================ OFF ============================ -->
 <div class="frame">
-  <div class="caption"><b>OFF</b>switch to the left, no halo</div>
+  <div class="caption"><b>OFF</b>thumb to the left, no light</div>
   <div class="phone">
     <div class="statusbar"><span>21:23</span><span>▮▮ ▾ 39%</span></div>
     <div class="screen">
@@ -174,10 +183,9 @@
 
       <div class="switch-wrap">
         <div class="switch">
-          <div class="halo"><i></i><i></i><i></i><i></i></div>
           <span class="off-label">OFF</span>
           <span class="on-label">ON</span>
-          <div class="thumb">OFF</div>
+          <div class="thumb"><div class="orbit"></div><div class="face">OFF</div></div>
         </div>
       </div>
 
@@ -223,18 +231,17 @@
 
 <!-- ========================= CONNECTING ========================= -->
 <div class="frame">
-  <div class="caption"><b>Switching on — waiting</b>pulsing green halo while the tunnel comes up</div>
+  <div class="caption"><b>Switching on — waiting</b>thumb stays grey, a green light orbits it</div>
   <div class="phone">
     <div class="statusbar"><span>21:23</span><span>▮▮ ▾ 39%</span></div>
     <div class="screen">
       <h1>Jordan VPN</h1>
 
-      <div class="switch-wrap connecting">
-        <div class="switch on">
-          <div class="halo"><i></i><i></i><i></i><i></i></div>
+      <div class="switch-wrap">
+        <div class="switch on connecting">
           <span class="off-label">OFF</span>
           <span class="on-label">ON</span>
-          <div class="thumb">ON</div>
+          <div class="thumb"><div class="orbit"></div><div class="face">ON</div></div>
         </div>
       </div>
 
@@ -280,18 +287,17 @@
 
 <!-- ========================== CONNECTED ========================= -->
 <div class="frame">
-  <div class="caption"><b>ON — connected</b>steady halo, list scrolled to another server</div>
+  <div class="caption"><b>ON — connected</b>thumb turns green, list scrolled to another server</div>
   <div class="phone">
     <div class="statusbar"><span>21:26</span><span>▮▮ ▾ 38%</span></div>
     <div class="screen">
       <h1>Jordan VPN</h1>
 
-      <div class="switch-wrap connected">
-        <div class="switch on">
-          <div class="halo"><i></i><i></i><i></i><i></i></div>
+      <div class="switch-wrap">
+        <div class="switch on live">
           <span class="off-label">OFF</span>
           <span class="on-label">ON</span>
-          <div class="thumb">ON</div>
+          <div class="thumb"><div class="orbit"></div><div class="face">ON</div></div>
         </div>
       </div>
 
