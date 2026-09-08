@@ -59,7 +59,6 @@ import net.jordanvpn.app.JordanApp as JordanApplication
 import net.jordanvpn.app.core.Latency
 import net.jordanvpn.app.core.supportLink
 import net.jordanvpn.app.core.VlessProfile
-import net.jordanvpn.app.core.XrayConfigBuilder
 import net.jordanvpn.app.data.ControlPlaneClient
 import net.jordanvpn.app.vpn.JordanVpnService
 
@@ -532,11 +531,6 @@ private fun ConnectScreen(
     val key = { profile: VlessProfile -> "${profile.host}:${profile.port}" }
     val visible = profiles.filterNot { hidden.contains(key(it)) }
 
-    fun configFor(profile: VlessProfile) = XrayConfigBuilder.build(
-        profile,
-        app.session.subscriptionUrl?.let { runCatching { java.net.URL(it).host }.getOrNull() },
-    )
-
     fun refresh() {
         scope.launch {
             busy = true
@@ -578,7 +572,7 @@ private fun ConnectScreen(
                 enabled = selected != null || connected || connecting,
                 onToggle = {
                     if (connected || connecting) onDisconnect()
-                    else selected?.let { onConnect(configFor(it)) }
+                    else selected?.let { onConnect(it.uri) }
                 },
             )
         }
@@ -766,7 +760,7 @@ private fun ConnectScreen(
                                         // Switching server while connected re-establishes
                                         // the tunnel on the new one rather than silently
                                         // keeping traffic on the old.
-                                        if (connected || connecting) onConnect(configFor(profile))
+                                        if (connected || connecting) onConnect(profile.uri)
                                     }
                                 },
                                 onCopy = {
@@ -1181,6 +1175,7 @@ private fun SupportScreen(app: JordanApplication) {
     val context = LocalContext.current
     val tunnelState by JordanVpnService.state.collectAsState()
     val tunnelError by JordanVpnService.lastError.collectAsState()
+    val runtimeVersion by JordanVpnService.runtimeVersion.collectAsState()
 
     var contact by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -1204,6 +1199,7 @@ private fun SupportScreen(app: JordanApplication) {
         appendLine("Control plane $host")
         appendLine("Account ${app.session.email ?: "not signed in"}")
         appendLine("Tunnel ${tunnelState.name.lowercase(java.util.Locale.US)}")
+        appendLine("Core ${runtimeVersion ?: "not started yet"}")
         tunnelError?.let { appendLine("Last error $it") }
     }.trim()
 

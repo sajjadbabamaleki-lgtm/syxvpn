@@ -21,15 +21,16 @@ import net.jordanvpn.app.vpn.JordanVpnService
  */
 class MainActivity : ComponentActivity() {
 
-    private val pendingConfig = mutableStateOf<String?>(null)
+    /** The `vless://` line waiting for the VPN consent dialog to come back. */
+    private val pendingProfile = mutableStateOf<String?>(null)
 
     /**
      * Android requires an explicit user consent dialog before an app may create
      * a VPN interface. The tunnel can only start after this returns OK.
      */
     private val vpnConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) startTunnel(pendingConfig.value)
-        pendingConfig.value = null
+        if (result.resultCode == Activity.RESULT_OK) startTunnel(pendingProfile.value)
+        pendingProfile.value = null
     }
 
     /**
@@ -65,22 +66,31 @@ class MainActivity : ComponentActivity() {
         if (!granted) notificationConsent.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun requestTunnel(configJson: String) {
+    /**
+     * The app hands the service the chosen `vless://` line, not a finished Xray
+     * config: the config has to carry the TUN descriptor, and that only exists
+     * once the service has established the interface.
+     */
+    private fun requestTunnel(profileUri: String) {
         val consentIntent = VpnService.prepare(this)
         if (consentIntent != null) {
-            pendingConfig.value = configJson
+            pendingProfile.value = profileUri
             vpnConsent.launch(consentIntent)
         } else {
-            startTunnel(configJson)
+            startTunnel(profileUri)
         }
     }
 
-    private fun startTunnel(configJson: String?) {
-        if (configJson == null) return
+    private fun startTunnel(profileUri: String?) {
+        if (profileUri == null) return
+        val controlHost = runCatching {
+            java.net.URL(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL).host
+        }.getOrNull()
         startService(
             Intent(this, JordanVpnService::class.java)
                 .setAction(JordanVpnService.ACTION_CONNECT)
-                .putExtra(JordanVpnService.EXTRA_CONFIG, configJson),
+                .putExtra(JordanVpnService.EXTRA_PROFILE, profileUri)
+                .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHost),
         )
     }
 

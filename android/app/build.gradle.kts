@@ -30,6 +30,16 @@ val keystoreProperties = Properties().apply {
 val keystorePath: String? = (keystoreProperties.getProperty("storeFile")
     ?: System.getenv("JORDAN_KEYSTORE"))?.takeIf { it.isNotBlank() }
 
+/**
+ * The Xray runtime is not vendored here: libXray is a large native artifact
+ * with its own build (see android/README.md). Build it, drop the .aar into
+ * app/libs, and this build picks it up — source set and dependency together, so
+ * there is no reflection and no runtime guessing. Without it the app still
+ * compiles and runs, and the tunnel reports that no runtime is bundled.
+ */
+val xrayAars = fileTree("libs") { include("*.aar") }
+val hasXrayRuntime = !xrayAars.isEmpty
+
 android {
     namespace = "net.jordanvpn.app"
     compileSdk = 35
@@ -80,6 +90,8 @@ android {
         }
     }
 
+    sourceSets["main"].java.srcDir(if (hasXrayRuntime) "src/xray/java" else "src/noxray/java")
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -93,6 +105,8 @@ android {
 }
 
 dependencies {
+    if (hasXrayRuntime) implementation(xrayAars)
+
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")
@@ -103,10 +117,6 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-
-    // The Xray runtime is NOT vendored in this repository. Drop the AAR built
-    // from https://github.com/XTLS/libXray into app/libs and enable this line.
-    // implementation(name = "libXray", ext = "aar")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

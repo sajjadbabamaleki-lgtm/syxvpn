@@ -1,31 +1,78 @@
-# Jordan VPN — Android client (skeleton)
+# Jordan VPN — Android client
 
 This is the app that can do what the browser cannot: open the tunnel itself.
 
-**Status: complete except the tunnel, and never compiled.** The environment this
-was written in has no Android SDK and cannot reach Google's Maven, so treat every
-file here as a starting point that a build on your machine will need to correct,
-not as a shipped app. What is here is the structure and the parts that do not
-depend on the SDK: the API client, the `vless://` parser, the Xray client-config
-builder, the VPN service lifecycle, and all four screens.
+**Status: written in full, never compiled.** The environment this was written in
+has no Android SDK and cannot reach Google's Maven, so treat every file here as
+a starting point that a build on your machine will need to correct, not as a
+shipped app. What has been checked is set out under "What can be checked without
+the SDK" below — including that real Xray-core accepts the configuration this
+app generates.
 
-## What is missing before it can connect
+## The tunnel
 
-Two native pieces, both deliberately left out rather than stubbed into
-something that looks like it works:
+There is exactly one native piece: **libXray**, Xray-core wrapped by gomobile.
+There is deliberately no tun2socks, and that is not a shortcut.
 
-1. **An Xray runtime.** Build [libXray](https://github.com/XTLS/libXray) with
-   gomobile into an `.aar`, drop it in `app/libs/`, and enable the commented
-   dependency line in `app/build.gradle.kts`.
-2. **A TUN-to-SOCKS forwarder** — `hev-socks5-tunnel` or a `tun2socks` build.
-   `VpnService.Builder.establish()` returns a file descriptor carrying raw IP
-   packets; something has to read that descriptor and speak SOCKS5 to the Xray
-   inbound on `127.0.0.1:10808`.
+Xray-core carries its own layer-3 stack (`proxy/tun`, gVisor), so the descriptor
+from `VpnService.Builder.establish()` goes straight into the core and nothing
+forwards packets in between. The descriptor cannot be passed as an argument: the
+core reads it from the process environment under `xray.tun.fd`, and the config's
+root `env` object is applied to the environment while the config is built. That
+is the documented Android path in both projects, and it is what
+`XrayConfigBuilder` writes.
 
-Then replace `NotWiredXrayBridge` in `vpn/XrayBridge.kt` with a real
-implementation. Until that exists, pressing START surfaces the error instead of
-claiming to be connected — an app that says "connected" without a tunnel is
-worse than one that says it cannot start.
+The alternative — a Go tun2socks beside libXray — would not merely be redundant,
+it would not load. Both embed a Go runtime, and Go does not support two
+independently built runtimes in one process; libXray says so in its own README.
+
+### Building the runtime
+
+Needs Go, gomobile and the Android NDK:
+
+```sh
+git clone https://github.com/XTLS/libXray
+cd libXray
+python3 build/main.py android      # -> libXray.aar
+cp libXray.aar <this repo>/android/app/libs/
+```
+
+The build picks it up by itself. `app/build.gradle.kts` looks for `libs/*.aar`
+and, when it finds one, compiles `app/src/xray` (the real bridge) and adds the
+dependency; when it does not, it compiles `app/src/noxray`, whose bridge refuses
+to start and says why. No reflection, no runtime guessing, and an app that says
+"connected" without a tunnel is never one of the two outcomes.
+
+The AAR is git-ignored: it is tens of megabytes of native code and belongs in a
+release pipeline, not in this repository.
+
+### What the bridge does
+
+`app/src/xray/.../LibXrayBridge.kt`. libXray exposes one entry point —
+`Invoke(requestJSON) string`, `apiVersion: 3` — so each call is a small JSON
+envelope: `runXray`, `stopXray`, `getXrayState`, `xrayVersion`.
+
+Two things happen before the core starts, and both are why a VPN app cannot just
+"run Xray":
+
+1. Every socket the core opens is protected through the dialer and listener
+   controllers, which call `VpnService.protect()`. The connection to the gateway
+   must not be routed into the tunnel that connection is carrying.
+2. Go's own resolver is pointed at a real DNS server with `setDNS`. While a VPN
+   is up Android can hand Go a loopback resolver that only answers inside the
+   tunnel, which would leave the gateway's hostname unresolvable.
+
+The traffic counters on the connect screen are not the app's arithmetic: the
+config starts Xray's metrics server on a loopback port and the bridge reads
+`/debug/vars`, which is the core's own counter for the proxy outbound.
+
+One thread owns the tunnel's lifecycle, so starting, stopping and closing the
+descriptor cannot overlap — switching server twice quickly would otherwise leave
+a second instance starting while the first is still shutting down, and Xray
+refuses a second instance outright.
+
+libXray states that it does not guarantee API stability. If a future release
+renames a method, the compile breaks in `LibXrayBridge.kt` and nowhere else.
 
 ## How it fits the rest of Jordan
 
@@ -34,7 +81,7 @@ customer buys on the web storefront  ──▶  control plane provisions a subsc
                                              │
              this app signs in ──────────────┘
              fetches /sub/<token>  ──▶  vless:// profiles (first hop only)
-             builds an Xray client config  ──▶  VpnService TUN  ──▶  gateway
+             VpnService TUN fd ──▶ Xray-core tun inbound ──▶ vless+ws ──▶ gateway
 ```
 
 The app never chooses an egress; the control plane does that, and failover
@@ -177,6 +224,39 @@ java -jar /tmp/checks.jar
 That covers micro-USDT formatting, byte and countdown formatting, ISO parsing
 and support-contact parsing.
 
+**The Xray config the app generates, judged by real Xray-core.** This is the
+one that decides whether the tunnel starts at all, and it needs no Android:
+
+```sh
+curl -sSLo /tmp/json.jar \
+  https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
+kotlinc -cp /tmp/json.jar \
+  android/tools/UriStub.kt \
+  android/app/src/main/java/net/jordanvpn/app/core/VlessProfile.kt \
+  android/app/src/main/java/net/jordanvpn/app/core/XrayConfigBuilder.kt \
+  android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
+java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
+xray -test -config /tmp/xray.json          # any xray binary, e.g. lab/bin/xray
+```
+
+`android/tools/UriStub.kt` stands in for `android.net.Uri` so the parser and the
+builder can run off-device. The TUN inbound, the descriptor in the root `env`,
+the metrics server and the stats policy are all part of what gets validated.
+
+**The bridge's call sites, against the libXray API.** `android/tools/stubs/`
+declares that API as gomobile exports it, so the bridge type-checks with no AAR
+present — which catches a misspelled method, a wrong arity, or an `Int` where
+gomobile expects a `Long`:
+
+```sh
+kotlinc -cp /tmp/json.jar android/tools/stubs/*.kt \
+  android/app/src/main/java/net/jordanvpn/app/vpn/XrayBridge.kt \
+  android/app/src/xray/java/net/jordanvpn/app/vpn/LibXrayBridge.kt -d /tmp/bridge
+```
+
+It cannot prove the AAR you build exports exactly that — libXray does not
+promise API stability — so check the release you build against.
+
 ## Seeing the screen before you can build
 
 `preview/connect-screen.html` is a mockup of the screens — the same
@@ -240,7 +320,9 @@ counters stay at zero.
 | `core/VlessProfile.kt` | Parses `vless://` — first hop only |
 | `core/XrayConfigBuilder.kt` | Client config, with the control plane routed direct |
 | `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
-| `vpn/XrayBridge.kt` | The seam where the native runtime plugs in |
+| `vpn/XrayBridge.kt` | The seam the runtime plugs into, and socket protection |
+| `src/xray/.../LibXrayBridge.kt` | The real runtime: libXray's Invoke API, metrics counters |
+| `src/noxray/.../NotWiredXrayBridge.kt` | Compiled when no AAR is present; refuses to start, and says why |
 | `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, premium, support and account tabs |
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
@@ -248,3 +330,5 @@ counters stay at zero.
 | `app/proguard-rules.pro` | R8 rules for the release build |
 | `preview/connect-screen.html` | Mockup of the screens (not a screenshot) |
 | `tools/PureLogicChecks.kt` | Checks the SDK-free logic; runs with only `kotlinc` |
+| `tools/XrayConfigCheck.kt`, `tools/UriStub.kt` | Prints the app's Xray config for `xray -test` |
+| `tools/stubs/` | The libXray API as gomobile exports it, for type-checking without the AAR |
