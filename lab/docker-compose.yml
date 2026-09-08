@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile.xray
     # Stands in for "the international internet" the egress nodes can reach.
     command: >
-      node -e "require('node:http').createServer((q,s)=>{s.writeHead(200,{'content-type':'text/plain'});s.end('jordan-origin-ok\n')}).listen(80,'0.0.0.0')"
+      node -e "require('node:http').createServer((q,s)=>{s.writeHead(200,{'content-type':'text/plain'});s.end('jordan-origin-ok')}).listen(80,'0.0.0.0')"
     networks: [world]
 
   egress-a:
