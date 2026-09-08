@@ -15,9 +15,11 @@ import { adminSubscriberRoutes } from './routes/admin.subscribers.js';
 import { adminNetworkRoutes } from './routes/admin.network.js';
 import { adminObservabilityRoutes } from './routes/admin.observability.js';
 import { agentRoutes } from './routes/agent.js';
+import { shopRoutes } from './routes/shop.js';
+import { adminShopRoutes } from './routes/admin.shop.js';
 import { publicRoutes } from './routes/public.js';
 
-export function createApp({ db, startedAt = Date.now(), cfg = config }) {
+export function createApp({ db, startedAt = Date.now(), cfg = config, watcher = null }) {
   const app = express();
   app.disable('x-powered-by');
   if (cfg.trustProxy) app.set('trust proxy', 1);
@@ -56,6 +58,8 @@ export function createApp({ db, startedAt = Date.now(), cfg = config }) {
   app.use(publicRoutes({ db }));
 
   app.use('/api/v1/auth', authRoutes({ db }));
+  // Customer-facing storefront: its own session type, never admin credentials.
+  app.use('/api/v1/shop', shopRoutes({ db }));
   app.use('/api/v1/agent', agentRoutes({ db }));
 
   const admin = express.Router();
@@ -66,6 +70,7 @@ export function createApp({ db, startedAt = Date.now(), cfg = config }) {
   admin.use('/subscribers', adminSubscriberRoutes({ db }));
   admin.use(adminNetworkRoutes({ db, startedAt }));
   admin.use(adminObservabilityRoutes({ db }));
+  admin.use(adminShopRoutes({ db, watcher }));
   app.use('/api/v1', admin);
 
   app.use((req, res) => fail(res, 404, 'NOT_FOUND', `No route for ${req.method} ${req.path}`));

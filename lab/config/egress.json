@@ -1,0 +1,13 @@
+{
+  "log": { "loglevel": "info" },
+  "inbounds": [
+    {
+      "tag": "socks-in",
+      "listen": "0.0.0.0",
+      "port": 1080,
+      "protocol": "socks",
+      "settings": { "auth": "noauth", "udp": false }
+    }
+  ],
+  "outbounds": [{ "tag": "out", "protocol": "freedom", "settings": { "domainStrategy": "UseIP" } }]
+}

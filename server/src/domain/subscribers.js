@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { newId, randomToken, sha256 } from '../lib/crypto.js';
+import { seal, open as openSecret } from '../lib/secretbox.js';
 import { EVENT, recordEvent } from './events.js';
 import { bumpAllConfigVersions } from './gateways.js';
 
@@ -16,16 +17,16 @@ export function entitlement(subscriber, now = Date.now()) {
   return { entitled: true, reason: 'active' };
 }
 
-export function createSubscriber(db, { name, quotaBytes, expiresAt, note = null }) {
+export function createSubscriber(db, { name, quotaBytes, expiresAt, note = null, customerId = null }) {
   const now = Date.now();
   const id = newId('sub');
   const token = randomToken(32);
   const credentialId = newId('cr');
   const insert = db.transaction(() => {
     db.prepare(`INSERT INTO subscribers
-        (id,name,token_hash,token_prefix,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at)
-        VALUES (?,?,?,?,?,0,?, 'active', ?,?,?)`)
-      .run(id, name, sha256(token), token.slice(0, 6), quotaBytes, expiresAt, note, now, now);
+        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at,customer_id)
+        VALUES (?,?,?,?,?,?,0,?, 'active', ?,?,?,?)`)
+      .run(id, name, sha256(token), token.slice(0, 6), seal(token), quotaBytes, expiresAt, note, now, now, customerId);
     db.prepare('INSERT INTO credentials (id,subscriber_id,uuid,state,created_at) VALUES (?,?,?,\'active\',?)')
       .run(credentialId, id, crypto.randomUUID(), now);
     recordEvent(db, {
@@ -101,8 +102,8 @@ export function rotateToken(db, id) {
   if (!sub) return null;
   const token = randomToken(32);
   const run = db.transaction(() => {
-    db.prepare('UPDATE subscribers SET token_hash = ?, token_prefix = ?, updated_at = ? WHERE id = ?')
-      .run(sha256(token), token.slice(0, 6), Date.now(), id);
+    db.prepare('UPDATE subscribers SET token_hash = ?, token_prefix = ?, token_enc = ?, updated_at = ? WHERE id = ?')
+      .run(sha256(token), token.slice(0, 6), seal(token), Date.now(), id);
     recordEvent(db, {
       type: EVENT.TOKEN_ROTATED, severity: 'warning', targetType: 'subscriber', targetId: id,
       message: `Subscription URL rotated for ${sub.name}; the previous URL no longer resolves`,
@@ -186,6 +187,52 @@ export function enforceEntitlements(db, now = Date.now()) {
   }
   if (changed) bumpAllConfigVersions(db, 'entitlement-change');
   return changed;
+}
+
+/**
+ * Returns the plaintext subscription token for a subscriber.
+ *
+ * Storefront customers must be able to see their own subscription URL on every
+ * visit, so the token is kept sealed with SECRET_KEY alongside its hash. Only
+ * the customer-facing API and the owning customer's session can reach this.
+ */
+export function revealToken(db, subscriberId) {
+  const row = db.prepare('SELECT token_enc FROM subscribers WHERE id = ?').get(subscriberId);
+  if (!row?.token_enc) return null;
+  return openSecret(row.token_enc);
+}
+
+export function subscriberForCustomer(db, customerId) {
+  return db.prepare(
+    'SELECT * FROM subscribers WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1',
+  ).get(customerId) || null;
+}
+
+/**
+ * Adds quota and time to an existing subscription instead of issuing a second
+ * one, so a renewing customer keeps the subscription URL already loaded in
+ * their client.
+ */
+export function topUpSubscriber(db, id, { quotaBytes, durationDays }) {
+  const sub = getSubscriber(db, id);
+  if (!sub) return null;
+  const now = Date.now();
+  // Renewing before expiry extends from the current expiry; after expiry, from now.
+  const base = Math.max(sub.expires_at, now);
+  const expiresAt = base + durationDays * 86400000;
+  // Unmetered (0) stays unmetered; otherwise the purchased quota is added on top
+  // of what is left, and consumed bytes are reset so the meter reads correctly.
+  const quota = sub.quota_bytes <= 0 || quotaBytes <= 0
+    ? 0
+    : Math.max(0, sub.quota_bytes - sub.used_bytes) + quotaBytes;
+  const apply = db.transaction(() => {
+    db.prepare(`UPDATE subscribers
+        SET quota_bytes = ?, used_bytes = 0, expires_at = ?, status = 'active', updated_at = ?
+        WHERE id = ?`).run(quota, expiresAt, now, id);
+    bumpAllConfigVersions(db, 'subscription-topped-up');
+  });
+  apply();
+  return getSubscriber(db, id);
 }
 
 export function usageSummary(db, subscriberId, limit = 20) {

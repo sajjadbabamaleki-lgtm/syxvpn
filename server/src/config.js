@@ -69,6 +69,24 @@ export function loadConfig(env = process.env) {
       agent: { windowMs: 60_000, max: int(env.RATE_LIMIT_AGENT, 600) },
     },
 
+    shop: {
+      enabled: bool(env.SHOP_ENABLED, true),
+      sessionTtlSeconds: int(env.SHOP_SESSION_TTL_SECONDS, 30 * 24 * 3600),
+      // TRC-20 USDT address that receives customer payments. Without it the
+      // storefront still lists plans but refuses to open an order.
+      payAddress: (env.TRON_ADDRESS || '').trim(),
+      tronApiUrl: (env.TRON_API_URL || 'https://api.trongrid.io').replace(/\/+$/, ''),
+      tronApiKey: env.TRON_API_KEY || '',
+      // Mainnet USDT (TRC-20).
+      usdtContract: env.USDT_CONTRACT || 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      paymentWindowMinutes: int(env.PAYMENT_WINDOW_MINUTES, 60),
+      pollSeconds: int(env.PAYMENT_POLL_SECONDS, 30),
+      confirmations: int(env.PAYMENT_CONFIRMATIONS, 19),
+      maxOpenOrders: int(env.MAX_OPEN_ORDERS, 2),
+      watcherEnabled: bool(env.PAYMENT_WATCHER_ENABLED, true),
+      supportContact: env.SUPPORT_CONTACT || '',
+    },
+
     trustProxy: bool(env.TRUST_PROXY, false),
     demoMode: bool(env.DEMO_MODE, false),
   };
@@ -81,6 +99,10 @@ export function loadConfig(env = process.env) {
       errors.push('ADMIN_PASSWORD must be at least 12 characters');
     }
     if (cfg.demoMode) errors.push('DEMO_MODE must not be enabled in production');
+    if (cfg.shop.enabled && !cfg.shop.payAddress) {
+      // Not fatal: a deployment may run the control plane without the shop.
+      // It is surfaced in /readiness instead of guessing an address.
+    }
   } else if (!cfg.admin.password && !cfg.admin.passwordHash) {
     // Development convenience only: random password printed at boot, never fixed.
     cfg.admin.password = crypto.randomBytes(12).toString('base64url');

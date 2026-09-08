@@ -1,0 +1,106 @@
+name: jordan-lab
+
+# Controlled blackout laboratory.
+#
+#   client ──edge──▶ gateway ──transit──▶ egress-a ──world──▶ origin
+#                        │                    egress-b ──▶
+#                        └── control plane (edge, mgmt)
+#
+# Every lab network is internal, so no container reaches the real internet.
+# The client is attached to `edge` only: it has no route to `world`, which is
+# what makes "the client can only get out through a gateway" a fact of the
+# topology rather than an assertion in a test.
+
+networks:
+  mgmt:            # host <-> control plane only
+  edge:            # client <-> gateway <-> control plane
+    internal: true
+  transit:         # gateway <-> egress nodes
+    internal: true
+  world:           # egress nodes <-> test origin ("international internet")
+    internal: true
+
+services:
+  control:
+    build: ../server
+    environment:
+      NODE_ENV: development
+      PORT: 8787
+      DB_PATH: /data/jordan.db
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${LAB_ADMIN_PASSWORD:-lab-admin-password}
+      SECRET_KEY: ${LAB_SECRET_KEY:-lab-secret-key-not-for-production}
+      HEALTH_INTERVAL_SECONDS: 15
+      HEALTH_FAILURE_THRESHOLD: 2
+      AGENT_STALE_SECONDS: 60
+      EGRESS_STALE_SECONDS: 120
+      LOG_LEVEL: info
+    volumes:
+      - control-data:/data
+    networks: [mgmt, edge]
+    ports:
+      - "127.0.0.1:8790:8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/readiness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  origin:
+    build:
+      context: .
+      dockerfile: Dockerfile.xray
+    # Stands in for "the international internet" the egress nodes can reach.
+    command: >
+      node -e "require('node:http').createServer((q,s)=>{s.writeHead(200,{'content-type':'text/plain'});s.end('jordan-origin-ok\n')}).listen(80,'0.0.0.0')"
+    networks: [world]
+
+  egress-a:
+    build:
+      context: .
+      dockerfile: Dockerfile.xray
+    command: xray run -c /etc/xray/egress.json
+    volumes:
+      - ./config/egress.json:/etc/xray/egress.json:ro
+    networks: [transit, world]
+
+  egress-b:
+    build:
+      context: .
+      dockerfile: Dockerfile.xray
+    command: xray run -c /etc/xray/egress.json
+    volumes:
+      - ./config/egress.json:/etc/xray/egress.json:ro
+    networks: [transit, world]
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: lab/Dockerfile.agent
+    environment:
+      JORDAN_URL: http://control:8787
+      JORDAN_GATEWAY_ID: ${LAB_GATEWAY_ID:?run ./run-lab.sh, which registers the gateway first}
+      JORDAN_AGENT_KEY: ${LAB_AGENT_KEY:?run ./run-lab.sh, which issues the agent key}
+      STATE_DIR: /var/lib/jordan-agent
+      XRAY_BIN: /usr/local/bin/xray
+      RELOAD_MODE: supervise
+      HEARTBEAT_SECONDS: 10
+      HEALTH_SECONDS: 10
+      USAGE_SECONDS: 15
+      PROBE_TIMEOUT_MS: 5000
+      PROBE_VERIFY_TLS: "false"
+      DEFAULT_PROBE_URL: http://origin/ok
+    networks: [edge, transit]
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.xray
+    # The config is written by run-lab.sh from a real subscription fetch.
+    command: sh -c "while [ ! -f /state/client.json ]; do sleep 1; done; xray run -c /state/client.json"
+    volumes:
+      - ./state:/state
+    networks: [edge]
+
+volumes:
+  control-data:

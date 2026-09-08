@@ -1,0 +1,14 @@
+# Gateway image for the lab: the real agent source plus the pinned Xray binary.
+# Production uses agent/Dockerfile, which fetches Xray during the build.
+FROM node:22-alpine
+COPY lab/bin/xray /usr/local/bin/xray
+COPY lab/bin/geoip.dat lab/bin/geosite.dat /usr/local/share/xray/
+COPY agent/src /app/src
+COPY agent/package.json /app/package.json
+WORKDIR /app
+ENV XRAY_LOCATION_ASSET=/usr/local/share/xray \
+    XRAY_BIN=/usr/local/bin/xray \
+    STATE_DIR=/var/lib/jordan-agent \
+    RELOAD_MODE=supervise
+RUN chmod +x /usr/local/bin/xray && mkdir -p /var/lib/jordan-agent
+CMD ["node", "src/index.js"]

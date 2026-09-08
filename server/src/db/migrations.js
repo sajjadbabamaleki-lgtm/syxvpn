@@ -224,6 +224,76 @@ CREATE TABLE settings (
 );
 `;
 
+
+const SCHEMA_V2_STOREFRONT = `
+-- Storefront: customers buy a plan with USDT and receive a subscription.
+
+CREATE TABLE customers (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','blocked')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  last_login_at INTEGER
+);
+
+CREATE TABLE customer_sessions (
+  token_hash TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  last_used_at INTEGER NOT NULL,
+  user_agent TEXT
+);
+CREATE INDEX idx_customer_sessions_expiry ON customer_sessions(expires_at);
+
+-- Prices are stored in micro-USDT (1 USDT = 1000000), matching TRC-20 decimals,
+-- so no floating point ever touches a balance.
+CREATE TABLE plans (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  quota_bytes INTEGER NOT NULL,
+  duration_days INTEGER NOT NULL,
+  price_micro INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 100,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE orders (
+  id TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL REFERENCES plans(id),
+  plan_name TEXT NOT NULL,
+  quota_bytes INTEGER NOT NULL,
+  duration_days INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','paid','fulfilled','expired','cancelled')),
+  price_micro INTEGER NOT NULL,
+  -- Each open order is given a unique amount so an incoming transfer can be
+  -- matched to exactly one order without per-order deposit addresses.
+  pay_amount_micro INTEGER NOT NULL,
+  pay_address TEXT NOT NULL,
+  chain TEXT NOT NULL DEFAULT 'tron',
+  asset TEXT NOT NULL DEFAULT 'USDT-TRC20',
+  tx_hash TEXT,
+  from_address TEXT,
+  confirmations INTEGER,
+  settled_by TEXT,
+  subscriber_id TEXT,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  paid_at INTEGER,
+  fulfilled_at INTEGER
+);
+CREATE INDEX idx_orders_customer ON orders(customer_id, created_at DESC);
+CREATE INDEX idx_orders_open ON orders(status, expires_at);
+CREATE UNIQUE INDEX idx_orders_tx ON orders(tx_hash) WHERE tx_hash IS NOT NULL;
+`;
+
 /**
  * The 0.1 prototype stored gateways and egress nodes in one table and kept
  * subscription tokens in plaintext. Existing rows are preserved: tokens are
@@ -305,6 +375,19 @@ export const migrations = [
       }
       db.exec(SCHEMA_V1);
       if (legacy) importLegacy(db, ctx.now, ctx.sha256);
+    },
+  },
+  {
+    id: '002_storefront',
+    up(db) {
+      db.exec(SCHEMA_V2_STOREFRONT);
+      // A subscriber may now belong to a customer who bought it.
+      db.exec('ALTER TABLE subscribers ADD COLUMN customer_id TEXT');
+      // The storefront has to show a buyer their subscription URL again on every
+      // visit, so the token is kept encrypted (not only hashed). The hash stays
+      // the lookup key; the sealed copy is readable only with SECRET_KEY.
+      db.exec('ALTER TABLE subscribers ADD COLUMN token_enc TEXT');
+      db.exec('CREATE INDEX idx_subscribers_customer ON subscribers(customer_id)');
     },
   },
 ];

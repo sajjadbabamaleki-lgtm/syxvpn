@@ -1,0 +1,11 @@
+# Lab base image: Xray plus a Node runtime for the probe helper.
+#
+# The binary comes from lab/bin (populated by ./fetch-xray.sh) rather than being
+# downloaded during the build, so the lab can be built and re-built on a host
+# with no direct internet access — which is the situation it exists to model.
+FROM node:22-alpine
+COPY bin/xray /usr/local/bin/xray
+COPY bin/geoip.dat bin/geosite.dat /usr/local/share/xray/
+COPY probe.mjs /usr/local/bin/probe.mjs
+ENV XRAY_LOCATION_ASSET=/usr/local/share/xray
+RUN chmod +x /usr/local/bin/xray

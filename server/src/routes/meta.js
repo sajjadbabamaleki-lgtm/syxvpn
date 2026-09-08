@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { ok, fail } from '../lib/respond.js';
+import { config } from '../config.js';
+import { paymentsConfigured } from '../services/tron.js';
 
 export const VERSION = '0.2.0';
 
@@ -32,6 +34,12 @@ export function metaRoutes({ db, startedAt }) {
       checks.admins = 'error';
       ready = false;
     }
+    // The storefront not being able to take payments is reported, not hidden,
+    // but it does not make the control plane unready.
+    checks.payments = config.shop.enabled
+      ? (paymentsConfigured() ? 'ok' : 'not-configured')
+      : 'disabled';
+
     if (!ready) return fail(res, 503, 'NOT_READY', 'Control plane dependencies unavailable', checks);
     return ok(res, { status: 'ready', checks, version: VERSION });
   });
