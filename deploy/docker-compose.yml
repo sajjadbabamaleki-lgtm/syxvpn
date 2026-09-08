@@ -1,14 +1,52 @@
+name: jordan
+
+# Control plane and web app. Put a TLS reverse proxy in front of both; see
+# deploy/Caddyfile.example.
+#
+# The gateway agent does NOT run here — it runs on each gateway host, next to
+# the Xray process it manages. See docs/DEPLOYMENT.md.
+
 services:
   api:
-    build: ../server
+    build:
+      context: ../server
     restart: unless-stopped
     environment:
+      NODE_ENV: production
       PORT: 8787
       DB_PATH: /data/jordan.db
-      AGENT_KEY: ${AGENT_KEY:?set AGENT_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -base64 32}
+      HEALTH_INTERVAL_SECONDS: ${HEALTH_INTERVAL_SECONDS:-60}
+      SHOP_ENABLED: ${SHOP_ENABLED:-true}
+      SUPPORT_CONTACT: ${SUPPORT_CONTACT:-}
+      TRON_ADDRESS: ${TRON_ADDRESS:-}
+      TRON_API_KEY: ${TRON_API_KEY:-}
+      PAYMENT_CONFIRMATIONS: ${PAYMENT_CONFIRMATIONS:-19}
     volumes:
       - jordan-data:/data
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        # Same-origin by default: the reverse proxy sends /api and /sub to the
+        # API container, so the browser needs no cross-origin configuration.
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - api
+
 volumes:
   jordan-data:

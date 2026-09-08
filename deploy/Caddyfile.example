@@ -1,0 +1,44 @@
+# Reverse-proxy examples. Copy the block you need; Caddy obtains certificates
+# automatically as long as the DNS records point here.
+
+# ---------------------------------------------------------------- control plane
+control.example.net {
+    encode zstd gzip
+
+    # API and subscription endpoints.
+    @api path /api/* /sub/* /health /readiness
+    handle @api {
+        reverse_proxy 127.0.0.1:8787
+    }
+
+    # The web app (storefront + operator console).
+    handle {
+        reverse_proxy 127.0.0.1:8080
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+    }
+}
+
+# --------------------------------------------------------------------- gateway
+# TLS terminates here; Xray listens on loopback with no TLS of its own, which is
+# what `tlsMode: reverse-proxy` in the gateway registration means.
+gw1.example.net {
+    encode zstd gzip
+
+    # Must match the gateway's configured WebSocket path.
+    @ws {
+        path /your-secret-path
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @ws 127.0.0.1:10001
+
+    # Anything else looks like an ordinary site.
+    handle {
+        respond "" 404
+    }
+}
