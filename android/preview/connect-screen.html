@@ -122,25 +122,27 @@
   .uptime { margin-top: 3px; font-size: 12px; color: #6c7684; text-align: center; flex: none; }
 
   .card {
-    margin-top: 18px; padding: 18px; flex: none;
+    margin-top: 18px; padding: 14px 16px; flex: none;
     background: #12161c; border: 1px solid #232a34; border-radius: 28px;
   }
-  .card-label { font-size: 10px; letter-spacing: 1px; color: #6c7684; }
-  .config-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  .config-row .name { font-weight: 500; }
-  .config-row .addr { font-size: 12px; color: #98a3b2; margin-top: 2px; }
+  .config-row { display: flex; align-items: center; gap: 10px; }
+  .config-row .name { font-weight: 500; font-size: 15px; }
+  .config-row .addr { font-size: 12px; color: #98a3b2; }
   .config-row .proto { margin-left: auto; font-size: 11px; color: #6c7684; white-space: nowrap; }
-  .ping-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; min-height: 34px; }
-  .ping-btn { color: #f0b02e; font-size: 12px; letter-spacing: 1px; font-weight: 600; }
-  .ping-val { font-size: 12px; color: #6c7684; }
-  .ping-val.measured { color: #5fd97a; }
-  hr { border: 0; border-top: 1px solid #232a34; margin: 0; }
-  .traffic { display: flex; margin-top: 12px; }
-  .traffic > div { flex: 1; text-align: center; }
-  .traffic .label { font-size: 12px; color: #98a3b2; }
-  .traffic .value { margin-top: 4px; font-size: 15px; font-weight: 500; }
-  .traffic .arrow { color: #6c7684; margin-right: 6px; }
-  .traffic .arrow.live { color: #5fd97a; }
+
+  /* Down, ping and up on one row. Keeping them on a single line is what lets
+     the card stay this short. */
+  .tiles { display: flex; gap: 8px; margin-top: 12px; }
+  .tile {
+    flex: 1; border-radius: 16px; background: #171c23;
+    padding: 10px 4px; text-align: center;
+    font-size: 14px; font-weight: 500; color: #fff;
+    white-space: nowrap;
+  }
+  .tile .arrow { color: #6c7684; margin-right: 5px; font-size: 13px; }
+  .tile .arrow.live { color: #5fd97a; }
+  .tile.ping { color: #f0b02e; font-weight: 600; letter-spacing: 1px; }
+  .tile.ping.measured { color: #5fd97a; letter-spacing: 0; }
 
   .errorcard {
     margin-top: 10px; padding: 14px; flex: none;
@@ -240,7 +242,6 @@
       <div class="status">NOT CONNECTED</div>
 
       <div class="card">
-        <div class="card-label">ACTIVE CONFIGURATION</div>
         <div class="config-row">
           <div>
             <div class="name">Frankfurt Edge · de-fra</div>
@@ -248,14 +249,10 @@
           </div>
           <div class="proto">vless · ws · tls</div>
         </div>
-        <div class="ping-row">
-          <div class="ping-btn">PING</div>
-          <div class="ping-val">not measured</div>
-        </div>
-        <hr />
-        <div class="traffic">
-          <div><div class="label">Downlink</div><div class="value"><span class="arrow">↓</span>0 B</div></div>
-          <div><div class="label">Uplink</div><div class="value"><span class="arrow">↑</span>0 B</div></div>
+        <div class="tiles">
+          <div class="tile"><span class="arrow">↓</span>0 B</div>
+          <div class="tile ping">PING</div>
+          <div class="tile"><span class="arrow">↑</span>0 B</div>
         </div>
       </div>
       <div class="configs">
@@ -295,7 +292,6 @@
       <div class="status waiting">CONNECTING…</div>
 
       <div class="card">
-        <div class="card-label">ACTIVE CONFIGURATION</div>
         <div class="config-row">
           <div>
             <div class="name">Frankfurt Edge · de-fra</div>
@@ -303,14 +299,10 @@
           </div>
           <div class="proto">vless · ws · tls</div>
         </div>
-        <div class="ping-row">
-          <div class="ping-btn">PING</div>
-          <div class="ping-val measured">84 ms</div>
-        </div>
-        <hr />
-        <div class="traffic">
-          <div><div class="label">Downlink</div><div class="value"><span class="arrow">↓</span>0 B</div></div>
-          <div><div class="label">Uplink</div><div class="value"><span class="arrow">↑</span>0 B</div></div>
+        <div class="tiles">
+          <div class="tile"><span class="arrow">↓</span>0 B</div>
+          <div class="tile ping measured">84 ms</div>
+          <div class="tile"><span class="arrow">↑</span>0 B</div>
         </div>
       </div>
       <div class="configs">
@@ -351,7 +343,6 @@
       <div class="uptime">03:12</div>
 
       <div class="card">
-        <div class="card-label">ACTIVE CONFIGURATION</div>
         <div class="config-row">
           <div>
             <div class="name">Helsinki Edge · fi-hel</div>
@@ -359,14 +350,10 @@
           </div>
           <div class="proto">vless · ws · tls</div>
         </div>
-        <div class="ping-row">
-          <div class="ping-btn">PING</div>
-          <div class="ping-val measured">61 ms</div>
-        </div>
-        <hr />
-        <div class="traffic">
-          <div><div class="label">Downlink</div><div class="value"><span class="arrow live">↓</span>18.4 MB</div></div>
-          <div><div class="label">Uplink</div><div class="value"><span class="arrow live">↑</span>2.1 MB</div></div>
+        <div class="tiles">
+          <div class="tile"><span class="arrow live">↓</span>18.4 MB</div>
+          <div class="tile ping measured">61 ms</div>
+          <div class="tile"><span class="arrow live">↑</span>2.1 MB</div>
         </div>
       </div>
       <div class="configs" id="scrolled">

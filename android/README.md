@@ -139,5 +139,6 @@ counters stay at zero.
 | `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
 | `vpn/XrayBridge.kt` | The seam where the native runtime plugs in |
 | `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, account tab |
+| | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
 | `preview/connect-screen.html` | Mockup of the connect screen (not a screenshot) |

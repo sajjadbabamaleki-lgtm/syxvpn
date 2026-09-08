@@ -489,19 +489,17 @@ private fun ConnectScreen(
             shape = RoundedCornerShape(28.dp),
             modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(28.dp)),
         ) {
-            Column(Modifier.padding(18.dp)) {
-                Text("ACTIVE CONFIGURATION", color = TextFaint, fontSize = 10.sp, letterSpacing = 1.sp)
-                Spacer(Modifier.height(8.dp))
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             selected?.label ?: "No server available",
                             color = Color.White,
                             fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(2.dp))
                         Text(
                             selected?.let { "${it.host}:${it.port}" } ?: "buy a plan to get one",
                             color = TextDim,
@@ -515,43 +513,49 @@ private fun ConnectScreen(
                     )
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
+
+                // Down, ping and up as three tiles across the card. Keeping them
+                // on one line is what lets the card stay this short.
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(
-                        onClick = {
-                            val profile = selected ?: return@TextButton
-                            scope.launch {
-                                pinging = true
-                                pingMs = Latency.measure(profile.host, profile.port)
-                                pinging = false
-                            }
-                        },
-                        enabled = selected != null && !pinging,
-                        contentPadding = PaddingValues(horizontal = 4.dp),
-                    ) {
-                        Text(if (pinging) "PINGING…" else "PING", color = Warn, fontSize = 12.sp, letterSpacing = 1.sp)
+                    StatTile(Modifier.weight(1f)) {
+                        TileValue("\u2193", formatBytes(traffic.second), traffic.second > 0)
                     }
-                    Text(
-                        when {
-                            pinging -> ""
-                            pingMs != null -> "$pingMs ms"
-                            else -> "not measured"
+                    StatTile(
+                        Modifier.weight(1f),
+                        onClick = if (selected != null && !pinging) {
+                            {
+                                val profile = selected
+                                if (profile != null) {
+                                    scope.launch {
+                                        pinging = true
+                                        pingMs = Latency.measure(profile.host, profile.port)
+                                        pinging = false
+                                    }
+                                }
+                            }
+                        } else {
+                            null
                         },
-                        color = if (pingMs != null) Ok else TextFaint,
-                        fontSize = 12.sp,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                HorizontalDivider(color = Border)
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth()) {
-                    TrafficColumn("Downlink", "↓", traffic.second, Modifier.weight(1f))
-                    TrafficColumn("Uplink", "↑", traffic.first, Modifier.weight(1f))
+                    ) {
+                        Text(
+                            when {
+                                pinging -> "…"
+                                pingMs != null -> "$pingMs ms"
+                                else -> "PING"
+                            },
+                            color = if (pingMs != null && !pinging) Ok else Warn,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = if (pingMs == null) 1.sp else 0.sp,
+                        )
+                    }
+                    StatTile(Modifier.weight(1f)) {
+                        TileValue("\u2191", formatBytes(traffic.first), traffic.first > 0)
+                    }
                 }
             }
         }
@@ -633,16 +637,30 @@ private fun ConnectScreen(
     }
 }
 
+/** A tile inside the card: down, ping, up. Optionally tappable. */
 @Composable
-private fun TrafficColumn(label: String, arrow: String, bytes: Long, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = TextDim, fontSize = 12.sp)
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(arrow, color = if (bytes > 0) Ok else TextFaint, fontSize = 14.sp)
-            Spacer(Modifier.width(6.dp))
-            Text(formatBytes(bytes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-        }
+private fun StatTile(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceHigh)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+        content = { content() },
+    )
+}
+
+@Composable
+private fun TileValue(arrow: String, value: String, live: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(arrow, color = if (live) Ok else TextFaint, fontSize = 13.sp)
+        Spacer(Modifier.width(5.dp))
+        Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
