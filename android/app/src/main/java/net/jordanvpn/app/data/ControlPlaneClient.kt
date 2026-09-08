@@ -1,6 +1,8 @@
 package net.jordanvpn.app.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -24,6 +26,16 @@ class ControlPlaneClient(
     private val session: SessionStore,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+
+    /**
+     * Flips when the control plane rejects the stored session (401).
+     *
+     * The token is cleared at the same moment, so without this the app would sit
+     * on a signed-in-looking screen failing every call. The UI watches it and
+     * goes back to the sign-in screen.
+     */
+    private val expired = MutableStateFlow(false)
+    val sessionExpired: StateFlow<Boolean> get() = expired
 
     class ApiException(val status: Int, val code: String, message: String) : IOException(message)
 
@@ -145,17 +157,26 @@ class ControlPlaneClient(
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
-    suspend fun signIn(email: String, password: String): String = withContext(Dispatchers.IO) {
-        val body = buildString {
-            append("{\"email\":").append(quote(email))
-            append(",\"password\":").append(quote(password)).append('}')
+    suspend fun signIn(email: String, password: String): String =
+        authenticate("/api/v1/shop/login", email, password)
+
+    /** Creates the account and signs it in; the API returns a session either way. */
+    suspend fun register(email: String, password: String): String =
+        authenticate("/api/v1/shop/register", email, password)
+
+    private suspend fun authenticate(path: String, email: String, password: String): String =
+        withContext(Dispatchers.IO) {
+            val body = buildString {
+                append("{\"email\":").append(quote(email))
+                append(",\"password\":").append(quote(password)).append('}')
+            }
+            val response = request("POST", path, body, authenticated = false)
+            val token = response["token"]!!.jsonPrimitive.content
+            session.token = token
+            session.email = email
+            expired.value = false
+            token
         }
-        val response = request("POST", "/api/v1/shop/login", body, authenticated = false)
-        val token = response["token"]!!.jsonPrimitive.content
-        session.token = token
-        session.email = email
-        token
-    }
 
     suspend fun signOut() = withContext(Dispatchers.IO) {
         runCatching { request("POST", "/api/v1/shop/logout", "{}") }
@@ -246,8 +267,9 @@ class ControlPlaneClient(
             val text = (if (status in 200..299) it.inputStream else it.errorStream)
                 ?.bufferedReader()?.readText().orEmpty()
             val payload = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
-            if (status == 401) {
+            if (status == 401 && authenticated) {
                 session.token = null
+                expired.value = true
                 throw ApiException(401, "UNAUTHORIZED", "Please sign in again")
             }
             if (status !in 200..299) {

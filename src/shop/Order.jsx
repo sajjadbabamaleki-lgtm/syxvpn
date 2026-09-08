@@ -11,12 +11,12 @@ const STATUS = {
   pending: {
     title: 'Waiting for your payment',
     body: 'Send the exact amount below. The order settles automatically once the transfer is confirmed on chain.',
-    tone: 'warn',
+    tone: 'idle',
   },
   paid: {
     title: 'Payment seen',
     body: 'The transfer was found on chain and is waiting for confirmations. Nothing else to do.',
-    tone: 'warn',
+    tone: 'idle',
   },
   fulfilled: {
     title: 'Paid and activated',

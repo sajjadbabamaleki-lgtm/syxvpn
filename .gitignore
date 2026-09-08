@@ -9,3 +9,14 @@ lab/state/
 *.log
 lab/bin/
 .jordan-secret-key
+
+# Android release signing — the keystore and its passwords stay off the repo.
+android/keystore.properties
+*.jks
+*.keystore
+# Local Android SDK path, written by Android Studio.
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/app/libs/*.aar

@@ -1,9 +1,34 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+/**
+ * Release signing.
+ *
+ * The keystore never enters the repository. Put its details in
+ * `android/keystore.properties` (git-ignored):
+ *
+ *     storeFile=/absolute/path/jordan-release.jks
+ *     storePassword=...
+ *     keyAlias=jordan
+ *     keyPassword=...
+ *
+ * or set JORDAN_KEYSTORE / JORDAN_KEYSTORE_PASSWORD / JORDAN_KEY_ALIAS /
+ * JORDAN_KEY_PASSWORD in the environment for a CI build. With neither present
+ * the release build still runs and is simply left unsigned, so a debug build
+ * never fails because of a missing key.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val keystorePath: String? = (keystoreProperties.getProperty("storeFile")
+    ?: System.getenv("JORDAN_KEYSTORE"))?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "net.jordanvpn.app"
@@ -28,10 +53,30 @@ android {
         buildConfigField("boolean", "IN_APP_ORDERS", "true")
     }
 
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                    ?: System.getenv("JORDAN_KEYSTORE_PASSWORD")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                    ?: System.getenv("JORDAN_KEY_ALIAS")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                    ?: System.getenv("JORDAN_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
 

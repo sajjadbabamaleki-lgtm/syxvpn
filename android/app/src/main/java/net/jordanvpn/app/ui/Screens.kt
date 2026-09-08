@@ -19,6 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -43,6 +45,10 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,9 +67,14 @@ private val Background = Color(0xFF0A0C0F)
 private val Surface = Color(0xFF12161C)
 private val SurfaceHigh = Color(0xFF171C23)
 private val Border = Color(0xFF232A34)
-private val Accent = Color(0xFFC8F24A)
-private val Ok = Color(0xFF5FD97A)
-private val Warn = Color(0xFFF0B02E)
+// One accent, and it is the green of the switch: green means the tunnel is up,
+// and the same green marks anything the product wants you to press. There is
+// deliberately no amber — a state that is merely being attempted is shown in
+// neutral grey, so colour never implies a connection that does not exist yet.
+private val Accent = Color(0xFF5FD97A)
+private val Ok = Accent
+private val OnAccent = Color(0xFF06210E)
+private val Pending = Color(0xFF98A3B2)
 private val Bad = Color(0xFFF2665F)
 private val TextDim = Color(0xFF98A3B2)
 private val TextFaint = Color(0xFF6C7684)
@@ -75,7 +86,7 @@ fun JordanTheme(content: @Composable () -> Unit) {
             primary = Accent,
             background = Background,
             surface = Surface,
-            onPrimary = Color(0xFF0B0F06),
+            onPrimary = OnAccent,
         ),
         content = content,
     )
@@ -101,9 +112,13 @@ fun JordanRoot(
 ) {
     var signedIn by remember { mutableStateOf(app.session.token != null) }
     var tab by remember { mutableStateOf(Tab.CONNECT) }
+    // A 401 clears the token; without watching for it the app would sit on a
+    // signed-in-looking screen failing every call.
+    val expired by app.api.sessionExpired.collectAsState()
+    LaunchedEffect(expired) { if (expired) signedIn = false }
 
     if (!signedIn) {
-        SignInScreen(app) { signedIn = true }
+        SignInScreen(app, expired) { signedIn = true }
         return
     }
 
@@ -384,7 +399,7 @@ private fun ConfigRow(
                 .background(
                     when {
                         selected && connected -> Ok
-                        selected -> Accent
+                        selected -> Pending
                         else -> Border
                     },
                 ),
@@ -541,7 +556,7 @@ private fun ConnectScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(14.dp))
         Text(
             "Jordan VPN",
@@ -551,7 +566,12 @@ private fun ConnectScreen(
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
 
+        // Spare height on a tall phone is split rather than left in one hole at
+        // the bottom: a little of it pushes the switch and the card down, the
+        // rest sits above the list, which stays anchored just over the bar. On a
+        // short phone both shrink and the list gives up rows first.
         Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.weight(0.25f))
         Box(Modifier.align(Alignment.CenterHorizontally)) {
             ConnectSwitch(
                 state = tunnelState,
@@ -572,7 +592,7 @@ private fun ConnectScreen(
             },
             color = when (tunnelState) {
                 JordanVpnService.State.CONNECTED -> Ok
-                JordanVpnService.State.CONNECTING -> Warn
+                JordanVpnService.State.CONNECTING -> Pending
                 else -> TextDim
             },
             fontSize = 14.sp,
@@ -655,7 +675,7 @@ private fun ConnectScreen(
                                 pingMs != null -> "$pingMs ms"
                                 else -> "PING"
                             },
-                            color = if (pingMs != null && !pinging) Ok else Warn,
+                            color = if (pingMs != null && !pinging) Ok else Pending,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = if (pingMs == null) 1.sp else 0.sp,
@@ -693,7 +713,10 @@ private fun ConnectScreen(
         // people already reach for.
         // The list is capped at four whole rows: a partly visible fifth row
         // reads as a rendering accident rather than as "there is more below".
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
             PullToRefreshBox(
                 isRefreshing = busy,
                 onRefresh = { refresh() },
@@ -858,7 +881,8 @@ private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
     val canOrder = payments?.paymentsConfigured == true && BuildConfig.IN_APP_ORDERS
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Premium", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -980,7 +1004,7 @@ private fun PlanCard(
                     else -> "Payments unavailable"
                 },
                 fontWeight = FontWeight.SemiBold,
-                color = if (canOrder || !BuildConfig.IN_APP_ORDERS) Color(0xFF0B0F06) else TextFaint,
+                color = if (canOrder || !BuildConfig.IN_APP_ORDERS) OnAccent else TextFaint,
             )
         }
     }
@@ -1025,7 +1049,7 @@ private fun OrderPanel(
     val tone = when (order.status) {
         "fulfilled" -> Ok
         "expired" -> Bad
-        "pending", "paid" -> Warn
+        "pending", "paid" -> Pending
         else -> TextDim
     }
 
@@ -1130,11 +1154,12 @@ private fun NoticeCard(title: String, body: String) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF2A2213))
+            .background(SurfaceHigh)
+            .border(1.dp, Border, RoundedCornerShape(24.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(title, color = Warn, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         Text(body, color = TextDim, fontSize = 12.sp)
     }
 }
@@ -1183,7 +1208,8 @@ private fun SupportScreen(app: JordanApplication) {
     }.trim()
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Support", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -1290,7 +1316,8 @@ private fun AccountScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Account", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -1357,26 +1384,73 @@ private fun LabelledRow(label: String, value: String, valueColor: Color) {
     }
 }
 
+/**
+ * Sign in, or create the account.
+ *
+ * Registration is here rather than web-only because the first thing a new
+ * customer does is install the app; sending them to a browser to type the same
+ * two fields loses people. The API returns a session from either endpoint, so
+ * the screen is the same form with a different verb.
+ */
 @Composable
-private fun SignInScreen(app: JordanApplication, onSignedIn: () -> Unit) {
+private fun SignInScreen(app: JordanApplication, expired: Boolean, onSignedIn: () -> Unit) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf(app.session.email ?: "") }
     var password by remember { mutableStateOf("") }
+    var reveal by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
+    val canSubmit = email.contains('@') && password.length >= 8 && !busy
+
+    fun submit() {
+        if (!canSubmit) return
+        scope.launch {
+            busy = true
+            error = null
+            val address = email.trim()
+            runCatching {
+                if (creating) app.api.register(address, password) else app.api.signIn(address, password)
+            }
+                .onSuccess { onSignedIn() }
+                .onFailure { error = it.message }
+            busy = false
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().background(Background).padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .verticalScroll(rememberScrollState())
+            // The keyboard must not cover the button that submits the form.
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
         Text("JORDAN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
-        Text("Sign in with your account", color = TextDim, fontSize = 13.sp)
+        Text(
+            if (creating) "Create an account" else "Sign in with your account",
+            color = TextDim,
+            fontSize = 13.sp,
+        )
+        if (expired && !creating) {
+            Spacer(Modifier.height(10.dp))
+            Text("Your session ended. Sign in again.", color = Pending, fontSize = 13.sp)
+        }
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next,
+            ),
+            colors = fieldColors(),
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
@@ -1385,26 +1459,78 @@ private fun SignInScreen(app: JordanApplication, onSignedIn: () -> Unit) {
             onValueChange = { password = it },
             label = { Text("Password") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = {
-                scope.launch {
-                    busy = true
-                    runCatching { app.api.signIn(email.trim(), password) }
-                        .onSuccess { onSignedIn() }
-                        .onFailure { error = it.message }
-                    busy = false
+            // Without this the password stands on screen in clear text — in a
+            // café, on a bus, over someone's shoulder.
+            visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+            trailingIcon = {
+                TextButton(onClick = { reveal = !reveal }) {
+                    Text(if (reveal) "Hide" else "Show", color = TextDim, fontSize = 12.sp)
                 }
             },
-            enabled = !busy,
-            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+            colors = fieldColors(),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (creating) {
+            Spacer(Modifier.height(6.dp))
+            Text("At least 8 characters.", color = TextFaint, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { submit() },
+            enabled = canSubmit,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Accent,
+                contentColor = OnAccent,
+                disabledContainerColor = Border,
+                disabledContentColor = TextFaint,
+            ),
+            shape = RoundedCornerShape(18.dp),
             modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text(if (busy) "Signing in…" else "Sign in", fontWeight = FontWeight.SemiBold) }
+        ) {
+            Text(
+                when {
+                    busy && creating -> "Creating…"
+                    busy -> "Signing in…"
+                    creating -> "Create account"
+                    else -> "Sign in"
+                },
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        TextButton(onClick = { creating = !creating; error = null }) {
+            Text(
+                if (creating) "I already have an account" else "Create an account",
+                color = Accent,
+                fontSize = 13.sp,
+            )
+        }
         error?.let {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(4.dp))
             Text(it, color = Bad, fontSize = 13.sp)
         }
+        Text(
+            "An account on its own carries no data — a plan is bought on the Premium tab.",
+            color = TextFaint,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 14.dp),
+        )
     }
 }
+
+/** One field style for the whole app, in the app's own colours. */
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Accent,
+    unfocusedBorderColor = Border,
+    focusedLabelColor = Accent,
+    unfocusedLabelColor = TextDim,
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White,
+    cursorColor = Accent,
+)

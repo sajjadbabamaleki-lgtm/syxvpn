@@ -2,12 +2,12 @@
 
 This is the app that can do what the browser cannot: open the tunnel itself.
 
-**Status: skeleton. It has never been compiled or run.** The environment this
-was written in has no Android SDK, so treat every file here as a starting point
-that a build on your machine will need to correct, not as a shipped app. What is
-here is the structure and the parts that do not depend on the SDK: the API
-client, the `vless://` parser, the Xray client-config builder, the VPN service
-lifecycle, and the connect UI.
+**Status: complete except the tunnel, and never compiled.** The environment this
+was written in has no Android SDK and cannot reach Google's Maven, so treat every
+file here as a starting point that a build on your machine will need to correct,
+not as a shipped app. What is here is the structure and the parts that do not
+depend on the SDK: the API client, the `vless://` parser, the Xray client-config
+builder, the VPN service lifecycle, and all four screens.
 
 ## What is missing before it can connect
 
@@ -59,6 +59,23 @@ fifth row reads as a rendering accident rather than as "there is more below". Se
 different config while connected re-establishes the tunnel on it rather than
 leaving traffic on the old one.
 
+## One colour
+
+There is a single accent, and it is the green of the ON switch: green is what
+the product asks you to press, and what "the tunnel is up" looks like. There is
+deliberately no amber anywhere in the app. A state that is only being attempted
+— connecting, a payment not yet confirmed — is neutral grey, so colour can never
+imply a connection or a settlement that has not happened. Red stays for failure.
+
+Every screen is inset 16 from the sides: the bar, the card under the switch and
+the config rows all sit on the same two vertical lines.
+
+Spare height on a tall phone is split rather than left as one hole above the
+bar: a quarter of it pushes the switch and the card down, the rest sits above
+the list, which stays anchored just over the bar so four whole config rows are
+the last thing on the screen. On a short phone both shrink and the list gives up
+rows first.
+
 ## The four tabs
 
 `Connect` is the tunnel and the list of servers. The other three are one screen
@@ -93,6 +110,16 @@ is enough to use the account, and support does not need it.
 **Account** is the subscription: state, data used against the quota, expiry,
 and a button that goes to Premium.
 
+Before any of them there is the sign-in screen, which also creates accounts:
+the first thing a new customer does is install the app, and sending them to a
+browser to type the same two fields loses people. The password field is masked
+with a deliberate Show toggle, and a 401 from the control plane returns the app
+to this screen rather than leaving it signed-in-looking and failing every call.
+
+The notification permission is asked for once on first launch (Android 13+) and
+the answer is not acted on: the tunnel's foreground service runs either way,
+a refusal only means the ongoing notification is not shown.
+
 The bottom bar is drawn by hand rather than being a Material `NavigationBar`.
 The default one puts a wide indicator capsule behind the selected icon and
 brings its own metrics; this one is a floating slab in the same language as the
@@ -104,13 +131,35 @@ weight.
 
 ```sh
 cd android
-./gradlew assembleDebug          # after adding the Gradle wrapper
+./gradlew assembleDebug
 # set the control plane the app talks to:
 #   app/build.gradle.kts -> buildConfigField CONTROL_PLANE_URL
 ```
 
-The Gradle wrapper is not committed here (it is a binary jar); generate it with
-`gradle wrapper --gradle-version 8.11` on first checkout.
+The Gradle wrapper is committed, so `./gradlew` works on a fresh checkout. Its
+`gradle-wrapper.jar` came out of the official `gradle-8.11.1-bin.zip` fetched
+from services.gradle.org over TLS; verify it if you like:
+
+    sha256  gradle/wrapper/gradle-wrapper.jar
+            2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
+
+A debug build installs as `net.jordanvpn.app.debug`, so it can sit next to a
+release build on the same phone.
+
+### Signing a release
+
+The keystore never enters the repository. Either write
+`android/keystore.properties` (git-ignored):
+
+    storeFile=/absolute/path/jordan-release.jks
+    storePassword=...
+    keyAlias=jordan
+    keyPassword=...
+
+or set `JORDAN_KEYSTORE`, `JORDAN_KEYSTORE_PASSWORD`, `JORDAN_KEY_ALIAS` and
+`JORDAN_KEY_PASSWORD` for a CI build. With neither present the release build
+still runs and is simply left unsigned, so a debug build never fails over a
+missing key.
 
 ## What can be checked without the SDK
 
@@ -196,5 +245,6 @@ counters stay at zero.
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
 | `core/SupportContact.kt` | Turns a support contact into an openable link |
+| `app/proguard-rules.pro` | R8 rules for the release build |
 | `preview/connect-screen.html` | Mockup of the screens (not a screenshot) |
 | `tools/PureLogicChecks.kt` | Checks the SDK-free logic; runs with only `kotlinc` |

@@ -25,7 +25,10 @@
   --bad-bg: #2c1516;
   --idle: #7c8798;
   --idle-bg: #1a1f27;
-  --accent: #c8f24a;
+  /* One accent for the whole product, and it is the green of the app's ON
+     switch: green is what the product presses, and what "it is up" looks like. */
+  --accent: #5fd97a;
+  --on-accent: #06210e;
 
   --radius: 12px;
   --tap: 44px;
@@ -302,7 +305,7 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monosp
   border: 1px solid transparent;
   border-radius: 10px;
   background: var(--accent);
-  color: #0b0f06;
+  color: var(--on-accent);
   font: inherit;
   font-size: 14px;
   font-weight: 600;

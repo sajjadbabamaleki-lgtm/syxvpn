@@ -1,9 +1,12 @@
 package net.jordanvpn.app.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,8 +32,19 @@ class MainActivity : ComponentActivity() {
         pendingConfig.value = null
     }
 
+    /**
+     * Android 13 made the notification a permission rather than a given.
+     *
+     * The tunnel does not depend on it: the foreground service still runs if it
+     * is refused, the ongoing notification is simply not shown. So the answer is
+     * not acted on — it is asked once and the app carries on either way.
+     */
+    private val notificationConsent =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        askForNotifications()
         val app = application as JordanApp
         setContent {
             JordanTheme {
@@ -42,6 +56,13 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationConsent.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun requestTunnel(configJson: String) {
