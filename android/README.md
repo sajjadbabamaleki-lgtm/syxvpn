@@ -94,6 +94,9 @@ curves concentric rather than merely close:
     inset             12 on every side   (= 36 - 24)
     thumb   92 x 48   radius 24
 
+The card and the config rows carry double that curvature (28 and 24), so the
+switch, the card and the list read as one family rather than three radii.
+
 In the HTML mockup the pill's outline is an inset box-shadow rather than a
 border: a border shrinks the padding box, which shifts every absolutely
 positioned child and made the top gap a pixel larger than the bottom one. The

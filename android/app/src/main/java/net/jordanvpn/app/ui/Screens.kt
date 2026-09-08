@@ -203,9 +203,9 @@ private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifie
                 active -> Color(0xFFE7ECF3)
                 else -> TextFaint
             },
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            letterSpacing = 1.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 17.sp,
+            letterSpacing = 2.sp,
         )
     }
 }
@@ -265,11 +265,11 @@ private fun ConfigRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(if (selected) SurfaceHigh else Surface)
-            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(12.dp))
+            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
             .clickable(onClick = onSelect)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -458,10 +458,10 @@ private fun ConnectScreen(
 
         Card(
             colors = CardDefaults.cardColors(containerColor = Surface),
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(14.dp)),
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(28.dp)),
         ) {
-            Column(Modifier.padding(16.dp)) {
+            Column(Modifier.padding(18.dp)) {
                 Text("ACTIVE CONFIGURATION", color = TextFaint, fontSize = 10.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -532,7 +532,7 @@ private fun ConnectScreen(
             Spacer(Modifier.height(10.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(24.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
@@ -655,10 +655,10 @@ private fun AccountScreen(
         } else {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Surface),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(28.dp)),
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     LabelledRow("Status", if (sub.active) "active" else sub.state, if (sub.active) Ok else Bad)
                     LabelledRow("Used", formatBytes(sub.usedBytes), Color.White)
                     LabelledRow(
