@@ -1,1 +1,20 @@
-{"name":"jordan-vpn-api","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"node --watch src/index.js","start":"node src/index.js"},"dependencies":{"better-sqlite3":"latest","cors":"latest","express":"latest","helmet":"latest","zod":"latest"}}
+{
+  "name": "jordan-vpn-api",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "test": "node --test test/",
+    "bootstrap": "node scripts/bootstrap-admin.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "helmet": "8.3.0",
+    "zod": "4.5.4"
+  },
+  "engines": { "node": ">=22" }
+}
