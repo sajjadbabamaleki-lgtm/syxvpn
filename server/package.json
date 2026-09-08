@@ -1,0 +1,1 @@
+{"name":"jordan-vpn-api","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"node --watch src/index.js","start":"node src/index.js"},"dependencies":{"better-sqlite3":"latest","cors":"latest","express":"latest","helmet":"latest","zod":"latest"}}
