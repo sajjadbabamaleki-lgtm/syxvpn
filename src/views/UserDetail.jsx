@@ -16,7 +16,7 @@ const REASON_COPY = {
 };
 
 export function UserDetail({ id }) {
-  const back = useBack('/users');
+  const back = useBack('/admin/users');
   const { data, error, loading, refresh } = useResource(`subscriber:${id}`, () => api.subscriber(id), { intervalMs: 20000 });
   const [busy, setBusy] = useState(null);
   const [secret, setSecret] = useState(null);

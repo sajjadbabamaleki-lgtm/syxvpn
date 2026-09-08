@@ -13,7 +13,7 @@ const FILTERS = [
 ];
 
 export function Events() {
-  const back = useBack('/more');
+  const back = useBack('/admin/more');
   const [filter, setFilter] = useState('all');
   const { data, error, loading, stale, updatedAt, refresh } = useResource(
     'events', () => api.events(100), { intervalMs: 20000 },

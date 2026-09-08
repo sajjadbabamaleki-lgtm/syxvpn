@@ -28,8 +28,8 @@ function UserCard({ subscriber }) {
   const state = subscriber.entitlementReason;
   return (
     <Card className="list-card" role="button" tabIndex={0}
-      onClick={() => navigate(`/users/${subscriber.id}`)}
-      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/users/${subscriber.id}`); }}
+      onClick={() => navigate(`/admin/users/${subscriber.id}`)}
+      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/admin/users/${subscriber.id}`); }}
     >
       <div className="list-main">
         <div className="list-title">

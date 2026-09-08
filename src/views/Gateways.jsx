@@ -11,8 +11,8 @@ import { latency, relativeTime } from '../lib/format.js';
 function GatewayCard({ gateway }) {
   return (
     <Card className="list-card" role="button" tabIndex={0}
-      onClick={() => navigate(`/gateways/${gateway.id}`)}
-      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/gateways/${gateway.id}`); }}
+      onClick={() => navigate(`/admin/gateways/${gateway.id}`)}
+      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/admin/gateways/${gateway.id}`); }}
     >
       <div className="list-main">
         <div className="list-title">

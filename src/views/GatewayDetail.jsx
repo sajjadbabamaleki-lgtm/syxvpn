@@ -41,7 +41,7 @@ function AssignEgressSheet({ open, onClose, gatewayId, assigned, onDone }) {
           icon="globe"
           title="No unassigned egress paths"
           body="Register an authorized egress first."
-          action={<Button onClick={() => { onClose(); navigate('/egresses'); }}>Go to egress paths</Button>}
+          action={<Button onClick={() => { onClose(); navigate('/admin/egresses'); }}>Go to egress paths</Button>}
         />
       ) : (
         <form className="form" onSubmit={submit}>
@@ -65,7 +65,7 @@ function AssignEgressSheet({ open, onClose, gatewayId, assigned, onDone }) {
 }
 
 export function GatewayDetail({ id }) {
-  const back = useBack('/gateways');
+  const back = useBack('/admin/gateways');
   const { data, error, loading, refresh } = useResource(`gateway:${id}`, () => api.gateway(id), { intervalMs: 15000 });
   const [assigning, setAssigning] = useState(false);
   const [busy, setBusy] = useState(null);

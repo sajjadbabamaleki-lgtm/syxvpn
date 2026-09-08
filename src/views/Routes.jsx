@@ -18,7 +18,7 @@ function RouteCard({ route }) {
       <button
         type="button"
         className="route-item-head"
-        onClick={() => navigate(`/gateways/${route.gatewayId}`)}
+        onClick={() => navigate(`/admin/gateways/${route.gatewayId}`)}
       >
         <div>
           <strong>{route.gatewayName}</strong>
@@ -107,7 +107,7 @@ export function Routes() {
           icon="route"
           title="No routes"
           body="A route appears once a gateway is registered. Assign an authorized egress to make it usable."
-          action={<Button icon="plus" onClick={() => navigate('/gateways')}>Add gateway</Button>}
+          action={<Button icon="plus" onClick={() => navigate('/admin/gateways')}>Add gateway</Button>}
         />
       )}
       {data?.map((route) => <RouteCard key={route.gatewayId} route={route} />)}

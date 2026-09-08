@@ -78,7 +78,7 @@ export function Overview() {
 
       <Section title="Active route">
         {route ? (
-          <Card className="route-card" onClick={() => navigate(`/gateways/${route.gatewayId}`)} role="button" tabIndex={0}>
+          <Card className="route-card" onClick={() => navigate(`/admin/gateways/${route.gatewayId}`)} role="button" tabIndex={0}>
             <div className="route-line">
               <div className="hop">
                 <span className="hop-label">Client</span>
@@ -104,7 +104,7 @@ export function Overview() {
             icon="route"
             title="No route configured"
             body="Register a gateway and assign it an authorized egress path."
-            action={<Button icon="plus" onClick={() => navigate('/gateways')}>Add gateway</Button>}
+            action={<Button icon="plus" onClick={() => navigate('/admin/gateways')}>Add gateway</Button>}
           />
         )}
       </Section>
@@ -127,7 +127,7 @@ export function Overview() {
         </div>
       </Section>
 
-      <Section title="Recent alerts" action={<Button variant="ghost" onClick={() => navigate('/events')}>All events</Button>}>
+      <Section title="Recent alerts" action={<Button variant="ghost" onClick={() => navigate('/admin/events')}>All events</Button>}>
         {data.alerts.length === 0 ? (
           <Card className="quiet">No warnings or failures recorded.</Card>
         ) : (
@@ -148,7 +148,7 @@ export function Overview() {
       <Section title="Quick actions">
         <div className="action-grid">
           <Button icon="plus" onClick={() => setCreating(true)}>New subscriber</Button>
-          <Button variant="ghost" icon="gateway" onClick={() => navigate('/gateways')}>Add gateway</Button>
+          <Button variant="ghost" icon="gateway" onClick={() => navigate('/admin/gateways')}>Add gateway</Button>
           <Button variant="ghost" icon="refresh" loading={checking} onClick={runHealthCheck}>Run health check</Button>
         </div>
       </Section>

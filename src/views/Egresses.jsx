@@ -135,7 +135,7 @@ function AddEgressSheet({ open, onClose, onCreated }) {
 }
 
 export function Egresses() {
-  const back = useBack('/more');
+  const back = useBack('/admin/more');
   const { data, error, loading, stale, updatedAt, refresh } = useResource('egresses', api.egresses, { intervalMs: 30000 });
   const [adding, setAdding] = useState(false);
 

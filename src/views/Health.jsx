@@ -11,7 +11,7 @@ const SOURCE_HINT = {
 };
 
 export function Health() {
-  const back = useBack('/more');
+  const back = useBack('/admin/more');
   const { data, error, loading, stale, updatedAt, refresh } = useResource(
     'health-checks', () => api.healthChecks('?limit=100'), { intervalMs: 20000 },
   );

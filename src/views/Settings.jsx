@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon.jsx';
 import { absoluteTime, relativeTime } from '../lib/format.js';
 
 export function Settings({ onSignedOut }) {
-  const back = useBack('/more');
+  const back = useBack('/admin/more');
   const session = auth.current;
   const { data: health } = useResource('control-plane-health', api.health, { intervalMs: 30000 });
   const [current, setCurrent] = useState('');

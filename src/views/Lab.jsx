@@ -22,7 +22,7 @@ const COMMAND = 'cd lab && ./run-lab.sh';
  * it deliberately shows no simulated results.
  */
 export function Lab() {
-  const back = useBack('/more');
+  const back = useBack('/admin/more');
   const { data, loading } = useResource('gateways', api.gateways, { intervalMs: 60000 });
   const labGateways = (data || []).filter((g) => !g.blockPrivateRanges);
 

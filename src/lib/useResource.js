@@ -81,7 +81,20 @@ export function useResource(key, fetcher, { intervalMs = 15000, enabled = true }
     };
   }, [key, load, intervalMs, enabled]);
 
-  return { data, error, loading, stale, updatedAt, refresh: () => load({ quiet: true }) };
+  // Endpoints that return `{ data, meta }` are unwrapped here so a view can
+  // read `data` the same way regardless.
+  const envelope = data && typeof data === 'object' && !Array.isArray(data)
+    && 'data' in data && 'meta' in data;
+
+  return {
+    data: envelope ? data.data : data,
+    meta: envelope ? data.meta : undefined,
+    error,
+    loading,
+    stale,
+    updatedAt,
+    refresh: () => load({ quiet: true }),
+  };
 }
 
 export function invalidate(prefix) {

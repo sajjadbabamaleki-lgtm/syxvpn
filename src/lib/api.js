@@ -40,7 +40,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, auth: needsAuth = true } = {}) {
+async function request(path, { method = 'GET', body, auth: needsAuth = true, withMeta = false } = {}) {
   let response;
   try {
     response = await fetch(BASE + path, {
@@ -71,6 +71,8 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true } = 
       payload?.error?.details,
     );
   }
+  // A few endpoints carry aggregate `meta` next to `data`; the hook keeps it.
+  if (withMeta) return { data: payload?.data, meta: payload?.meta };
   return payload?.data;
 }
 
@@ -118,6 +120,16 @@ export const api = {
   rotateToken: (id) => request(`/api/v1/subscribers/${id}/rotate-token`, { method: 'POST' }),
   rotateCredential: (id, graceMinutes) =>
     request(`/api/v1/subscribers/${id}/rotate-credential`, { method: 'POST', body: { graceMinutes } }),
+
+  plans: () => request('/api/v1/plans'),
+  createPlan: (body) => request('/api/v1/plans', { method: 'POST', body }),
+  updatePlan: (id, body) => request(`/api/v1/plans/${id}`, { method: 'PATCH', body }),
+  deletePlan: (id) => request(`/api/v1/plans/${id}`, { method: 'DELETE' }),
+  orders: (query = '') => request(`/api/v1/orders${query}`, { withMeta: true }),
+  settleOrder: (id, body) => request(`/api/v1/orders/${id}/settle`, { method: 'POST', body }),
+  customers: () => request('/api/v1/customers'),
+  paymentConfig: () => request('/api/v1/payments/config'),
+  scanPayments: () => request('/api/v1/payments/scan', { method: 'POST' }),
 
   events: (limit = 50) => request(`/api/v1/events?limit=${limit}`),
   healthChecks: (query = '') => request(`/api/v1/health-checks${query}`),
