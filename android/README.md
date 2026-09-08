@@ -48,7 +48,10 @@ Other clients put the config list on its own tab. Switching server is the thing
 people do most often, and a separate screen turns a one-tap action into
 navigation: leave the screen, find the row, come back to connect. Here the list
 sits under the card and scrolls on its own, so the switch, the active
-configuration and the choice of server are all visible at once. Selecting a
+configuration and the choice of server are all visible at once. It carries no
+header and no refresh button: a list of servers does not need a label saying
+so, and pulling it down refreshes it, which is the gesture people already reach
+for. Selecting a
 different config while connected re-establishes the tunnel on it rather than
 leaving traffic on the old one.
 

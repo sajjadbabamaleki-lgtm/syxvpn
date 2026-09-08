@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -386,6 +387,7 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
  * turns a one-tap action into navigation. Only the list scrolls; the switch and
  * the card stay put.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConnectScreen(
     app: JordanApplication,
@@ -501,7 +503,7 @@ private fun ConnectScreen(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            selected?.let { "${it.host}:${it.port}" } ?: "buy a plan or refresh",
+                            selected?.let { "${it.host}:${it.port}" } ?: "buy a plan to get one",
                             color = TextDim,
                             fontSize = 12.sp,
                         )
@@ -571,24 +573,19 @@ private fun ConnectScreen(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (profiles.isEmpty()) "YOUR CONFIGS" else "YOUR CONFIGS · ${profiles.size}",
-                color = TextFaint,
-                fontSize = 10.sp,
-                letterSpacing = 1.sp,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = { refresh() }, enabled = !busy, contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text(if (busy) "REFRESHING…" else "REFRESH", color = TextDim, fontSize = 11.sp, letterSpacing = 1.sp)
-            }
-        }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // Only this list scrolls: the switch and the card above it stay in place.
-        LazyColumn(
+        // Only this list scrolls: the switch and the card above it stay in
+        // place. There is no header and no refresh button — the list is
+        // self-evident, and pulling it down refreshes it, which is the gesture
+        // people already reach for.
+        PullToRefreshBox(
+            isRefreshing = busy,
+            onRefresh = { refresh() },
             modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 12.dp),
         ) {
@@ -631,6 +628,7 @@ private fun ConnectScreen(
                     }
                 }
             }
+        }
         }
     }
 }

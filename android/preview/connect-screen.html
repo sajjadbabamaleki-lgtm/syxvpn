@@ -147,17 +147,12 @@
     background: #2c1516; border-radius: 24px; color: #f2665f; font-size: 12px; line-height: 1.45;
   }
 
-  .list-head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: 16px; flex: none;
-    font-size: 10px; letter-spacing: 1px; color: #6c7684;
-  }
-  .list-head .refresh { font-size: 11px; color: #98a3b2; }
-
   /* Only this scrolls. */
+  /* No header and no refresh button: the list speaks for itself, and pulling
+     it down refreshes it in the app. */
   .configs {
     flex: 1; min-height: 0; overflow-y: auto;
-    margin-top: 6px; padding-bottom: 12px;
+    margin-top: 14px; padding-bottom: 12px;
     display: flex; flex-direction: column; gap: 8px;
     scrollbar-width: thin; scrollbar-color: #2a323d transparent;
   }
@@ -263,8 +258,6 @@
           <div><div class="label">Uplink</div><div class="value"><span class="arrow">↑</span>0 B</div></div>
         </div>
       </div>
-
-      <div class="list-head"><span>YOUR CONFIGS · 10</span><span class="refresh">REFRESH</span></div>
       <div class="configs">
         <div class="cfg sel"><div class="dot"></div><div class="who"><b>Frankfurt Edge · de-fra</b><span>gw1.example.net:443</span></div><div class="tag">tls</div></div>
         <div class="cfg"><div class="dot"></div><div class="who"><b>Amsterdam Edge · nl-ams</b><span>gw2.example.net:443</span></div><div class="tag">tls</div></div>
@@ -320,8 +313,6 @@
           <div><div class="label">Uplink</div><div class="value"><span class="arrow">↑</span>0 B</div></div>
         </div>
       </div>
-
-      <div class="list-head"><span>YOUR CONFIGS · 10</span><span class="refresh">REFRESH</span></div>
       <div class="configs">
         <div class="cfg sel"><div class="dot"></div><div class="who"><b>Frankfurt Edge · de-fra</b><span>gw1.example.net:443</span></div><div class="tag">tls</div></div>
         <div class="cfg"><div class="dot"></div><div class="who"><b>Amsterdam Edge · nl-ams</b><span>gw2.example.net:443</span></div><div class="tag">tls</div></div>
@@ -378,8 +369,6 @@
           <div><div class="label">Uplink</div><div class="value"><span class="arrow live">↑</span>2.1 MB</div></div>
         </div>
       </div>
-
-      <div class="list-head"><span>YOUR CONFIGS · 10</span><span class="refresh">REFRESH</span></div>
       <div class="configs" id="scrolled">
         <div class="cfg"><div class="dot"></div><div class="who"><b>Frankfurt Edge · de-fra</b><span>gw1.example.net:443</span></div><div class="tag">tls</div></div>
         <div class="cfg"><div class="dot"></div><div class="who"><b>Amsterdam Edge · nl-ams</b><span>gw2.example.net:443</span></div><div class="tag">tls</div></div>
