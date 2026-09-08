@@ -108,11 +108,19 @@ fun JordanRoot(
 }
 
 /**
- * The connect control: a sliding OFF/ON switch rather than a push button.
+ * The connect control: a two-segment switch, OFF and ON.
  *
- * A switch represents a state that is held, which is what a tunnel is, and it
- * is harder to trigger by accident than a large button in the middle of a
- * phone screen.
+ * Geometry follows one rule — the thumb is inset from the pill by the same
+ * amount on all four sides, and both are stadiums, so their curves stay
+ * concentric and the gap reads as even everywhere:
+ *
+ *     pill    200 x 60,  radius 30 (half its height)
+ *     inset     6 on every side
+ *     thumb    94 x 48,  radius 24 (half its height)
+ *
+ * Both labels stay visible, as on a segmented control; the thumb slides over
+ * the active one. A switch also represents a state that is held, which is what
+ * a tunnel is, and it is harder to trigger by accident than a large button.
  *
  * The thumb turns green only when the tunnel is actually up. While it is coming
  * up the thumb stays grey and a green light travels around it: the switch has
@@ -125,11 +133,11 @@ private fun ConnectSwitch(
     enabled: Boolean,
     onToggle: () -> Unit,
 ) {
-    val width = 184.dp
-    val height = 64.dp
-    val padding = 8.dp
-    val thumbWidth = 78.dp
-    val thumbHeight = 44.dp
+    val pillWidth = 200.dp
+    val pillHeight = 60.dp
+    val inset = 6.dp
+    val thumbWidth = (pillWidth - inset * 2) / 2
+    val thumbHeight = pillHeight - inset * 2
 
     val connected = state == JordanVpnService.State.CONNECTED
     val connecting = state == JordanVpnService.State.CONNECTING
@@ -140,11 +148,10 @@ private fun ConnectSwitch(
         animationSpec = tween(durationMillis = 300),
         label = "thumb",
     )
-    val travel = width - thumbWidth - padding * 2
 
     Box(
         modifier = Modifier
-            .size(width, height)
+            .size(pillWidth, pillHeight)
             .clip(RoundedCornerShape(percent = 50))
             .background(if (connected) Ok.copy(alpha = 0.10f) else SurfaceHigh)
             .border(
@@ -153,38 +160,17 @@ private fun ConnectSwitch(
                 RoundedCornerShape(percent = 50),
             )
             .clickable(enabled = enabled, onClick = onToggle),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        // The label on the side the thumb is not covering.
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                "OFF",
-                color = if (on) TextFaint else Color.Transparent,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                letterSpacing = 1.5.sp,
-            )
-            Text(
-                "ON",
-                color = if (on) Color.Transparent else TextFaint,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                letterSpacing = 1.5.sp,
-            )
-        }
-
         Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = padding + travel * thumbFraction),
+            modifier = Modifier.offset(x = inset + thumbWidth * thumbFraction),
             contentAlignment = Alignment.Center,
         ) {
+            // Sits inside the pill with 2dp to spare, so the light never
+            // touches the outer edge.
             OrbitLight(
-                width = thumbWidth + 10.dp,
-                height = thumbHeight + 10.dp,
+                width = thumbWidth + inset + 2.dp,
+                height = thumbHeight + inset + 2.dp,
                 spinning = connecting,
             )
             Box(
@@ -193,17 +179,31 @@ private fun ConnectSwitch(
                     .clip(RoundedCornerShape(percent = 50))
                     // Grey while connecting; green only once the tunnel is up.
                     .background(if (connected) Ok else Color(0xFF2A323D)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    if (on) "ON" else "OFF",
-                    color = if (connected) Color(0xFF06210E) else Color(0xFFD6DCE5),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    letterSpacing = 1.5.sp,
-                )
-            }
+            )
         }
+
+        // Both labels stay in place; the thumb slides under them.
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            SwitchLabel("OFF", active = !on, onGreen = false, modifier = Modifier.weight(1f))
+            SwitchLabel("ON", active = on, onGreen = connected, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            color = when {
+                active && onGreen -> Color(0xFF06210E)
+                active -> Color(0xFFE7ECF3)
+                else -> TextFaint
+            },
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            letterSpacing = 1.5.sp,
+        )
     }
 }
 
@@ -233,7 +233,7 @@ private fun OrbitLight(
     Canvas(Modifier.size(width, height)) {
         if (!spinning) return@Canvas
         val radius = size.height / 2
-        val stroke = Stroke(width = 3.dp.toPx())
+        val stroke = Stroke(width = 2.5f.dp.toPx())
 
         // Most of the sweep is transparent, so a single bright arc chases the
         // outline instead of the whole ring glowing.

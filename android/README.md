@@ -80,9 +80,16 @@ can be reviewed on a machine with no Android toolchain. **It is a mockup, not a
 screenshot**: it connects to nothing and measures nothing. Open it in any
 browser.
 
-It shows three states: OFF, connecting (the switch has moved but the thumb is
-still grey, with a green light travelling around it), and connected (the thumb
-itself turns green and the light is gone). The third frame is deliberately
+The page opens with the switch enlarged in all three states so its geometry can
+be judged on its own, then shows the whole screen: OFF, connecting (the switch
+has moved but the thumb is still grey, with a green light travelling around
+it), and connected (the thumb itself turns green and the light is gone).
+
+The switch is a two-segment control: both labels stay visible and the thumb
+slides over the active one. Its geometry follows a single rule — the thumb is
+inset from the pill by the same 6dp on all four sides, and both are stadiums,
+so the two curves are concentric and the gap reads as even everywhere
+(pill 200x60, thumb 94x48). The third frame is deliberately
 mid-scroll to make the layout rule visible — only the config list moves; the
 switch and the card above it stay where they are.
 
