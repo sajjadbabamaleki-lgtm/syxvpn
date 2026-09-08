@@ -1,6 +1,6 @@
 import { newId } from '../lib/crypto.js';
 import { EVENT, recordEvent } from './events.js';
-import { gatewayServerConfig, stableStringify } from './xray.js';
+import { gatewayServerConfig, stableStringify, probePort } from './xray.js';
 import { sha256 } from '../lib/crypto.js';
 
 export function listGateways(db) {
@@ -138,16 +138,29 @@ export function buildGatewayConfig(db, gatewayId, now = Date.now()) {
   };
 }
 
-/** Egress probe instructions the agent runs from the gateway itself. */
+/**
+ * Egress probe instructions for the agent.
+ *
+ * Each assigned egress has a dedicated loopback SOCKS inbound in the generated
+ * Xray config, pinned by a routing rule to that egress alone. The agent fetches
+ * `probeUrl` through that port, which exercises the real data-plane path rather
+ * than merely checking that a port is open.
+ */
 export function egressProbePlan(db, gatewayId) {
-  return assignedEgresses(db, gatewayId).map((e) => ({
+  const gateway = getGateway(db, gatewayId);
+  const assigned = assignedEgresses(db, gatewayId).filter((e) => e.enabled === 1);
+  // Must match the ordering used when the config was generated.
+  const active = assigned.find((e) => e.id === gateway?.active_egress_id) || null;
+  const ordered = active ? [active, ...assigned.filter((e) => e.id !== active.id)] : assigned;
+  return ordered.map((e, index) => ({
     egressId: e.id,
+    name: e.name,
     kind: e.kind,
-    // For an outbound proxy the agent first checks the proxy is dialable.
+    // Direct dial check for outbound-proxy style egresses.
     host: e.kind === 'direct' ? null : e.host,
     port: e.kind === 'direct' ? null : e.port,
     bindAddress: e.bind_address || null,
-    // End-to-end check target: does traffic actually leave via this path?
+    probePort: probePort(index),
     probeUrl: e.probe_url || null,
   }));
 }

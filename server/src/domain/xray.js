@@ -14,6 +14,11 @@
  */
 
 export const API_PORT = 10085;
+// Loopback SOCKS inbounds, one per assigned egress, used by the gateway agent
+// to measure each egress path end to end *through the real data plane*.
+export const PROBE_PORT_BASE = 10800;
+
+export const probePort = (index) => PROBE_PORT_BASE + index;
 
 // Routed to the blackhole so a gateway cannot be used to reach its own LAN,
 // the control plane, or link-local metadata services.
@@ -107,6 +112,7 @@ export function egressOutbound(egress) {
 }
 
 export const egressTag = (id) => `egress-${id}`;
+export const probeTag = (id) => `probe-${id}`;
 
 /**
  * Full Xray server configuration for a gateway.
@@ -152,10 +158,28 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
   const active = assigned.find((e) => e.id === activeEgressId) || null;
   const ordered = active ? [active, ...assigned.filter((e) => e.id !== active.id)] : assigned;
 
-  const outbounds = ordered.map(egressOutbound);
-  outbounds.push({ tag: 'block', protocol: 'blackhole', settings: { response: { type: 'none' } } });
+  const blackhole = { tag: 'block', protocol: 'blackhole', settings: { response: { type: 'none' } } };
+  // Xray treats the first outbound as the default. With no usable egress the
+  // blackhole goes first so subscriber traffic fails closed instead of leaking
+  // out of the gateway's own default route.
+  const outbounds = active
+    ? [...ordered.map(egressOutbound), blackhole]
+    : [blackhole, ...ordered.map(egressOutbound)];
+
+  // Probe inbounds: one loopback SOCKS listener per egress, pinned by a routing
+  // rule to that egress only. The agent measures each path through them.
+  const probeInbounds = ordered.map((e, index) => ({
+    tag: probeTag(e.id),
+    listen: '127.0.0.1',
+    port: probePort(index),
+    protocol: 'socks',
+    settings: { auth: 'noauth', udp: false },
+  }));
 
   const rules = [{ type: 'field', inboundTag: ['api-in'], outboundTag: 'api' }];
+  for (const e of ordered) {
+    rules.push({ type: 'field', inboundTag: [probeTag(e.id)], outboundTag: egressTag(e.id) });
+  }
   // Disabled only for lab gateways whose test targets live on private ranges.
   if (gateway.block_private_ranges !== 0) {
     rules.push({ type: 'field', ip: PRIVATE_RANGES, outboundTag: 'block' });
@@ -163,6 +187,10 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
   rules.push({ type: 'field', protocol: ['bittorrent'], outboundTag: 'block' });
   if (active) {
     rules.push({ type: 'field', network: 'tcp,udp', outboundTag: egressTag(active.id) });
+  } else {
+    // Probe inbounds are matched earlier, so the agent can still measure every
+    // path and the gateway can recover automatically once one comes back.
+    rules.push({ type: 'field', inboundTag: ['client-in'], outboundTag: 'block' });
   }
 
   return {
@@ -176,6 +204,7 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
     },
     inbounds: [
       inbound,
+      ...probeInbounds,
       {
         tag: 'api-in',
         listen: '127.0.0.1',
@@ -184,11 +213,7 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
         settings: { address: '127.0.0.1' },
       },
     ],
-    outbounds: outbounds.length > 1 ? outbounds : [
-      // No usable egress assigned: fail closed rather than silently sending
-      // subscriber traffic out of the gateway's own default route.
-      { tag: 'block', protocol: 'blackhole', settings: { response: { type: 'none' } } },
-    ],
+    outbounds,
     routing: { domainStrategy: 'AsIs', rules },
   };
 }
