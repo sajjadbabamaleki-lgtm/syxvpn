@@ -25,6 +25,22 @@ touched. If the process does not come back after a reload, the last-known-good
 file is restored and re-applied, and the failure is reported to the control
 plane, which surfaces it as a `config.rejected` event.
 
+## Applying subscriber changes without a restart
+
+A gateway's configuration is split into its structure (inbound, outbounds,
+routing) and its client list. When the control plane sends a version whose
+structure hash is unchanged, the agent works out which credentials were added or
+removed and applies them through Xray's API (`xray api adu` / `rmu`), then
+rewrites the config file so a later restart starts from the truth. Nothing is
+restarted and no connection is dropped.
+
+If any of that fails, the agent falls back to a full deployment rather than
+leaving the running process out of step with what the control plane believes.
+The deployment report says which path was taken (`mode: hot` or `restart`).
+
+This is what makes issuing a hundred subscriptions a day practical: it is one
+API call to Xray, not a hundred restarts.
+
 ## Egress probing
 
 The control plane generates one loopback SOCKS inbound per assigned egress,

@@ -12,10 +12,52 @@ const xray = new XrayManager(cfg);
 const state = {
   configVersion: null,
   configHash: null,
+  structureHash: null,
+  // credential id -> uuid, as currently loaded in the running Xray.
+  clients: new Map(),
   probes: [],
   xrayVersion: null,
   lastError: null,
 };
+
+const clientMap = (config) => new Map(
+  (config.inbounds.find((i) => i.tag === 'client-in')?.settings?.clients || [])
+    .map((c) => [c.email, c.id]),
+);
+
+/**
+ * Applies a client-list change through the Xray API instead of restarting.
+ *
+ * Returns null when the change cannot be applied live, in which case the caller
+ * falls back to a full deployment.
+ */
+async function applyUsersLive(bundle) {
+  const inbound = bundle.config.inbounds.find((i) => i.tag === (bundle.inboundTag || 'client-in'));
+  if (!inbound) return null;
+
+  const next = clientMap(bundle.config);
+  const current = state.clients;
+  const toAdd = [];
+  const toRemove = [];
+  for (const [email, id] of next) {
+    // A changed uuid for the same credential is a remove plus an add.
+    if (current.get(email) !== id) {
+      if (current.has(email)) toRemove.push(email);
+      toAdd.push({ email, id });
+    }
+  }
+  for (const email of current.keys()) if (!next.has(email)) toRemove.push(email);
+  if (!toAdd.length && !toRemove.length) return { added: 0, removed: 0 };
+
+  const removed = await xray.removeUsers(inbound.tag, toRemove);
+  if (!removed.ok) return null;
+  const added = await xray.addUsers(inbound.tag, inbound.port, toAdd);
+  if (!added.ok) return null;
+
+  // Keep the on-disk config in step so a later restart starts from the truth.
+  await xray.persist(bundle.config);
+  return { added: added.added, removed: removed.removed };
+}
 
 /** Fetches and deploys configuration when the control plane reports a newer version. */
 async function syncConfig(force = false) {
@@ -23,6 +65,32 @@ async function syncConfig(force = false) {
   state.probes = bundle.probes || [];
   if (!force && bundle.version === state.configVersion && bundle.hash === state.configHash) {
     return { skipped: true, version: bundle.version };
+  }
+
+  // Only the subscriber list changed: apply it live rather than restarting and
+  // dropping every connection currently on this gateway.
+  const structureUnchanged = state.structureHash
+    && bundle.structureHash === state.structureHash
+    && xray.isSupervising();
+
+  if (structureUnchanged && !force) {
+    const live = await applyUsersLive(bundle);
+    if (live) {
+      state.configVersion = bundle.version;
+      state.configHash = bundle.hash;
+      state.clients = clientMap(bundle.config);
+      state.lastError = null;
+      log.info('users applied live', { version: bundle.version, ...live });
+      await client.reportConfigStatus({
+        version: bundle.version,
+        applied: true,
+        mode: 'hot',
+        agentVersion: cfg.version,
+        xrayVersion: state.xrayVersion || undefined,
+      });
+      return { applied: true, mode: 'hot', ...live };
+    }
+    log.warn('live user update failed, falling back to a full deploy', { version: bundle.version });
   }
 
   log.info('applying configuration', {
@@ -38,6 +106,7 @@ async function syncConfig(force = false) {
   await client.reportConfigStatus({
     version: bundle.version,
     applied: Boolean(result.applied),
+    mode: 'restart',
     error: result.applied ? null : String(result.error).slice(0, 500),
     agentVersion: cfg.version,
     xrayVersion: state.xrayVersion || undefined,
@@ -46,6 +115,8 @@ async function syncConfig(force = false) {
   if (result.applied) {
     state.configVersion = bundle.version;
     state.configHash = bundle.hash;
+    state.structureHash = bundle.structureHash;
+    state.clients = clientMap(bundle.config);
     state.lastError = null;
     log.info('configuration applied', { version: bundle.version });
   } else {

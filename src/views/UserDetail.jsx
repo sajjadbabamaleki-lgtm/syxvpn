@@ -90,12 +90,33 @@ export function UserDetail({ id }) {
         </Button>
       </div>
 
-      <Section title="Subscription" hint="The URL is stored as a hash and can never be displayed again.">
+      <Section title="Subscription" hint="Reading the link is recorded in the event log.">
         <Card>
           <Row label="Token prefix" value={`${data.tokenPrefix}…`} mono />
           <Row label="Credentials" value={data.credentials.map((c) => `${c.state} ${c.uuidHint}`).join(' · ') || 'none'} mono />
         </Card>
         <div className="action-row">
+          <Button
+            variant="ghost"
+            icon="copy"
+            loading={busy === 'reveal'}
+            onClick={async () => {
+              setBusy('reveal');
+              try {
+                const revealed = await api.revealSubscription(id);
+                setSecret({
+                  title: 'Subscription link',
+                  value: revealed.subscriptionUrl,
+                  extra: revealed.profiles.map((p) => p.uri).join('\n'),
+                  note: 'Send this to the subscriber. Rotate it if it leaks.',
+                });
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            Show link
+          </Button>
           <Button
             variant="ghost"
             icon="key"
@@ -165,9 +186,11 @@ export function UserDetail({ id }) {
           <p className="warn-note">{secret?.note}</p>
           {secret?.value && <code className="token-box">{secret.value}</code>}
           <div className="action-row">
-            {secret?.value && <CopyButton value={secret.value} label="Copy" />}
+            {secret?.value && <CopyButton value={secret.value} label="Copy link" />}
+            {secret?.extra && <CopyButton value={secret.extra} label="Copy config" />}
             <Button variant="ghost" onClick={() => setSecret(null)}>Done</Button>
           </div>
+          {secret?.extra && <code className="token-box">{secret.extra}</code>}
         </div>
       </Sheet>
     </>

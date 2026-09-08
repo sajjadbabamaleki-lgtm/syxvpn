@@ -8,6 +8,7 @@ import {
 import { Icon } from '../components/Icon.jsx';
 import { bytes, relativeTime, tone } from '../lib/format.js';
 import { NewSubscriberSheet } from './NewSubscriberSheet.jsx';
+import { BulkIssueSheet } from './BulkIssue.jsx';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -62,6 +63,7 @@ export function Users() {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
+  const [bulk, setBulk] = useState(false);
 
   const { data, error, loading, stale, updatedAt, refresh } = useResource(
     'subscribers', () => api.subscribers(), { intervalMs: 30000 },
@@ -98,6 +100,10 @@ export function Users() {
         <Button icon="plus" onClick={() => setCreating(true)}>New</Button>
       </div>
 
+      <div className="toolbar">
+        <Button variant="ghost" icon="users" onClick={() => setBulk(true)}>Issue in bulk</Button>
+      </div>
+
       <div className="filter-row" role="tablist">
         {FILTERS.map((f) => (
           <button
@@ -129,6 +135,7 @@ export function Users() {
       {visible.map((subscriber) => <UserCard key={subscriber.id} subscriber={subscriber} />)}
 
       <NewSubscriberSheet open={creating} onClose={() => setCreating(false)} onCreated={refresh} />
+      <BulkIssueSheet open={bulk} onClose={() => setBulk(false)} onIssued={refresh} />
     </>
   );
 }

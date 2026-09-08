@@ -607,3 +607,5 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 
 /* An email is not a label; it should read as typed. */
 .state-label-plain { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.break { word-break: break-all; }
+.pad { padding: 0 var(--pad) var(--pad); }

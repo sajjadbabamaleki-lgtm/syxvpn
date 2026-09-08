@@ -219,6 +219,24 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
 }
 
 /**
+ * The part of a configuration that cannot change without restarting Xray.
+ *
+ * Adding or removing a subscriber only changes the client list, and Xray can
+ * apply that live through its API. Splitting the two lets an agent tell the
+ * difference: issuing a batch of subscriptions should not drop every existing
+ * connection on the gateway.
+ */
+export function structuralConfig(config) {
+  const inbounds = config.inbounds.map((inbound) => {
+    if (inbound.tag !== 'client-in') return inbound;
+    const { settings, ...rest } = inbound;
+    const { clients, ...restSettings } = settings || {};
+    return { ...rest, settings: { ...restSettings, clients: [] } };
+  });
+  return { ...config, inbounds };
+}
+
+/**
  * Deterministic content hash of a generated config, used by the agent to decide
  * whether a redeploy is actually needed.
  */

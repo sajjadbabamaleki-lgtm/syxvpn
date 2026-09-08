@@ -390,4 +390,13 @@ export const migrations = [
       db.exec('CREATE INDEX idx_subscribers_customer ON subscribers(customer_id)');
     },
   },
+  {
+    id: '003_subscriber_batches',
+    up(db) {
+      // Configs are often issued in batches (a day's worth to hand out), and an
+      // operator needs to find, export and revoke a batch as a unit.
+      db.exec('ALTER TABLE subscribers ADD COLUMN batch_id TEXT');
+      db.exec('CREATE INDEX idx_subscribers_batch ON subscribers(batch_id, created_at)');
+    },
+  },
 ];

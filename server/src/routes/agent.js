@@ -8,7 +8,7 @@ import { decryptSecrets } from '../domain/egresses.js';
 import { applyAgentEgressHealth } from '../domain/health.js';
 import { ingestUsageReport } from '../domain/usage.js';
 import { EVENT, recordEvent } from '../domain/events.js';
-import { gatewayServerConfig, stableStringify } from '../domain/xray.js';
+import { gatewayServerConfig, stableStringify, structuralConfig } from '../domain/xray.js';
 import { entitledCredentials } from '../domain/gateways.js';
 import { sha256 } from '../lib/crypto.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
@@ -26,6 +26,8 @@ const heartbeatSchema = z.object({
 const configStatusSchema = z.object({
   version: z.coerce.number().int().min(0),
   applied: z.boolean(),
+  // 'hot' means users were changed through the Xray API without a restart.
+  mode: z.enum(['restart', 'hot', 'unchanged']).optional(),
   error: z.string().trim().max(500).nullish(),
   agentVersion: z.string().trim().max(32).optional(),
   xrayVersion: z.string().trim().max(64).optional(),
@@ -104,6 +106,9 @@ export function agentRoutes({ db }) {
       gatewayId: gateway.id,
       version: gateway.config_version,
       hash: sha256(stableStringify(xray)).slice(0, 16),
+      // Lets the agent apply a pure client-list change without a restart.
+      structureHash: sha256(stableStringify(structuralConfig(xray))).slice(0, 16),
+      inboundTag: 'client-in',
       activeEgressId: gateway.active_egress_id,
       clientCount: clients.length,
       probes: egressProbePlan(db, gateway.id),
@@ -120,6 +125,7 @@ export function agentRoutes({ db }) {
       error: req.body.error,
       agentVersion: req.body.agentVersion,
       xrayVersion: req.body.xrayVersion,
+      mode: req.body.mode,
     });
     return ok(res, { acknowledged: true });
   });

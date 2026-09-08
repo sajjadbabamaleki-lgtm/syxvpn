@@ -97,5 +97,6 @@ remaining reachable.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — threat model and what is and is not defended
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — running it for real, TLS, gateways
 - [`docs/PAYMENTS.md`](docs/PAYMENTS.md) — how a USDT order becomes a subscription
+- [`docs/ISSUING-CONFIGS.md`](docs/ISSUING-CONFIGS.md) — issuing configs by hand, in bulk, and what a quota really enforces
 - [`agent/README.md`](agent/README.md) — the gateway agent
 - [`android/README.md`](android/README.md) — the native client and what it still needs

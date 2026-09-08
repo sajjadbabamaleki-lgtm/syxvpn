@@ -1,6 +1,6 @@
 import { newId } from '../lib/crypto.js';
 import { EVENT, recordEvent } from './events.js';
-import { gatewayServerConfig, stableStringify, probePort } from './xray.js';
+import { gatewayServerConfig, stableStringify, structuralConfig, probePort } from './xray.js';
 import { sha256 } from '../lib/crypto.js';
 
 export function listGateways(db) {
@@ -131,6 +131,8 @@ export function buildGatewayConfig(db, gatewayId, now = Date.now()) {
     gatewayId,
     version: gateway.config_version,
     hash: sha256(stableStringify(config)).slice(0, 16),
+    // When only this differs, the agent can apply the change live.
+    structureHash: sha256(stableStringify(structuralConfig(config))).slice(0, 16),
     activeEgressId: gateway.active_egress_id,
     clientCount: clients.length,
     egressCount: egresses.length,
@@ -165,7 +167,7 @@ export function egressProbePlan(db, gatewayId) {
   }));
 }
 
-export function recordDeployment(db, gatewayId, { version, ok, error, agentVersion, xrayVersion }) {
+export function recordDeployment(db, gatewayId, { version, ok, error, agentVersion, xrayVersion, mode }) {
   const now = Date.now();
   const gateway = getGateway(db, gatewayId);
   if (ok) {
@@ -174,8 +176,8 @@ export function recordDeployment(db, gatewayId, { version, ok, error, agentVersi
         WHERE id = ?`).run(version, now, agentVersion ?? null, xrayVersion ?? null, now, gatewayId);
     recordEvent(db, {
       type: EVENT.CONFIG_DEPLOYED, targetType: 'gateway', targetId: gatewayId,
-      message: `${gateway.name}: config v${version} deployed`,
-      data: { version },
+      message: `${gateway.name}: config v${version} deployed${mode === 'hot' ? ' (users applied live, no restart)' : ''}`,
+      data: { version, mode: mode || 'restart' },
     });
   } else {
     db.prepare('UPDATE gateways SET deploy_error = ?, updated_at = ? WHERE id = ?')

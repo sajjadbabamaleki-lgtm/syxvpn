@@ -118,6 +118,10 @@ export const api = {
   updateSubscriber: (id, body) => request(`/api/v1/subscribers/${id}`, { method: 'PATCH', body }),
   deleteSubscriber: (id) => request(`/api/v1/subscribers/${id}`, { method: 'DELETE' }),
   rotateToken: (id) => request(`/api/v1/subscribers/${id}/rotate-token`, { method: 'POST' }),
+  createBatch: (body) => request('/api/v1/subscribers/batch', { method: 'POST', body }),
+  batches: () => request('/api/v1/subscribers/batches'),
+  batch: (batchId) => request(`/api/v1/subscribers/batches/${batchId}`),
+  revealSubscription: (id) => request(`/api/v1/subscribers/${id}/subscription`),
   rotateCredential: (id, graceMinutes) =>
     request(`/api/v1/subscribers/${id}/rotate-credential`, { method: 'POST', body: { graceMinutes } }),
 

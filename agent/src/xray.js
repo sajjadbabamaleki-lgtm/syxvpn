@@ -38,6 +38,11 @@ export class XrayManager {
     return problems;
   }
 
+  /** True when this agent owns the running process (so live updates are safe). */
+  isSupervising() {
+    return this.cfg.reloadMode === 'supervise' ? this.child !== null : true;
+  }
+
   async version() {
     return new Promise((resolve) => {
       execFile(this.cfg.xrayBin, ['version'], { timeout: 5000 }, (err, stdout) => {
@@ -172,6 +177,74 @@ export class XrayManager {
     }
 
     return { applied: true };
+  }
+
+  /**
+   * Adds users to a running Xray through its API, with no restart.
+   *
+   * `xray api adu` reads a config-shaped file and applies the users in it to
+   * the named inbound. Issuing a batch of subscriptions therefore costs nothing
+   * to the connections already running on the gateway.
+   */
+  async addUsers(inboundTag, port, clients) {
+    if (!clients.length) return { ok: true, added: 0 };
+    const file = path.join(this.cfg.stateDir, 'users.add.json');
+    await fsp.writeFile(file, `${JSON.stringify({
+      inbounds: [{
+        tag: inboundTag,
+        port,
+        protocol: 'vless',
+        settings: {
+          decryption: 'none',
+          clients: clients.map((c) => ({ id: c.id, email: c.email, level: 0 })),
+        },
+      }],
+    }, null, 2)}\n`, { mode: 0o600 });
+
+    return new Promise((resolve) => {
+      execFile(
+        this.cfg.xrayBin,
+        ['api', 'adu', `--server=127.0.0.1:${this.cfg.apiPort}`, file],
+        { timeout: 15000 },
+        (err, stdout, stderr) => {
+          fsp.rm(file, { force: true }).catch(() => {});
+          const output = `${stdout || ''}${stderr || ''}`;
+          const match = /Added (\d+) user/.exec(output);
+          const added = match ? Number(match[1]) : 0;
+          if (err || added !== clients.length) {
+            return resolve({ ok: false, added, error: output.trim().slice(0, 300) });
+          }
+          return resolve({ ok: true, added });
+        },
+      );
+    });
+  }
+
+  /** Removes users from a running Xray by email (the credential id). */
+  removeUsers(inboundTag, emails) {
+    if (!emails.length) return Promise.resolve({ ok: true, removed: 0 });
+    return new Promise((resolve) => {
+      execFile(
+        this.cfg.xrayBin,
+        ['api', 'rmu', `--server=127.0.0.1:${this.cfg.apiPort}`, `-tag=${inboundTag}`, ...emails],
+        { timeout: 15000 },
+        (err, stdout, stderr) => {
+          const output = `${stdout || ''}${stderr || ''}`;
+          const match = /Removed (\d+) user/.exec(output);
+          const removed = match ? Number(match[1]) : 0;
+          // A user that is already gone is not an error worth failing a deploy for.
+          if (err && removed === 0) {
+            return resolve({ ok: false, removed, error: output.trim().slice(0, 300) });
+          }
+          return resolve({ ok: true, removed });
+        },
+      );
+    });
+  }
+
+  /** Writes a configuration to disk without touching the running process. */
+  async persist(config) {
+    await fsp.writeFile(this.cfg.configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   }
 
   /**

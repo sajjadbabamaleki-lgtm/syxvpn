@@ -17,27 +17,82 @@ export function entitlement(subscriber, now = Date.now()) {
   return { entitled: true, reason: 'active' };
 }
 
-export function createSubscriber(db, { name, quotaBytes, expiresAt, note = null, customerId = null }) {
+export function createSubscriber(db, {
+  name, quotaBytes, expiresAt, note = null, customerId = null, batchId = null, silent = false,
+}) {
   const now = Date.now();
   const id = newId('sub');
   const token = randomToken(32);
   const credentialId = newId('cr');
   const insert = db.transaction(() => {
     db.prepare(`INSERT INTO subscribers
-        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at,customer_id)
-        VALUES (?,?,?,?,?,?,0,?, 'active', ?,?,?,?)`)
-      .run(id, name, sha256(token), token.slice(0, 6), seal(token), quotaBytes, expiresAt, note, now, now, customerId);
+        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at,customer_id,batch_id)
+        VALUES (?,?,?,?,?,?,0,?, 'active', ?,?,?,?,?)`)
+      .run(id, name, sha256(token), token.slice(0, 6), seal(token), quotaBytes, expiresAt, note,
+        now, now, customerId, batchId);
     db.prepare('INSERT INTO credentials (id,subscriber_id,uuid,state,created_at) VALUES (?,?,?,\'active\',?)')
       .run(credentialId, id, crypto.randomUUID(), now);
-    recordEvent(db, {
-      type: EVENT.SUBSCRIBER_CREATED, targetType: 'subscriber', targetId: id,
-      message: `Subscriber ${name} created`,
-      data: { quotaBytes, expiresAt: new Date(expiresAt).toISOString() },
-    });
-    bumpAllConfigVersions(db, 'subscriber-created');
+    // A bulk run records one event for the batch rather than a hundred.
+    if (!silent) {
+      recordEvent(db, {
+        type: EVENT.SUBSCRIBER_CREATED, targetType: 'subscriber', targetId: id,
+        message: `Subscriber ${name} created`,
+        data: { quotaBytes, expiresAt: new Date(expiresAt).toISOString() },
+      });
+      bumpAllConfigVersions(db, 'subscriber-created');
+    }
   });
   insert();
   return { id, token };
+}
+
+/**
+ * Issues many subscriptions in one pass.
+ *
+ * The whole run is a single transaction and a single config-version bump, so
+ * handing out a day's worth of configs costs the data plane one update instead
+ * of one per subscriber.
+ */
+export function createSubscriberBatch(db, { count, namePrefix, quotaBytes, durationDays, note = null }) {
+  const now = Date.now();
+  const batchId = `batch_${new Date(now).toISOString().slice(0, 10)}_${randomToken(4)}`;
+  const expiresAt = now + durationDays * 86400000;
+  const created = [];
+
+  const run = db.transaction(() => {
+    for (let index = 1; index <= count; index += 1) {
+      const name = `${namePrefix}-${String(index).padStart(3, '0')}`;
+      const { id, token } = createSubscriber(db, {
+        name, quotaBytes, expiresAt, note, batchId, silent: true,
+      });
+      created.push({ id, name, token });
+    }
+    recordEvent(db, {
+      type: EVENT.SUBSCRIBER_CREATED, targetType: 'batch', targetId: batchId,
+      message: `${count} subscriptions issued in batch ${batchId}`,
+      data: { count, quotaBytes, durationDays },
+    });
+    bumpAllConfigVersions(db, 'subscriber-batch');
+  });
+  run();
+
+  return { batchId, expiresAt, created };
+}
+
+export function listBatches(db) {
+  return db.prepare(`SELECT batch_id AS batchId,
+        count(*) AS total,
+        SUM(CASE WHEN status = 'active' AND expires_at > ? AND (quota_bytes <= 0 OR used_bytes < quota_bytes)
+                 THEN 1 ELSE 0 END) AS active,
+        MIN(created_at) AS createdAt,
+        MAX(quota_bytes) AS quotaBytes,
+        MAX(expires_at) AS expiresAt
+      FROM subscribers WHERE batch_id IS NOT NULL
+      GROUP BY batch_id ORDER BY createdAt DESC LIMIT 100`).all(Date.now());
+}
+
+export function subscribersInBatch(db, batchId) {
+  return db.prepare('SELECT * FROM subscribers WHERE batch_id = ? ORDER BY name').all(batchId);
 }
 
 export function getSubscriber(db, id) {

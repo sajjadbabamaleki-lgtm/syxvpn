@@ -8,3 +8,4 @@ dist/
 lab/state/
 *.log
 lab/bin/
+.jordan-secret-key
