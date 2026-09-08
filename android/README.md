@@ -51,7 +51,11 @@ sits under the card and scrolls on its own, so the switch, the active
 configuration and the choice of server are all visible at once. It carries no
 header and no refresh button: a list of servers does not need a label saying
 so, and pulling it down refreshes it, which is the gesture people already reach
-for. Selecting a
+for.
+
+Rows have a fixed height (62) and the list is capped at four of them plus their
+gaps (4 x 62 + 3 x 8 = 272), so it always ends on a whole row. A half-visible
+fifth row reads as a rendering accident rather than as "there is more below". Selecting a
 different config while connected re-establishes the tunnel on it rather than
 leaving traffic on the old one.
 

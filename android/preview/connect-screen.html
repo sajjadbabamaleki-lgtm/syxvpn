@@ -152,15 +152,18 @@
   /* Only this scrolls. */
   /* No header and no refresh button: the list speaks for itself, and pulling
      it down refreshes it in the app. */
+  /* Exactly four whole rows: 4 x 62 + 3 x 8. A half-visible fifth row reads as
+     a rendering accident rather than as "there is more below". */
   .configs {
-    flex: 1; min-height: 0; overflow-y: auto;
-    margin-top: 14px; padding-bottom: 12px;
+    flex: none; max-height: 272px; overflow-y: auto;
+    margin-top: 14px;
     display: flex; flex-direction: column; gap: 8px;
-    scrollbar-width: thin; scrollbar-color: #2a323d transparent;
+    scrollbar-width: none;
   }
+  .configs::-webkit-scrollbar { display: none; }
   .cfg {
     display: flex; align-items: center; gap: 12px; flex: none;
-    padding: 13px 16px; border-radius: 24px;
+    height: 62px; padding: 0 16px; border-radius: 24px;
     background: #12161c; border: 1px solid #232a34;
   }
   .cfg.sel { background: #171c23; border-color: rgba(95,217,122,0.45); }
@@ -379,7 +382,8 @@
 <script>
   // Shows the third frame mid-scroll, to make it obvious that only the config
   // list moves and the switch and card stay put.
-  document.getElementById('scrolled').scrollTop = 96;
+  // One whole row pitch (62 + 8), so the visible rows stay aligned.
+  document.getElementById('scrolled').scrollTop = 70;
 </script>
 </body>
 </html>

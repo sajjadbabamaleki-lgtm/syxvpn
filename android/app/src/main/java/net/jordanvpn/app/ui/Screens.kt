@@ -281,6 +281,14 @@ private fun OrbitLight(
     }
 }
 
+// A fixed row height, so the list can be capped at a whole number of rows
+// instead of ending on a half-visible one.
+private val ConfigRowHeight = 62.dp
+private val ConfigRowGap = 8.dp
+private const val VISIBLE_CONFIG_ROWS = 4
+private val ConfigListHeight =
+    ConfigRowHeight * VISIBLE_CONFIG_ROWS + ConfigRowGap * (VISIBLE_CONFIG_ROWS - 1)
+
 /** One row in the config list that scrolls under the card. */
 @Composable
 private fun ConfigRow(
@@ -292,11 +300,12 @@ private fun ConfigRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(ConfigRowHeight)
             .clip(RoundedCornerShape(24.dp))
             .background(if (selected) SurfaceHigh else Surface)
             .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
             .clickable(onClick = onSelect)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -583,15 +592,17 @@ private fun ConnectScreen(
         // place. There is no header and no refresh button — the list is
         // self-evident, and pulling it down refreshes it, which is the gesture
         // people already reach for.
-        PullToRefreshBox(
-            isRefreshing = busy,
-            onRefresh = { refresh() },
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-        ) {
+        // The list is capped at four whole rows: a partly visible fifth row
+        // reads as a rendering accident rather than as "there is more below".
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PullToRefreshBox(
+                isRefreshing = busy,
+                onRefresh = { refresh() },
+                modifier = Modifier.fillMaxWidth().heightIn(max = ConfigListHeight),
+            ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
         ) {
             if (profiles.isEmpty()) {
                 item {
@@ -633,6 +644,7 @@ private fun ConnectScreen(
                 }
             }
         }
+            }
         }
     }
 }
