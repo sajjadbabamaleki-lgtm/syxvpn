@@ -284,7 +284,7 @@ private fun OrbitLight(
 // A fixed row height, so the list can be capped at a whole number of rows
 // instead of ending on a half-visible one.
 private val ConfigRowHeight = 62.dp
-private val ConfigRowGap = 8.dp
+private val ConfigRowGap = 13.dp
 private const val VISIBLE_CONFIG_ROWS = 4
 private val ConfigListHeight =
     ConfigRowHeight * VISIBLE_CONFIG_ROWS + ConfigRowGap * (VISIBLE_CONFIG_ROWS - 1)

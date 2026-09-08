@@ -54,7 +54,7 @@ so, and pulling it down refreshes it, which is the gesture people already reach
 for.
 
 Rows have a fixed height (62) and the list is capped at four of them plus their
-gaps (4 x 62 + 3 x 8 = 272), so it always ends on a whole row. A half-visible
+gaps (4 x 62 + 3 x 13 = 287), so it always ends on a whole row. A half-visible
 fifth row reads as a rendering accident rather than as "there is more below". Selecting a
 different config while connected re-establishes the tunnel on it rather than
 leaving traffic on the old one.
