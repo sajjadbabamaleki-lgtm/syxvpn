@@ -1,0 +1,14 @@
+services:
+  api:
+    build: ../server
+    restart: unless-stopped
+    environment:
+      PORT: 8787
+      DB_PATH: /data/jordan.db
+      AGENT_KEY: ${AGENT_KEY:?set AGENT_KEY}
+    volumes:
+      - jordan-data:/data
+    ports:
+      - "8787:8787"
+volumes:
+  jordan-data:
