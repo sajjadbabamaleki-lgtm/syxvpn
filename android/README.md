@@ -86,10 +86,18 @@ has moved but the thumb is still grey, with a green light travelling around
 it), and connected (the thumb itself turns green and the light is gone).
 
 The switch is a two-segment control: both labels stay visible and the thumb
-slides over the active one. Its geometry follows a single rule — the thumb is
-inset from the pill by the same 6dp on all four sides, and both are stadiums,
-so the two curves are concentric and the gap reads as even everywhere
-(pill 200x60, thumb 94x48). The third frame is deliberately
+slides over the active one. Its geometry follows a single rule — the inset
+equals the difference between the two corner radii, which is what makes the
+curves concentric rather than merely close:
+
+    pill   208 x 72   radius 36
+    inset             12 on every side   (= 36 - 24)
+    thumb   92 x 48   radius 24
+
+In the HTML mockup the pill's outline is an inset box-shadow rather than a
+border: a border shrinks the padding box, which shifts every absolutely
+positioned child and made the top gap a pixel larger than the bottom one. The
+mockup's measured gaps are 12 on all four sides. The third frame is deliberately
 mid-scroll to make the layout rule visible — only the config list moves; the
 switch and the card above it stay where they are.
 

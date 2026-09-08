@@ -114,9 +114,12 @@ fun JordanRoot(
  * amount on all four sides, and both are stadiums, so their curves stay
  * concentric and the gap reads as even everywhere:
  *
- *     pill    200 x 60,  radius 30 (half its height)
- *     inset     6 on every side
- *     thumb    94 x 48,  radius 24 (half its height)
+ *     pill    208 x 72,  radius 36 (half its height)
+ *     inset    12 on every side
+ *     thumb    92 x 48,  radius 24 (half its height)
+ *
+ * The inset equals the difference between the two radii (36 - 24), which is
+ * what makes the curves concentric rather than merely close.
  *
  * Both labels stay visible, as on a segmented control; the thumb slides over
  * the active one. A switch also represents a state that is held, which is what
@@ -133,9 +136,9 @@ private fun ConnectSwitch(
     enabled: Boolean,
     onToggle: () -> Unit,
 ) {
-    val pillWidth = 200.dp
-    val pillHeight = 60.dp
-    val inset = 6.dp
+    val pillWidth = 208.dp
+    val pillHeight = 72.dp
+    val inset = 12.dp
     val thumbWidth = (pillWidth - inset * 2) / 2
     val thumbHeight = pillHeight - inset * 2
 
@@ -169,8 +172,8 @@ private fun ConnectSwitch(
             // Sits inside the pill with 2dp to spare, so the light never
             // touches the outer edge.
             OrbitLight(
-                width = thumbWidth + inset + 2.dp,
-                height = thumbHeight + inset + 2.dp,
+                width = thumbWidth + 8.dp,
+                height = thumbHeight + 8.dp,
                 spinning = connecting,
             )
             Box(

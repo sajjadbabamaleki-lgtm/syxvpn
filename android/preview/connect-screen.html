@@ -45,18 +45,23 @@
   /* ---- the OFF / ON switch ----------------------------------------------
      One geometry rule: the thumb is inset from the pill by the same amount on
      all four sides, and both are stadiums, so the curves stay concentric.
-        pill  200x60 r30   inset 6   thumb 94x48 r24
+        pill  208x72 r36   inset 12   thumb 92x48 r24
+     The inset equals the difference of the two radii (36 - 24), which is what
+     makes the curves concentric rather than merely close.
   */
   .switch-wrap { display: flex; justify-content: center; margin-top: 26px; flex: none; }
   .switch {
     position: relative;
-    width: 200px; height: 60px;
+    width: 208px; height: 72px;
     border-radius: 999px;
     background: #171c23;
-    border: 1px solid #232a34;
+    /* An inset shadow, not a border: a border would shrink the padding box and
+       shift every absolutely positioned child down by a pixel, which is what
+       made the top gap larger than the bottom one. */
+    box-shadow: inset 0 0 0 1px #232a34;
     display: flex; align-items: center;
   }
-  .switch.live { background: rgba(95,217,122,0.10); border-color: rgba(95,217,122,0.50); }
+  .switch.live { background: rgba(95,217,122,0.10); box-shadow: inset 0 0 0 1px rgba(95,217,122,0.50); }
 
   .switch .seg {
     position: relative; z-index: 2;
@@ -68,26 +73,26 @@
   .switch.live .seg.active { color: #06210e; }
 
   .thumb {
-    position: absolute; top: 6px; left: 6px; z-index: 1;
+    position: absolute; top: 12px; left: 12px; z-index: 1;
     /* the orbit sits behind this, so only its ring shows */
-    width: 94px; height: 48px;
+    width: 92px; height: 48px;
     border-radius: 999px;
     background: #2a323d;
     transition: transform .3s ease, background .3s ease;
   }
-  .switch.on .thumb { transform: translateX(94px); }
+  .switch.on .thumb { transform: translateX(92px); }
   .switch.live .thumb { background: #5fd97a; }
 
   /* A single bright arc chasing the thumb outline while connecting. It sits
      2px inside the pill, so it never touches the outer edge. */
   .orbit {
-    position: absolute; top: 2px; z-index: 0;
-    left: 2px; width: 102px; height: 56px;
+    position: absolute; top: 8px; z-index: 0;
+    left: 8px; width: 100px; height: 56px;
     border-radius: 999px; overflow: hidden;
     opacity: 0;
     transition: transform .3s ease;
   }
-  .switch.on .orbit { transform: translateX(94px); }
+  .switch.on .orbit { transform: translateX(92px); }
   .orbit::before {
     content: ""; position: absolute; inset: -60%;
     background: conic-gradient(from 0deg,
@@ -103,7 +108,7 @@
   .strip { width: 100%; display: flex; justify-content: center; gap: 26px; padding: 6px 0 26px; }
   .strip .item { text-align: center; width: 350px; }
   .strip .item p { font-size: 12px; color: #98a3b2; margin-top: 12px; }
-  .strip .switch-wrap { margin-top: 0; transform: scale(1.6); transform-origin: top center; height: 96px; }
+  .strip .switch-wrap { margin-top: 0; transform: scale(1.6); transform-origin: top center; height: 122px; }
 
   .status { margin-top: 16px; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: #98a3b2; text-align: center; flex: none; }
   .status.on { color: #5fd97a; }
