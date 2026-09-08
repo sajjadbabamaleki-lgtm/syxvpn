@@ -1,5 +1,6 @@
 package net.jordanvpn.app.ui
 
+import android.content.Intent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -32,8 +33,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -281,6 +288,45 @@ private fun OrbitLight(
     }
 }
 
+// Icon outlines, in a 24x24 box. The same path data as the web app's icon set,
+// so the two clients look like one product.
+private const val ICON_COPY = "M9 9h10v10H9zM5 15V5h10"
+private const val ICON_SHARE =
+    "M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6z" +
+        "M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"
+private const val ICON_TRASH = "M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"
+
+/** Draws one of the outlines above, scaled into the given size. */
+@Composable
+private fun PathIcon(pathData: String, size: androidx.compose.ui.unit.Dp, color: Color) {
+    val path = remember(pathData) { PathParser().parsePathString(pathData).toPath() }
+    Canvas(Modifier.size(size)) {
+        val factor = this.size.width / 24f
+        scale(factor, factor, pivot = Offset.Zero) {
+            drawPath(
+                path,
+                color,
+                style = Stroke(width = 1.8f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            )
+        }
+    }
+}
+
+/** An icon button sized for a thumb, not for a mouse. */
+@Composable
+private fun RowAction(pathData: String, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            // onClickLabel is what a screen reader announces for the action.
+            .clickable(onClickLabel = description, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        PathIcon(pathData, 19.dp, TextDim)
+    }
+}
+
 // A fixed row height, so the list can be capped at a whole number of rows
 // instead of ending on a half-visible one.
 private val ConfigRowHeight = 62.dp
@@ -289,13 +335,22 @@ private const val VISIBLE_CONFIG_ROWS = 4
 private val ConfigListHeight =
     ConfigRowHeight * VISIBLE_CONFIG_ROWS + ConfigRowGap * (VISIBLE_CONFIG_ROWS - 1)
 
-/** One row in the config list that scrolls under the card. */
+/**
+ * One row in the config list.
+ *
+ * Copy and share hand out the profile itself. Delete hides the server locally:
+ * the subscription decides which servers exist, so the app cannot really remove
+ * one — it can only stop showing it, and it keeps it hidden across refreshes.
+ */
 @Composable
 private fun ConfigRow(
     profile: VlessProfile,
     selected: Boolean,
     connected: Boolean,
     onSelect: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onHide: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -305,7 +360,7 @@ private fun ConfigRow(
             .background(if (selected) SurfaceHigh else Surface)
             .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
             .clickable(onClick = onSelect)
-            .padding(horizontal = 16.dp),
+            .padding(start = 16.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -329,9 +384,17 @@ private fun ConfigRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text("${profile.host}:${profile.port}", color = TextDim, fontSize = 11.sp)
+            Text(
+                "${profile.host}:${profile.port}",
+                color = TextDim,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Text(if (profile.tls) "tls" else "plain", color = TextFaint, fontSize = 11.sp)
+        RowAction(ICON_COPY, "Copy this config", onCopy)
+        RowAction(ICON_SHARE, "Share this config", onShare)
+        RowAction(ICON_TRASH, "Hide this config", onHide)
     }
 }
 
@@ -409,7 +472,11 @@ private fun ConnectScreen(
     val traffic by JordanVpnService.traffic.collectAsState()
     val uptime by JordanVpnService.uptimeSeconds.collectAsState()
 
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+
     var profiles by remember { mutableStateOf<List<VlessProfile>>(emptyList()) }
+    var hidden by remember { mutableStateOf(app.session.hiddenConfigs) }
     var selected by remember { mutableStateOf<VlessProfile?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var pingMs by remember { mutableStateOf<Long?>(null) }
@@ -418,6 +485,9 @@ private fun ConnectScreen(
 
     val connected = tunnelState == JordanVpnService.State.CONNECTED
     val connecting = tunnelState == JordanVpnService.State.CONNECTING
+
+    val key = { profile: VlessProfile -> "${profile.host}:${profile.port}" }
+    val visible = profiles.filterNot { hidden.contains(key(it)) }
 
     fun configFor(profile: VlessProfile) = XrayConfigBuilder.build(
         profile,
@@ -430,9 +500,10 @@ private fun ConnectScreen(
             runCatching { app.subscriptions.load(app.session) }
                 .onSuccess { result ->
                     profiles = result.profiles
+                    val offered = result.profiles.filterNot { hidden.contains(key(it)) }
                     // Keep the current choice if it is still offered.
-                    selected = result.profiles.firstOrNull { it.host == selected?.host && it.port == selected?.port }
-                        ?: result.profiles.firstOrNull()
+                    selected = offered.firstOrNull { it.host == selected?.host && it.port == selected?.port }
+                        ?: offered.firstOrNull()
                     status = result.error ?: if (result.stale) "Showing the last known servers" else null
                 }
                 .onFailure { status = it.message }
@@ -600,50 +671,89 @@ private fun ConnectScreen(
                 onRefresh = { refresh() },
                 modifier = Modifier.fillMaxWidth().heightIn(max = ConfigListHeight),
             ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
-        ) {
-            if (profiles.isEmpty()) {
-                item {
-                    Text(
-                        status ?: "No configs yet. Buy a plan on the Account tab.",
-                        color = TextDim,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    )
-                }
-            } else {
-                items(profiles, key = { "${it.host}:${it.port}:${it.uuid}" }) { profile ->
-                    val isSelected = profile.host == selected?.host && profile.port == selected?.port
-                    ConfigRow(
-                        profile = profile,
-                        selected = isSelected,
-                        connected = connected,
-                        onSelect = {
-                            if (isSelected) return@ConfigRow
-                            selected = profile
-                            pingMs = null
-                            // Switching server while connected re-establishes the
-                            // tunnel on the new one rather than silently keeping
-                            // traffic on the old.
-                            if (connected || connecting) onConnect(configFor(profile))
-                        },
-                    )
-                }
-                if (status != null) {
-                    item {
-                        Text(
-                            status!!,
-                            color = TextDim,
-                            fontSize = 12.sp,
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
+                ) {
+                    if (visible.isEmpty()) {
+                        item {
+                            Column(
+                                Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    when {
+                                        profiles.isNotEmpty() -> "Every server is hidden."
+                                        else -> status ?: "No configs yet. Buy a plan on the Account tab."
+                                    },
+                                    color = TextDim,
+                                    fontSize = 13.sp,
+                                    textAlign = TextAlign.Center,
+                                )
+                                if (profiles.isNotEmpty()) {
+                                    TextButton(onClick = {
+                                        hidden = emptySet()
+                                        app.session.hiddenConfigs = hidden
+                                        selected = profiles.firstOrNull()
+                                    }) {
+                                        Text("Show them again", color = Accent, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        items(visible, key = { "${it.host}:${it.port}:${it.uuid}" }) { profile ->
+                            val isSelected = profile.host == selected?.host && profile.port == selected?.port
+                            ConfigRow(
+                                profile = profile,
+                                selected = isSelected,
+                                connected = connected,
+                                onSelect = {
+                                    if (!isSelected) {
+                                        selected = profile
+                                        pingMs = null
+                                        // Switching server while connected re-establishes
+                                        // the tunnel on the new one rather than silently
+                                        // keeping traffic on the old.
+                                        if (connected || connecting) onConnect(configFor(profile))
+                                    }
+                                },
+                                onCopy = {
+                                    clipboard.setText(AnnotatedString(profile.uri))
+                                    status = "Config copied"
+                                },
+                                onShare = {
+                                    context.startActivity(
+                                        Intent.createChooser(
+                                            Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, profile.uri)
+                                            },
+                                            null,
+                                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                },
+                                onHide = {
+                                    hidden = hidden + key(profile)
+                                    app.session.hiddenConfigs = hidden
+                                    if (isSelected) {
+                                        selected = profiles.firstOrNull { !hidden.contains(key(it)) }
+                                    }
+                                },
+                            )
+                        }
+                        if (status != null) {
+                            item {
+                                Text(
+                                    status!!,
+                                    color = TextDim,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                )
+                            }
+                        }
                     }
                 }
-            }
-        }
             }
         }
     }

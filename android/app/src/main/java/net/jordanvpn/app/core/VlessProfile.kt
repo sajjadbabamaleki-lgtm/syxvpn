@@ -11,6 +11,8 @@ import android.net.Uri
  * hands out.
  */
 data class VlessProfile(
+    /** The original `vless://` line, kept so it can be copied or shared. */
+    val uri: String,
     val uuid: String,
     val host: String,
     val port: Int,
@@ -32,6 +34,7 @@ data class VlessProfile(
             // rejected rather than silently misconfigured.
             if ((parsed.getQueryParameter("type") ?: "ws") != "ws") return null
             return VlessProfile(
+                uri = uri,
                 uuid = uuid,
                 host = host,
                 port = port,

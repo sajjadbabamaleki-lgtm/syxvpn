@@ -40,6 +40,17 @@ class SessionStore(context: Context) {
         get() = prefs.getString(KEY_PROFILES, null)
         set(value) = prefs.edit().putString(KEY_PROFILES, value).apply()
 
+    /**
+     * Servers the person chose to hide, as "host:port" entries.
+     *
+     * A subscription decides which servers exist, so hiding is local and
+     * sticky: a refresh brings the server back from the control plane but it
+     * stays out of the list until it is unhidden here.
+     */
+    var hiddenConfigs: Set<String>
+        get() = prefs.getStringSet(KEY_HIDDEN, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_HIDDEN, value).apply()
+
     fun clear() = prefs.edit().clear().apply()
 
     private companion object {
@@ -47,5 +58,6 @@ class SessionStore(context: Context) {
         const val KEY_EMAIL = "email"
         const val KEY_SUB_URL = "subscription_url"
         const val KEY_PROFILES = "profiles"
+        const val KEY_HIDDEN = "hidden_configs"
     }
 }
