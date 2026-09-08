@@ -53,6 +53,9 @@
   .switch {
     position: relative;
     width: 208px; height: 72px;
+    /* Inset by the same 12 as the thumb, so each half is exactly the thumb's
+       width and the labels sit on the thumb's centre. */
+    padding: 0 12px;
     border-radius: 999px;
     background: #171c23;
     /* An inset shadow, not a border: a border would shrink the padding box and
@@ -67,7 +70,10 @@
     position: relative; z-index: 2;
     flex: 1; text-align: center;
     font-weight: 800; font-size: 17px; letter-spacing: 2px;
+    /* Letter spacing trails the last glyph, pulling centred text left. */
+    padding-left: 2px;
     color: #6c7684;
+    line-height: 1;
   }
   .switch .seg.active { color: #e7ecf3; }
   .switch.live .seg.active { color: #06210e; }
@@ -189,8 +195,8 @@
       <div class="switch">
         <div class="thumb"></div>
         <div class="orbit"></div>
-        <div class="seg active">OFF</div>
-        <div class="seg">ON</div>
+        <div class="seg active"><span>OFF</span></div>
+        <div class="seg"><span>ON</span></div>
       </div>
     </div>
     <p>OFF</p>
@@ -200,8 +206,8 @@
       <div class="switch on connecting">
         <div class="thumb"></div>
         <div class="orbit"></div>
-        <div class="seg">OFF</div>
-        <div class="seg active">ON</div>
+        <div class="seg"><span>OFF</span></div>
+        <div class="seg active"><span>ON</span></div>
       </div>
     </div>
     <p>connecting — grey thumb, light orbiting</p>
@@ -211,8 +217,8 @@
       <div class="switch on live">
         <div class="thumb"></div>
         <div class="orbit"></div>
-        <div class="seg">OFF</div>
-        <div class="seg active">ON</div>
+        <div class="seg"><span>OFF</span></div>
+        <div class="seg active"><span>ON</span></div>
       </div>
     </div>
     <p>connected</p>
@@ -231,8 +237,8 @@
         <div class="switch">
           <div class="thumb"></div>
           <div class="orbit"></div>
-          <div class="seg active">OFF</div>
-          <div class="seg">ON</div>
+          <div class="seg active"><span>OFF</span></div>
+          <div class="seg"><span>ON</span></div>
         </div>
       </div>
 
@@ -288,8 +294,8 @@
         <div class="switch on connecting">
           <div class="thumb"></div>
           <div class="orbit"></div>
-          <div class="seg">OFF</div>
-          <div class="seg active">ON</div>
+          <div class="seg"><span>OFF</span></div>
+          <div class="seg active"><span>ON</span></div>
         </div>
       </div>
 
@@ -345,8 +351,8 @@
         <div class="switch on live">
           <div class="thumb"></div>
           <div class="orbit"></div>
-          <div class="seg">OFF</div>
-          <div class="seg active">ON</div>
+          <div class="seg"><span>OFF</span></div>
+          <div class="seg active"><span>ON</span></div>
         </div>
       </div>
 

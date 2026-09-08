@@ -97,6 +97,19 @@ curves concentric rather than merely close:
 The card and the config rows carry double that curvature (28 and 24), so the
 switch, the card and the list read as one family rather than three radii.
 
+Centring the labels needs three corrections, all of them measured rather than
+eyeballed. The label row is inset by the same 12 as the thumb, so each half is
+the thumb's width and the labels land on the thumb's centre — splitting the
+full pill width instead puts them 6 off. Letter spacing is applied after the
+last glyph as well, dragging centred ink half a space left. And Android's font
+padding plus line leading reserves descender room that all-caps labels never
+use, lifting the ink; `includeFontPadding = false` with a trimmed line height
+removes it.
+
+Measured on the rendered mockup, glyph ink rather than text box: horizontal
+centres 58 and 150 against thumb centres of 58 and 150; vertical centre 36.1
+against a pill centre of 36.
+
 In the HTML mockup the pill's outline is an inset box-shadow rather than a
 border: a border shrinks the padding box, which shifts every absolutely
 positioned child and made the top gap a pixel larger than the bottom one. The

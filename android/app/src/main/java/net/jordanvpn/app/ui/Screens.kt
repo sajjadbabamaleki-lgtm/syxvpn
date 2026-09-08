@@ -33,7 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -186,18 +188,34 @@ private fun ConnectSwitch(
         }
 
         // Both labels stay in place; the thumb slides under them.
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+        //
+        // The row is inset by the same amount as the thumb, so each half is
+        // exactly the thumb's width and the labels land on the thumb's centre.
+        // Splitting the full pill width instead would centre them 6dp off.
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = inset),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             SwitchLabel("OFF", active = !on, onGreen = false, modifier = Modifier.weight(1f))
             SwitchLabel("ON", active = on, onGreen = connected, modifier = Modifier.weight(1f))
         }
     }
 }
 
+/**
+ * A switch label, centred on the glyphs rather than on the text box.
+ *
+ * Two things push centred text off centre and both are corrected here:
+ * letter spacing is applied after the last glyph as well, which drags the ink
+ * half a space left, and Android's default font padding plus line leading adds
+ * room for descenders that all-caps labels never use, which lifts the ink.
+ */
 @Composable
 private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifier: Modifier = Modifier) {
     Box(modifier, contentAlignment = Alignment.Center) {
         Text(
             text,
+            modifier = Modifier.padding(start = 2.dp),
             color = when {
                 active && onGreen -> Color(0xFF06210E)
                 active -> Color(0xFFE7ECF3)
@@ -205,7 +223,15 @@ private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifie
             },
             fontWeight = FontWeight.ExtraBold,
             fontSize = 17.sp,
+            lineHeight = 17.sp,
             letterSpacing = 2.sp,
+            style = LocalTextStyle.current.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both,
+                ),
+            ),
         )
     }
 }
