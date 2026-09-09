@@ -139,4 +139,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Unit tests run on the JVM. They cover the parts that need no device —
+    // among them the icon outlines, which are parsed by the same Compose code
+    // the app uses.
+    testImplementation("junit:junit:4.13.2")
 }

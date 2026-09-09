@@ -71,6 +71,13 @@ jobs:
           fi
           echo "JORDAN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
 
+      # Unit tests first: they are the only thing in this pipeline that can fail
+      # on a mistake the compiler is happy with — an icon path the renderer
+      # cannot read whole, say.
+      - name: Run the unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+
       - name: Build the debug APK
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace assembleDebug

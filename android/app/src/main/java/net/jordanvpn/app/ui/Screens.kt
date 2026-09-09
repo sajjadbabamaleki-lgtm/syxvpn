@@ -360,19 +360,30 @@ private fun OrbitLight(
 
 // Icon outlines, in a 24x24 box. The same path data as the web app's icon set,
 // so the two clients look like one product.
+//
+// Every arc is written with its two flags spaced out — `a9 9 0 1 1 -12.8 0`,
+// not the compact `a9 9 0 11-12.8 0` that a browser accepts. Compose reads path
+// data as a run of numbers and does not treat the flags as single digits, so the
+// compact form loses a parameter: the arc silently disappears or lands somewhere
+// it was never meant to. That is what turned the power icon into a bare vertical
+// line on the first build that reached a phone.
 private const val ICON_COPY = "M9 9h10v10H9zM5 15V5h10"
 private const val ICON_SHARE =
-    "M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6z" +
-        "M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"
+    "M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" +
+        "M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"
 private const val ICON_TRASH = "M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"
-private const val ICON_POWER = "M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"
+private const val ICON_POWER = "M18.4 6.6a9 9 0 1 1 -12.8 0M12 2.5v8"
 private const val ICON_CROWN = "M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"
-private const val ICON_GLOBE = "M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"
+private const val ICON_GLOBE =
+    "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"
 private const val ICON_SERVERS = "M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"
 private const val ICON_CHEVRON = "M9 5l7 7-7 7"
-private const val ICON_CHAT = "M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"
-private const val ICON_USER = "M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"
-private const val ICON_WALLET = "M3 8a2 2 0 012-2h13a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8zM3 9h18M16.5 13.5h.01"
+private const val ICON_CHAT =
+    "M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"
+private const val ICON_USER =
+    "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a4.5 4.5 0 0 1 4.5-4.5h6a4.5 4.5 0 0 1 4.5 4.5v1"
+private const val ICON_WALLET =
+    "M3 8a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2-2V8zM3 9h18M16.5 13.5h.01"
 
 /** Draws one of the outlines above, scaled into the given size. */
 @Composable
