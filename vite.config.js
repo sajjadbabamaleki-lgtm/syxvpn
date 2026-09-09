@@ -37,8 +37,16 @@ export default defineConfig({
         landingEn: 'landing-en.html',
       },
     },
-    // A single small bundle beats several round trips on a slow link.
-    cssCodeSplit: false,
+    /**
+     * Split CSS per entry.
+     *
+     * With this off, Vite puts the console's stylesheet into every HTML entry —
+     * including the landing pages, whose own `details` and `summary` elements
+     * then inherited the dashboard's rules and grew a second border. The
+     * console still gets one stylesheet, because it is one entry with no
+     * dynamic imports; the landing pages get theirs from /landing.css alone.
+     */
+    cssCodeSplit: true,
     reportCompressedSize: true,
   },
   server: { host: '0.0.0.0', port: 5173 },
