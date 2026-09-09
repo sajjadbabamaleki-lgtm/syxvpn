@@ -246,10 +246,11 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 
 /* Install badges.
  *
- * Shaped the way store badges are shaped — a small line over the name, an icon
- * beside it — because that is the shape people already read as "this installs
- * the app". Neither store's logo appears: this app is not on either store, and
- * a badge that borrows their mark would be claiming it is.
+ * Three badges of identical size, in the shape people already read as "this
+ * installs the app": a small line over the name, an icon beside it. Only the
+ * third one links anywhere — the App Store and Play Store badges carry no href
+ * because the app ships on neither store yet, so they are marked disabled for
+ * assistive technology even though all three are styled alike.
  */
 .store { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
 .badge {
@@ -263,17 +264,27 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 .badge .b-txt small { display: block; font-size: 11px; font-weight: 600; line-height: 1.45; opacity: .68; }
 .badge .b-txt strong { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.3px; }
 
-.badge-get { background: #ffffff; color: #0a0c0f; }
-.badge-get:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(255, 255, 255, .13); }
-.badge-soon { background: transparent; border-color: var(--border); color: var(--dim); }
+.badge-store {
+  width: 150px; height: 52px; min-height: 0; padding: 0 12px; gap: 9px;
+  justify-content: flex-start; border-radius: 9px;
+  /* Store badges keep their own direction on the RTL page: mirrored, the icon
+     lands on the wrong side of a name that is Latin text either way. */
+  direction: ltr;
+  background: #ffffff; color: #0a0c0f; border-color: #0a0c0f;
+}
+.badge-store .b-ico svg { width: 24px; height: 24px; }
+.badge-store .b-txt small { font-size: 9px; line-height: 1.35; opacity: .8; }
+.badge-store .b-txt strong { font-size: 15px; letter-spacing: -.2px; }
+.badge-store:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(255, 255, 255, .13); }
 .badge[aria-disabled="true"] { cursor: not-allowed; }
 .badge[aria-disabled="true"]:hover { transform: none; }
 
-/* Two badges do not fit side by side on a narrow phone, and a row that spills
-   off the screen is worse than a column. */
+/* Three badges do not fit side by side on a narrow phone, and a row that spills
+   off the screen is worse than a column. They keep their fixed size when they
+   stack: a badge stretched to the full width of a phone stops reading as a
+   store badge. */
 @media (max-width: 460px) {
   .store { flex-direction: column; align-items: center; }
-  .badge { width: 100%; max-width: 320px; justify-content: center; }
 }
 
 /* A slow glow behind the hero. Pure CSS: nothing to download, nothing to
