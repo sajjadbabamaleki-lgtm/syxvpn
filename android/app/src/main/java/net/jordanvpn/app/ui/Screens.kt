@@ -2046,8 +2046,14 @@ private fun AccountScreen(
     val scope = rememberCoroutineScope()
     var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Bumped by the retry below. Keyed on Unit, one failed call — a moment
+    // without a network, another VPN holding the resolver — left its message on
+    // the screen for the life of the process, with nothing on the screen able
+    // to ask again.
+    var attempt by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(attempt) {
+        error = null
         runCatching { app.api.subscription() }
             .onSuccess { subscription = it }
             .onFailure { error = it.message }
@@ -2068,6 +2074,7 @@ private fun AccountScreen(
                 color = if (error != null) Bad else TextDim,
                 fontSize = 13.sp,
             )
+            if (error != null) SmallAction("Try again") { attempt++ }
         } else {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Surface),

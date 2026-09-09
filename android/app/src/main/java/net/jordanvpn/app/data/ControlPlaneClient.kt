@@ -5,10 +5,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -94,7 +94,7 @@ class ControlPlaneClient(
 
     suspend fun shopConfig(): ShopConfig = withContext(Dispatchers.IO) {
         val data = request("GET", "/api/v1/shop/config", null, authenticated = false)
-        val payment = data["payment"]?.jsonObject
+        val payment = data["payment"].objectOrNull
         ShopConfig(
             paymentsConfigured = payment?.get("configured")?.jsonPrimitive?.content.toBoolean(),
             payAddress = payment?.get("address")?.jsonPrimitive?.contentOrNullSafe(),
@@ -109,7 +109,7 @@ class ControlPlaneClient(
 
     suspend fun plans(): List<Plan> = withContext(Dispatchers.IO) {
         requestArray("GET", "/api/v1/shop/plans", null, authenticated = false).map { element ->
-            val plan = element.jsonObject
+            val plan = element.objectOrNull ?: return@mapNotNull null
             Plan(
                 id = plan["id"]!!.jsonPrimitive.content,
                 name = plan["name"]!!.jsonPrimitive.content,
@@ -132,7 +132,7 @@ class ControlPlaneClient(
     /** The order the customer still has to pay, if there is one. */
     suspend fun openOrder(): Order? = withContext(Dispatchers.IO) {
         requestArray("GET", "/api/v1/shop/orders", null)
-            .map { orderOf(it.jsonObject) }
+            .mapNotNull { it.objectOrNull?.let(::orderOf) }
             .firstOrNull { it.status == "pending" || it.status == "paid" }
     }
 
@@ -187,9 +187,12 @@ class ControlPlaneClient(
     /** The customer's subscription, or null when they have not bought one yet. */
     suspend fun subscription(): Subscription? = withContext(Dispatchers.IO) {
         val me = request("GET", "/api/v1/shop/me", null)
-        val sub = me["subscription"]?.jsonObject ?: return@withContext null
-        val profiles = sub["profiles"]?.jsonArray
-            ?.map { it.jsonObject["uri"]!!.jsonPrimitive.content }
+        // An account with no plan comes back as `"subscription": null`, which is
+        // an element rather than a missing key — so this is a type check, not a
+        // null check, and `?.jsonObject` here threw instead of returning null.
+        val sub = me["subscription"].objectOrNull ?: return@withContext null
+        val profiles = sub["profiles"].arrayOrNull
+            ?.mapNotNull { it.objectOrNull?.get("uri")?.jsonPrimitive?.contentOrNullSafe() }
             .orEmpty()
         Subscription(
             active = sub["active"]!!.jsonPrimitive.content.toBoolean(),
@@ -258,10 +261,10 @@ class ControlPlaneClient(
 
     private fun parseJsonSubscription(text: String): List<SubscriptionServer>? {
         val profiles = runCatching {
-            json.parseToJsonElement(text).jsonObject["data"]?.jsonObject?.get("profiles")?.jsonArray
+            json.parseToJsonElement(text).objectOrNull?.get("data").objectOrNull?.get("profiles").arrayOrNull
         }.getOrNull() ?: return null
         val servers = profiles.mapNotNull { element ->
-            val profile = element.jsonObject
+            val profile = element.objectOrNull ?: return@mapNotNull null
             val uri = profile["uri"]?.jsonPrimitive?.contentOrNullSafe() ?: return@mapNotNull null
             SubscriptionServer(
                 uri = uri,
@@ -289,7 +292,8 @@ class ControlPlaneClient(
         path: String,
         body: String?,
         authenticated: Boolean = true,
-    ): JsonObject = send(method, path, body, authenticated).jsonObject
+    ): JsonObject = send(method, path, body, authenticated).objectOrNull
+        ?: throw ApiException(200, "MALFORMED", "Unexpected response")
 
     /** `{ data: [...] }` responses — plans and orders come back as lists. */
     private fun requestArray(
@@ -298,7 +302,8 @@ class ControlPlaneClient(
         body: String?,
         authenticated: Boolean = true,
     ): List<kotlinx.serialization.json.JsonElement> =
-        send(method, path, body, authenticated).jsonArray
+        send(method, path, body, authenticated).arrayOrNull
+            ?: throw ApiException(200, "MALFORMED", "Unexpected response")
 
     private fun send(
         method: String,
@@ -327,18 +332,19 @@ class ControlPlaneClient(
             val status = it.responseCode
             val text = (if (status in 200..299) it.inputStream else it.errorStream)
                 ?.bufferedReader()?.readText().orEmpty()
-            val payload = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
+            val payload = runCatching { json.parseToJsonElement(text).objectOrNull }.getOrNull()
             if (status == 401 && authenticated) {
                 session.token = null
                 expired.value = true
                 throw ApiException(401, "UNAUTHORIZED", "Please sign in again")
             }
             if (status !in 200..299) {
-                val error = payload?.get("error")?.jsonObject
+                val error = payload?.get("error").objectOrNull
                 throw ApiException(
                     status,
-                    error?.get("code")?.jsonPrimitive?.content ?: "ERROR",
-                    error?.get("message")?.jsonPrimitive?.content ?: "Request failed ($status)",
+                    error?.get("code")?.jsonPrimitive?.contentOrNullSafe() ?: "ERROR",
+                    error?.get("message")?.jsonPrimitive?.contentOrNullSafe()
+                        ?: "Request failed ($status)",
                 )
             }
             return payload?.get("data")
@@ -354,4 +360,17 @@ class ControlPlaneClient(
 
     private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content
+
+    /**
+     * JSON `null` is an element, not the absence of one.
+     *
+     * `element?.jsonObject` reads like a null check and is not one: on a `null`
+     * the safe call passes straight through and `jsonObject` throws
+     * "JsonNull is not a JsonObject" — which is what an account with no
+     * subscription showed instead of being told it had no subscription. These
+     * two are total: a wrong type or a JSON null both give back Kotlin null.
+     */
+    private val JsonElement?.objectOrNull: JsonObject? get() = this as? JsonObject
+
+    private val JsonElement?.arrayOrNull: JsonArray? get() = this as? JsonArray
 }
