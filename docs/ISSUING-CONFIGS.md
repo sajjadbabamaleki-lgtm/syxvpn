@@ -77,16 +77,16 @@ goes through the full validate → `xray -test` → atomic replace → reload pa
 
 ```sh
 # issue 100
-curl -X POST https://control.example.net/api/v1/subscribers/batch \
+curl -X POST https://control.cvpn.pro/api/v1/subscribers/batch \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"count":100,"namePrefix":"tg-2026-09-08","quotaGb":20,"days":30}'
 
 # re-export later
-curl "https://control.example.net/api/v1/subscribers/batches/$BATCH_ID?format=csv" \
+curl "https://control.cvpn.pro/api/v1/subscribers/batches/$BATCH_ID?format=csv" \
   -H "authorization: Bearer $ADMIN_TOKEN"
 
 # one subscriber's link and raw config
-curl "https://control.example.net/api/v1/subscribers/$ID/subscription" \
+curl "https://control.cvpn.pro/api/v1/subscribers/$ID/subscription" \
   -H "authorization: Bearer $ADMIN_TOKEN"
 ```
 

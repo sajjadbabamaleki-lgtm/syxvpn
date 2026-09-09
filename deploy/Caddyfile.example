@@ -1,8 +1,31 @@
 # Reverse-proxy examples. Copy the block you need; Caddy obtains certificates
 # automatically as long as the DNS records point here.
+#
+# Names this deployment uses:
+#
+#   cvpn.pro           the public page          (may sit behind Cloudflare)
+#   control.cvpn.pro   API + storefront/console (may sit behind Cloudflare)
+#   gw1.cvpn.pro       a gateway                (MUST be DNS-only)
+#
+# A gateway is never proxied through Cloudflare. The tunnel is not ordinary web
+# traffic, proxying it breaks the TLS the client expects to terminate at the
+# gateway, and doing it would put this deployment on the wrong side of their
+# terms. Grey cloud, always.
+
+# ------------------------------------------------------------------ public site
+cvpn.pro, www.cvpn.pro {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
 
 # ---------------------------------------------------------------- control plane
-control.example.net {
+control.cvpn.pro {
     encode zstd gzip
 
     # API and subscription endpoints.
@@ -26,7 +49,7 @@ control.example.net {
 # --------------------------------------------------------------------- gateway
 # TLS terminates here; Xray listens on loopback with no TLS of its own, which is
 # what `tlsMode: reverse-proxy` in the gateway registration means.
-gw1.example.net {
+gw1.cvpn.pro {
     encode zstd gzip
 
     # Must match the gateway's configured WebSocket path.

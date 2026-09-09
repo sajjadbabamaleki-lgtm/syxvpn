@@ -52,7 +52,7 @@ android {
         versionName = "0.1.0"
 
         // Where the app talks to the control plane. Override per build.
-        buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.example.net\"")
+        buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.cvpn.pro\"")
 
         // Which machines this APK carries native code for.
         //

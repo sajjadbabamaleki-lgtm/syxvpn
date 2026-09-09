@@ -12,7 +12,7 @@ ENV VITE_API_URL=$VITE_API_URL
 # Where this deployment actually lives. The landing pages put it in their
 # canonical, hreflang and Open Graph tags, so a wrong value here is a page that
 # tells search engines to index somebody else's address.
-ARG VITE_SITE_URL="https://cvpn.example"
+ARG VITE_SITE_URL="https://cvpn.pro"
 ENV VITE_SITE_URL=$VITE_SITE_URL
 
 # Where the Android build is published. Left empty, the download buttons point

@@ -42,6 +42,11 @@ services:
         # Same-origin by default: the reverse proxy sends /api and /sub to the
         # API container, so the browser needs no cross-origin configuration.
         VITE_API_URL: ${VITE_API_URL:-}
+        # The public address, as the landing pages advertise it to search
+        # engines. Wrong here means canonical tags pointing at somewhere else.
+        VITE_SITE_URL: ${SITE_URL:-https://cvpn.pro}
+        # Where the Android build is published.
+        VITE_APK_URL: ${APK_URL:-/download/cvpn.apk}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"

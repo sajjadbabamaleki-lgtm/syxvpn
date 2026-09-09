@@ -23,8 +23,8 @@ Fill in at least:
 NODE_ENV=production
 ADMIN_PASSWORD=...              # or ADMIN_PASSWORD_HASH from server/scripts/hash-password.js
 SECRET_KEY=$(openssl rand -base64 32)
-PUBLIC_BASE_URL=https://control.example.net
-CORS_ORIGINS=https://control.example.net
+PUBLIC_BASE_URL=https://control.cvpn.pro
+CORS_ORIGINS=https://control.cvpn.pro
 TRON_ADDRESS=T...               # only if you are selling
 TRUST_PROXY=true                # you are behind a reverse proxy
 ```
@@ -63,7 +63,7 @@ Registration returns an agent key **once**. Then on the gateway host:
 ```sh
 docker run -d --name jordan-agent --restart unless-stopped \
   --network host \
-  -e JORDAN_URL=https://control.example.net \
+  -e JORDAN_URL=https://control.cvpn.pro \
   -e JORDAN_GATEWAY_ID=gw_... \
   -e JORDAN_AGENT_KEY=jga_... \
   -v /var/lib/jordan-agent:/var/lib/jordan-agent \
