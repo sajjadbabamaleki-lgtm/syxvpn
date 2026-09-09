@@ -26,6 +26,7 @@
 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0c0f'/%3E%3Ctext x='16' y='23' font-family='system-ui,sans-serif' font-size='19' font-weight='700' fill='%235fd97a' text-anchor='middle'%3Ec%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="/landing.css" />
+<script>document.documentElement.className += ' js';</script>
 
 <script type="application/ld+json">
 {
@@ -105,6 +106,16 @@
           <a href="/en" hreflang="en" role="menuitem"><span class="tick">✓</span>English</a>
         </div>
       </details>
+      <details class="menubtn">
+        <summary aria-label="منو"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></summary>
+        <div class="menu" role="menu">
+          <a href="#features" role="menuitem">امکانات</a>
+          <a href="#plans" role="menuitem">پلن‌ها</a>
+          <a href="#how" role="menuitem">چطور کار می‌کند</a>
+          <a href="#faq" role="menuitem">سؤالات</a>
+          <a href="/app/" role="menuitem">حساب کاربری</a>
+        </div>
+      </details>
     </nav>
   </div>
 </header>
@@ -112,40 +123,40 @@
 <main>
   <section class="hero" style="border-top:none">
     <div class="wrap">
-      <span class="eyebrow"><span class="dot"></span> اندروید — دانلود مستقیم</span>
-      <h1>یک دکمه.<br />بقیه‌اش <span class="on">کار ماست</span>.</h1>
-      <p class="lede">
+      <span class="eyebrow reveal"><span class="dot"></span> اندروید — دانلود مستقیم</span>
+      <h1 class="reveal">یک دکمه.<br />بقیه‌اش <span class="on">کار ماست</span>.</h1>
+      <p class="lede reveal">
         cVPN خودش سرور را انتخاب می‌کند، مسیر را تا انتها آزمایش می‌کند،
         و اگر وسط کار مسیری بمیرد خودش برمی‌گردد — بدون اینکه لازم باشد شما کاری بکنید.
       </p>
-      <div class="cta">
-        <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg>
-          <span>دانلود برای اندروید <small>فایل APK · نصب مستقیم</small></span>
+      <div class="store reveal">
+        <a class="badge badge-get" href="%VITE_APK_URL%" rel="nofollow">
+          <span class="b-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10.5M8 10l4 4 4-4"/><path d="M4 15.5v3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3"/></svg></span>
+          <span class="b-txt"><small>رایگان · نصب مستقیم</small><strong>دانلود اندروید</strong></span>
         </a>
-        <span class="btn btn-ghost" aria-disabled="true" title="هنوز منتشر نشده">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>
-          <span>App Store <small>به‌زودی — هنوز منتشر نشده</small></span>
+        <span class="badge badge-soon" aria-disabled="true" title="هنوز منتشر نشده">
+          <span class="b-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3.2"/><path d="M10.8 18.6h2.4"/></svg></span>
+          <span class="b-txt"><small>به‌زودی روی</small><strong>App Store</strong></span>
         </span>
       </div>
-      <p class="note">اپ بدون ساختن حساب باز می‌شود. حساب فقط برای خرید پلن لازم است.</p>
+      <p class="note reveal">اپ بدون ساختن حساب باز می‌شود. حساب فقط برای خرید پلن لازم است.</p>
     </div>
   </section>
 
   <section id="how">
     <div class="wrap">
-      <h2>چطور کار می‌کند</h2>
-      <p class="sub">سه قدم، و بعدش دیگر کاری با آن ندارید.</p>
+      <h2 class="reveal">چطور کار می‌کند</h2>
+      <p class="sub reveal">سه قدم، و بعدش دیگر کاری با آن ندارید.</p>
       <div class="steps">
-        <div class="step">
+        <div class="step reveal">
           <h3>نصب کنید</h3>
           <p>فایل اندروید را بگیرید و نصب کنید. باز که شد، مستقیم روی صفحه‌ی اتصال است — نه فرم ثبت‌نام، نه ایمیل.</p>
         </div>
-        <div class="step">
+        <div class="step reveal">
           <h3>روشن کنید</h3>
           <p>دکمه را بزنید. اپ سرورها را می‌سنجد، بهترین را برمی‌دارد و وصل می‌شود. اگر کشور خاصی می‌خواهید، از لیست انتخاب کنید.</p>
         </div>
-        <div class="step">
+        <div class="step reveal">
           <h3>فراموشش کنید</h3>
           <p>اگر مسیر قطع شود، اپ خودش برمی‌گردد. اگر سروری از کار بیفتد، سراغ بعدی می‌رود.</p>
         </div>
@@ -155,35 +166,35 @@
 
   <section id="features">
     <div class="wrap">
-      <h2>چه چیزی واقعاً داخلش هست</h2>
-      <p class="sub">این‌ها ویژگی‌های تبلیغاتی نیستند؛ کدشان نوشته شده و تست دارند.</p>
+      <h2 class="reveal">چه چیزی واقعاً داخلش هست</h2>
+      <p class="sub reveal">این‌ها ویژگی‌های تبلیغاتی نیستند؛ کدشان نوشته شده و تست دارند.</p>
       <div class="grid">
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
           <h3>انتخاب هوشمند سرور</h3>
           <p>اپ فقط نمی‌پرسد «سرور روشن است؟» — یک درخواست واقعی <em>از داخل</em> سرور می‌فرستد. سروری که ۲۰ میلی‌ثانیه جواب می‌دهد ولی راه به اینترنت ندارد، بازنده است.</p>
         </article>
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
           <h3>حالت‌های کاربردی</h3>
           <p>خودکار، شبکه‌های اجتماعی، تماشای ویدیو، بازی. هر کدام وزن متفاوتی به تأخیر، پایداری و سابقه‌ی سرور می‌دهند — نه اینکه فقط اسمش عوض شود.</p>
         </article>
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg></div>
           <h3>بخش کانفیگ، دست خودتان</h3>
           <p>کانفیگ‌هایی که خودتان وارد می‌کنید در بخش جدا می‌مانند. هیچ‌وقت عوض، جابه‌جا یا انتخاب خودکار نمی‌شوند. سلامت هرکدام را نشان می‌دهیم و همان‌جا تمام.</p>
         </article>
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg></div>
           <h3>بازیابی خودکار</h3>
           <p>تونل که بیفتد، اپ می‌فهمد و برمی‌گردد. شکست هر سرور به حساب خودش نوشته می‌شود، پس دفعه‌ی بعد سراغ سروری می‌رود که واقعاً جواب داده.</p>
         </article>
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
           <h3>قطع صادقانه</h3>
           <p>وقتی هیچ مسیر سالمی نمانده، اپ قطع می‌کند و می‌گوید. «متصل» نشان دادن روی تونلی که کار نمی‌کند، بدترین کاری است که یک VPN می‌تواند بکند.</p>
         </article>
-        <article class="card">
+        <article class="card reveal">
           <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg></div>
           <h3>هسته‌ی Xray</h3>
           <p>موتور تونل، Xray-core است — همان چیزی که کلاینت‌های حرفه‌ای استفاده می‌کنند — با نسخه‌ی مشخص و پین‌شده، نه یک نسخه‌ی نامعلوم.</p>
@@ -195,10 +206,10 @@
 
   <section id="plans">
     <div class="wrap">
-      <h2>پلن‌ها</h2>
-      <p class="sub">ماهانه، سه‌ماهه، شش‌ماهه و یک‌ساله. پرداخت با تتر (USDT روی شبکه‌ی TRON) و تأیید روی زنجیره.</p>
+      <h2 class="reveal">پلن‌ها</h2>
+      <p class="sub reveal">ماهانه، سه‌ماهه، شش‌ماهه و یک‌ساله. پرداخت با تتر (USDT روی شبکه‌ی TRON) و تأیید روی زنجیره.</p>
 
-      <div class="plans" id="plan-grid" aria-live="polite">
+      <div class="plans reveal" id="plan-grid" aria-live="polite">
         <div class="plans-empty" id="plan-loading">در حال خواندن پلن‌ها از سرور…</div>
       </div>
 
@@ -218,9 +229,9 @@
 
   <section id="honest">
     <div class="wrap">
-      <h2>چیزهایی که قول نمی‌دهیم</h2>
-      <p class="sub">هر VPNی این‌ها را قول می‌دهد. ما نمی‌دهیم، چون هیچ‌کس نمی‌تواند.</p>
-      <div class="plain">
+      <h2 class="reveal">چیزهایی که قول نمی‌دهیم</h2>
+      <p class="sub reveal">هر VPNی این‌ها را قول می‌دهد. ما نمی‌دهیم، چون هیچ‌کس نمی‌تواند.</p>
+      <div class="plain reveal">
         <ul>
           <li><strong>«هیچ لاگی نداریم» نمی‌گوییم.</strong> برای اینکه سهمیه‌ی حجمتان را بشماریم، تعداد بایت مصرفی اشتراک شمرده می‌شود. اما <em>مقصد</em> شما ثبت نمی‌شود: لاگ سرورها روی سطح هشدار است، پس آدرس‌هایی که باز می‌کنید نوشته نمی‌شوند.</li>
           <li><strong>«همیشه وصل می‌مانید» نمی‌گوییم.</strong> هیچ نرم‌افزاری نمی‌تواند مسیری بسازد که وجود ندارد. کاری که می‌کنیم این است که سریع بفهمیم مسیر مرده و سراغ مسیر بعدی برویم.</li>
@@ -233,8 +244,8 @@
 
   <section id="faq">
     <div class="wrap">
-      <h2>سؤال‌های پرتکرار</h2>
-      <p class="sub">اگر جوابی که می‌خواهید اینجا نبود، از داخل اپ به پشتیبانی پیام بدهید.</p>
+      <h2 class="reveal">سؤال‌های پرتکرار</h2>
+      <p class="sub reveal">اگر جوابی که می‌خواهید اینجا نبود، از داخل اپ به پشتیبانی پیام بدهید.</p>
 
       <details>
         <summary>cVPN چه فرقی با بقیه دارد؟</summary>
@@ -265,9 +276,9 @@
 
   <section id="get">
     <div class="wrap" style="text-align:center">
-      <h2>همین حالا امتحانش کنید</h2>
-      <p class="sub" style="margin-inline:auto">نصب چند ثانیه است و برای باز کردنش به هیچ حسابی نیاز ندارید.</p>
-      <div class="cta">
+      <h2 class="reveal">همین حالا امتحانش کنید</h2>
+      <p class="sub reveal" style="margin-inline:auto">نصب چند ثانیه است و برای باز کردنش به هیچ حسابی نیاز ندارید.</p>
+      <div class="cta reveal">
         <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">دانلود برای اندروید</a>
         <a class="btn btn-ghost" href="/app/">ورود به حساب و خرید پلن</a>
       </div>
@@ -348,10 +359,45 @@
       });
   })();
 
-  var lang = document.querySelector('.langsel');
-  document.addEventListener('click', function (e) { if (lang && !lang.contains(e.target)) lang.open = false; });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lang) lang.open = false; });
+  var pops = document.querySelectorAll('.langsel, .menubtn');
+  var closeAll = function (except) {
+    for (var i = 0; i < pops.length; i += 1) if (pops[i] !== except) pops[i].open = false;
+  };
+  for (var p = 0; p < pops.length; p += 1) {
+    pops[p].addEventListener('toggle', function () { if (this.open) closeAll(this); });
+  }
+  document.addEventListener('click', function (e) {
+    for (var i = 0; i < pops.length; i += 1) if (!pops[i].contains(e.target)) pops[i].open = false;
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
   document.getElementById('y').textContent = new Date().getFullYear().toLocaleString('fa-IR', { useGrouping: false });
+
+  // Motion, added only where it is supported and only where it is wanted.
+  // Everything is visible without it: the `js` class above is what hides
+  // things in the first place, so a browser that never runs this still gets
+  // the whole page.
+  (function () {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var items = document.querySelectorAll('.reveal');
+    if (reduce || !('IntersectionObserver' in window)) {
+      for (var i = 0; i < items.length; i += 1) items[i].classList.add('in');
+      return;
+    }
+    // Siblings arrive one after another rather than all at once.
+    var rows = document.querySelectorAll('.grid, .steps');
+    for (var r = 0; r < rows.length; r += 1) {
+      var kids = rows[r].children;
+      for (var k = 0; k < kids.length; k += 1) kids[k].style.transitionDelay = (k * 60) + 'ms';
+    }
+    var io = new IntersectionObserver(function (entries) {
+      for (var n = 0; n < entries.length; n += 1) {
+        if (!entries[n].isIntersecting) continue;
+        entries[n].target.classList.add('in');
+        io.unobserve(entries[n].target);
+      }
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.08 });
+    for (var j = 0; j < items.length; j += 1) io.observe(items[j]);
+  })();
 </script>
 </body>
 </html>
