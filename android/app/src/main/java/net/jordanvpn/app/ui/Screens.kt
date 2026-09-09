@@ -147,7 +147,13 @@ fun JordanRoot(
                     onOpenConfigs = { tab = Tab.CONFIGS },
                     onOpenPremium = { tab = Tab.PREMIUM },
                 )
-                Tab.CONFIGS -> ConfigsScreen(app, servers, onConnect)
+                Tab.CONFIGS -> ConfigsScreen(
+                    app = app,
+                    state = servers,
+                    onConnect = onConnect,
+                    onDisconnect = onDisconnect,
+                    onOpenPremium = { tab = Tab.PREMIUM },
+                )
                 Tab.PREMIUM -> PremiumScreen(app, onOpenStore)
                 Tab.SUPPORT -> SupportScreen(app)
                 Tab.ACCOUNT -> AccountScreen(
@@ -643,8 +649,17 @@ private class ServerListState(private val session: SessionStore) {
  * carrying the traffic, and the card is a button into that tab, so choosing a
  * different one is two taps rather than a hunt.
  */
+/**
+ * The half of the screen that is the same on both tabs: the banner slot, the
+ * switch, what state it is in, and the card that names the server and the plan.
+ *
+ * Both tabs carry it because both are ways of doing the same thing — the VPN
+ * tab lists countries under it, the Configs tab lists the configs themselves —
+ * and a switch that appears on one screen and not the other would make the
+ * second one feel like a settings page rather than a way to connect.
+ */
 @Composable
-private fun VpnScreen(
+private fun ColumnScope.TunnelPanel(
     app: JordanApplication,
     state: ServerListState,
     onConnect: (List<Server>, Boolean) -> Unit,
@@ -659,9 +674,9 @@ private fun VpnScreen(
     val activeServer by JordanVpnService.activeServer.collectAsState()
     val activeLabel by JordanVpnService.activeLabel.collectAsState()
 
-    // What is left of the plan. Real figures or nothing: the bar is drawn only
-    // once the control plane has answered, and a failed call leaves the space
-    // empty rather than showing a full bar nobody measured.
+    // What is left of the plan. Real figures or nothing: the line is drawn only
+    // once the control plane has answered, and a failed call leaves the offer's
+    // ordinary wording rather than a number nobody measured.
     var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
     LaunchedEffect(Unit) {
         runCatching { app.api.subscription() }.onSuccess { subscription = it }
@@ -679,7 +694,6 @@ private fun VpnScreen(
     }
     val selected = current?.profile
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         // Above the switch: nothing of the app's own. The screen's spare height
         // collects here, which is where a banner goes.
         BannerSlot(Modifier.weight(1f))
@@ -851,6 +865,24 @@ private fun VpnScreen(
             }
         }
 
+}
+
+@Composable
+private fun VpnScreen(
+    app: JordanApplication,
+    state: ServerListState,
+    onConnect: (List<Server>, Boolean) -> Unit,
+    onDisconnect: () -> Unit,
+    onOpenConfigs: () -> Unit,
+    onOpenPremium: () -> Unit,
+) {
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        TunnelPanel(app, state, onConnect, onDisconnect, onOpenConfigs, onOpenPremium)
+
         Spacer(Modifier.height(14.dp))
 
         // Countries, not configs. This is the screen for someone who has never
@@ -1004,6 +1036,8 @@ private fun ConfigsScreen(
     app: JordanApplication,
     state: ServerListState,
     onConnect: (List<Server>, Boolean) -> Unit,
+    onDisconnect: () -> Unit,
+    onOpenPremium: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
@@ -1020,30 +1054,9 @@ private fun ConfigsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        TunnelPanel(app, state, onConnect, onDisconnect, onOpenConfigs = {}, onOpenPremium = onOpenPremium)
+
         Spacer(Modifier.height(14.dp))
-        Text("Configs", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-
-        Spacer(Modifier.height(12.dp))
-
-        // Automatic or manual, and it says which one is in charge of the list
-        // below rather than leaving that to be guessed.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (state.automatic) "The tunnel picks the server" else "You pick the server",
-                color = TextFaint,
-                fontSize = 11.sp,
-                modifier = Modifier.weight(1f),
-            )
-            ModeChip("AUTO", state.automatic) { state.setAutomatic(true) }
-            Spacer(Modifier.width(6.dp))
-            ModeChip("MANUAL", !state.automatic) { state.setAutomatic(false) }
-        }
-
-        // The same banner slot as the VPN screen, in the same place: the spare
-        // height collects above the list, not below it.
-        BannerSlot(Modifier.weight(1f))
-
-        Spacer(Modifier.height(10.dp))
 
         // Three rows, ending on a whole one, and the rest scrolls. Pulling it
         // down refreshes it, which is the gesture people already reach for.
@@ -1137,28 +1150,6 @@ private fun ConfigsScreen(
     }
 }
 
-/** AUTO / MANUAL. Small, because it is a preference, not the main control. */
-@Composable
-private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (active) Accent.copy(alpha = 0.14f) else Surface)
-            .border(1.dp, if (active) Accent.copy(alpha = 0.45f) else Border, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            label,
-            color = if (active) Accent else TextFaint,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-        )
-    }
-}
 
 @Composable
 private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {

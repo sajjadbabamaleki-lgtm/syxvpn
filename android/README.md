@@ -157,10 +157,19 @@ servers" instead. Choosing a country narrows automatic selection to it; the
 measuring, the hysteresis and the failover all still apply, inside that country.
 
 **Configs** is the same servers as themselves — hostnames, ports, route states —
-with the whole screen to itself, so it shows as many as fit rather than the four
-it was capped at when it shared the screen with the switch. Each row copies,
-shares or hides, and AUTO/MANUAL sits above them. This is the tab for the person
-who bought configs and wants to handle them.
+under the same switch and the same card. Each row copies, shares or hides. This
+is the tab for the person who bought configs and wants to handle them.
+
+Both tabs carry the identical panel: banner slot, switch, state, card. Only the
+list under it differs, countries on one and configs on the other. A switch that
+appeared on one screen and not the other would make the second one feel like a
+settings page rather than a way to connect.
+
+There is no AUTO/MANUAL control any more, because tapping is the control:
+choosing Automatic or a country on the VPN tab means the tunnel decides,
+choosing a config on the Configs tab means that server and nothing else. The
+card still says which of the two is in force, on the right of its top half —
+that is a statement of what is happening, not a switch to set it.
 
 The first version put the list under the switch precisely to avoid a separate
 screen, and the concern behind that was right: switching server must not become

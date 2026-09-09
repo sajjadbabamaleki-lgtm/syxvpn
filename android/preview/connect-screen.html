@@ -157,15 +157,6 @@
      it down refreshes it in the app. */
   /* Exactly four whole rows: 4 x 62 + 3 x 13. A half-visible fifth row reads as
      a rendering accident rather than as "there is more below". */
-  /* AUTO / MANUAL. Small, because it is a preference, not the main control. */
-  .modes { display: flex; align-items: center; margin-top: 12px; flex: none; gap: 6px; }
-  .modes .hint { flex: 1; font-size: 11px; color: #6c7684; }
-  .chip {
-    height: 28px; border-radius: 14px; padding: 0 12px; display: flex; align-items: center;
-    font-size: 10px; font-weight: 700; letter-spacing: 1px;
-    background: #12161c; border: 1px solid #232a34; color: #6c7684;
-  }
-  .chip.on { background: rgba(95,217,122,0.14); border-color: rgba(95,217,122,0.45); color: #5fd97a; }
   /* A gateway the control plane is not sure about says so, in neutral grey. */
   .cfg .who span.warn { color: #98a3b2; }
 
@@ -317,7 +308,7 @@
   .country .who span { font-size: 11px; color: #98a3b2; }
   .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #98a3b2; flex: none; }
   .country.sel.live .pip { background: #5fd97a; }
-  .listwrap.tall { flex: none; align-items: stretch; }
+  .listwrap.tall { flex: none; align-items: stretch; margin-top: 14px; }
   .configs.tall { max-height: 212px; height: 212px; }
   .card .proto .mode { color: #5fd97a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
   .card .proto .mode.manual { color: #6c7684; }
@@ -502,17 +493,40 @@
 </div>
 
 <div class="frame">
-  <div class="caption"><b>Configs</b>every server the subscription offers, on its own tab</div>
+  <div class="caption"><b>Configs</b>the same switch and card, with the configs themselves under it</div>
   <div class="phone">
     <div class="statusbar"><span>21:26</span><span>▮▮ ▾ 38%</span></div>
     <div class="screen">
-      <h2 class="left">Configs</h2>
-      <div class="modes">
-        <span class="hint">The tunnel picks the server</span>
-        <div class="chip on">AUTO</div>
-        <div class="chip">MANUAL</div>
-      </div>
       <div class="banner">banner slot</div>
+
+      <div class="switch-wrap">
+        <div class="switch on live">
+          <div class="thumb"></div>
+          <div class="orbit"></div>
+          <div class="seg"><span>OFF</span></div>
+          <div class="seg active"><span>ON</span></div>
+        </div>
+      </div>
+
+      <div class="status on">CONNECTED</div>
+      <div class="uptime">03:12</div>
+
+      <div class="vcard">
+        <div class="half">
+          <div class="who"><b>Helsinki Edge · fi-hel</b><span>gw3.example.net:443</span></div>
+          <span class="mode">AUTO</span>
+          <span class="chev">›</span>
+        </div>
+        <div class="half">
+          <div class="who">
+            <span class="offer">31.6 GB left · 22 days left</span>
+            <span class="tagline">More data, and no cut-off mid-month.</span>
+          </div>
+          <span class="plans">PLANS</span>
+          <span class="chev on">›</span>
+        </div>
+      </div>
+
       <div class="listwrap tall"><div class="configs tall">
         <div class="cfg"><div class="dot"></div><div class="who"><b>Frankfurt Edge · de-fra</b><span>gw1.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
         <div class="cfg"><div class="dot"></div><div class="who"><b>Amsterdam Edge · nl-ams</b><span>gw2.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
