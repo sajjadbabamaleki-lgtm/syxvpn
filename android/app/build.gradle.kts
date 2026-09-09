@@ -54,6 +54,18 @@ android {
         // Where the app talks to the control plane. Override per build.
         buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.example.net\"")
 
+        // Which machines this APK carries native code for.
+        //
+        // The Xray runtime is Go, compiled per architecture, and gomobile builds
+        // all four: two real phone architectures and two that only exist on
+        // emulators. Carrying x86 doubles the download for every customer so
+        // that a developer's emulator can run it — the wrong trade for an app
+        // people fetch over a phone network. arm64 is every phone sold in years;
+        // armeabi-v7a keeps the old ones working.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+
         // Whether the Premium tab may open a USDT order inside the app.
         //
         // True is right for a directly distributed APK. A Google Play build must
