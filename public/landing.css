@@ -265,18 +265,26 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 .badge .b-txt strong { display: block; font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.3px; }
 
 .badge-store {
-  width: 210px; height: 60px; padding: 0 16px; justify-content: flex-start;
+  width: 150px; height: 52px; min-height: 0; padding: 0 12px; gap: 9px;
+  justify-content: flex-start; border-radius: 9px;
+  /* Store badges keep their own direction on the RTL page: mirrored, the icon
+     lands on the wrong side of a name that is Latin text either way. */
+  direction: ltr;
   background: #ffffff; color: #0a0c0f; border-color: #0a0c0f;
 }
-.badge-store:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(255, 255, 255, .13); }
+.badge-store .b-ico svg { width: 24px; height: 24px; }
+.badge-store .b-txt small { font-size: 9px; line-height: 1.35; opacity: .8; }
+.badge-store .b-txt strong { font-size: 15px; letter-spacing: -.2px; }
+.badge-store:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(255, 255, 255, .13); }
 .badge[aria-disabled="true"] { cursor: not-allowed; }
 .badge[aria-disabled="true"]:hover { transform: none; }
 
 /* Three badges do not fit side by side on a narrow phone, and a row that spills
-   off the screen is worse than a column. */
+   off the screen is worse than a column. They keep their fixed size when they
+   stack: a badge stretched to the full width of a phone stops reading as a
+   store badge. */
 @media (max-width: 460px) {
   .store { flex-direction: column; align-items: center; }
-  .badge, .badge-store { width: 100%; max-width: 320px; justify-content: center; }
 }
 
 /* A slow glow behind the hero. Pure CSS: nothing to download, nothing to
