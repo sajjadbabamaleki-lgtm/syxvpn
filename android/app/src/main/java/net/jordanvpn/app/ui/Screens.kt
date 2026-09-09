@@ -584,8 +584,13 @@ private class ServerListState(private val session: SessionStore) {
 
     val visible: List<Server> get() = servers.filterNot { hidden.contains(it.key) }
 
-    /** Narrows automatic selection to one country, or opens it up again. */
-    fun setCountry(code: String?) {
+    /**
+     * Narrows automatic selection to one country, or opens it up again.
+     *
+     * Named `use…` rather than `set…`: `var country` already compiles to a
+     * `setCountry` on the JVM, and two methods cannot share one signature.
+     */
+    fun useCountry(code: String?) {
         country = code
         session.country = code
         automatic = true
@@ -598,7 +603,7 @@ private class ServerListState(private val session: SessionStore) {
             visible.filter { (countryOf(it)?.code ?: CountryGroup.OTHER) == code }
         } ?: visible
 
-    fun setAutomatic(value: Boolean) {
+    fun useAutomatic(value: Boolean) {
         automatic = value
         session.automaticServer = value
         if (!value && chosen == null) chosen = visible.firstOrNull()
@@ -897,7 +902,7 @@ private fun VpnScreen(
                     selected = state.country == null,
                     connected = connected && state.country == null,
                     onClick = {
-                        state.setCountry(null)
+                        state.useCountry(null)
                         if (connected || connecting) onConnect(state.visible, true)
                     },
                 )
@@ -919,7 +924,7 @@ private fun VpnScreen(
                     selected = isSelected,
                     connected = connected && isSelected,
                     onClick = {
-                        state.setCountry(group.key)
+                        state.useCountry(group.key)
                         // Already up: move onto this country now rather than
                         // waiting for the next time someone flips the switch.
                         if (connected || connecting) onConnect(group.servers, true)
@@ -1096,7 +1101,7 @@ private fun ConfigsScreen(
                                 // Choosing a row by hand is a statement:
                                 // automatic mode ends here rather than quietly
                                 // overriding the choice on the next connection.
-                                state.setAutomatic(false)
+                                state.useAutomatic(false)
                                 if (!isSelected) {
                                     state.chosen = server
                                     // Switching server while connected
