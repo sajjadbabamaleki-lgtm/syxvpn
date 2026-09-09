@@ -205,12 +205,43 @@ class ControlPlaneClient(
     }
 
     /**
-     * Fetches the subscription URL itself. Used on reconnect so the app picks up
-     * a gateway change without needing the account API — the same base64 list
-     * every other Xray client consumes.
+     * One gateway as the subscription describes it.
+     *
+     * `routeState` is the control plane's verdict on the whole path — ingress
+     * and egress — which is the half the phone cannot measure for itself.
      */
-    suspend fun refreshProfiles(subscriptionUrl: String): List<String> = withContext(Dispatchers.IO) {
-        val connection = (URL(subscriptionUrl).openConnection() as HttpURLConnection).apply {
+    data class SubscriptionServer(
+        val uri: String,
+        val routeState: String?,
+        val gatewayName: String?,
+        val region: String?,
+    )
+
+    /**
+     * Fetches the subscription itself, which is the same source every other
+     * Xray client consumes, so the app picks up a gateway change or a failover
+     * without going through the account API.
+     *
+     * Jordan's own endpoint answers `?format=json` with the route state of each
+     * gateway. A subscription hosted anywhere else answers with the ordinary
+     * base64 list, and that is the fallback: the servers are still usable, the
+     * app just knows less about them.
+     */
+    suspend fun refreshProfiles(subscriptionUrl: String): List<SubscriptionServer> =
+        withContext(Dispatchers.IO) {
+            val text = fetchSubscription(withFormatJson(subscriptionUrl))
+            val servers = parseJsonSubscription(text) ?: parseBase64Subscription(text)
+                ?: parseBase64Subscription(fetchSubscription(subscriptionUrl))
+                ?: throw ApiException(502, "SUBSCRIPTION", "The subscription returned nothing usable")
+            session.cachedProfiles = servers.joinToString("\n") { it.uri }
+            servers
+        }
+
+    private fun withFormatJson(url: String) =
+        if ('?' in url) "$url&format=json" else "$url?format=json"
+
+    private fun fetchSubscription(url: String): String {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 15_000
@@ -220,13 +251,35 @@ class ControlPlaneClient(
             if (it.responseCode !in 200..299) {
                 throw ApiException(it.responseCode, "SUBSCRIPTION", "Subscription unavailable")
             }
-            val body = it.inputStream.bufferedReader().readText().trim()
-            val decoded = runCatching {
-                String(android.util.Base64.decode(body, android.util.Base64.DEFAULT))
-            }.getOrElse { body }
-            decoded.lines().map(String::trim).filter { line -> line.startsWith("vless://") }
-                .also { profiles -> session.cachedProfiles = profiles.joinToString("\n") }
+            return it.inputStream.bufferedReader().readText().trim()
         }
+    }
+
+    private fun parseJsonSubscription(text: String): List<SubscriptionServer>? {
+        val profiles = runCatching {
+            json.parseToJsonElement(text).jsonObject["data"]?.jsonObject?.get("profiles")?.jsonArray
+        }.getOrNull() ?: return null
+        val servers = profiles.mapNotNull { element ->
+            val profile = element.jsonObject
+            val uri = profile["uri"]?.jsonPrimitive?.contentOrNullSafe() ?: return@mapNotNull null
+            SubscriptionServer(
+                uri = uri,
+                routeState = profile["routeState"]?.jsonPrimitive?.contentOrNullSafe(),
+                gatewayName = profile["gatewayName"]?.jsonPrimitive?.contentOrNullSafe(),
+                region = profile["region"]?.jsonPrimitive?.contentOrNullSafe(),
+            )
+        }
+        return servers.ifEmpty { null }
+    }
+
+    private fun parseBase64Subscription(text: String): List<SubscriptionServer>? {
+        val decoded = runCatching {
+            String(android.util.Base64.decode(text, android.util.Base64.DEFAULT))
+        }.getOrElse { text }
+        val servers = decoded.lines().map(String::trim)
+            .filter { it.startsWith("vless://") }
+            .map { SubscriptionServer(uri = it, routeState = null, gatewayName = null, region = null) }
+        return servers.ifEmpty { null }
     }
 
     /** `{ data: {...} }` responses. */

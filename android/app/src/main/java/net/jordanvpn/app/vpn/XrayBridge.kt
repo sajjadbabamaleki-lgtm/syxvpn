@@ -34,6 +34,18 @@ interface XrayBridge {
 
     /** The core's version, for the support screen. Null when it cannot be read. */
     fun version(): String?
+
+    /**
+     * Measures the round trip *through* each configuration, in milliseconds,
+     * null where the request did not complete.
+     *
+     * This is the only measurement that says anything about the far half of the
+     * path: a TCP handshake to a gateway proves the first hop and nothing about
+     * whether that gateway can still reach the internet. It builds a temporary
+     * instance per configuration, so it can only run while the tunnel is down —
+     * the core refuses to build one alongside a running instance.
+     */
+    fun probe(configs: List<String>, timeoutSeconds: Int = 5): List<Long?>
 }
 
 /**

@@ -21,6 +21,10 @@ class NotWiredXrayBridge : XrayBridge {
     override fun trafficStats() = 0L to 0L
 
     override fun version(): String? = null
+
+    /** No core, no measurement — not a zero, and not a guess. */
+    override fun probe(configs: List<String>, timeoutSeconds: Int): List<Long?> =
+        configs.map { null }
 }
 
 /** The build with no AAR has only one possible runtime. */

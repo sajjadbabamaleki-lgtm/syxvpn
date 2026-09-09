@@ -19,9 +19,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import net.jordanvpn.app.R
+import net.jordanvpn.app.core.Latency
+import net.jordanvpn.app.core.Probe
+import net.jordanvpn.app.core.RouteState
+import net.jordanvpn.app.core.Server
+import net.jordanvpn.app.core.ServerPicker
 import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.XrayConfigBuilder
+import org.json.JSONArray
+import org.json.JSONObject
 import java.net.ServerSocket
 import java.util.concurrent.Executors
 
@@ -65,16 +74,24 @@ class JordanVpnService : VpnService() {
         when (intent?.action) {
             ACTION_DISCONNECT -> { disconnect(); return START_NOT_STICKY }
             else -> connect(
-                intent?.getStringExtra(EXTRA_PROFILE),
+                intent?.getStringExtra(EXTRA_SERVERS),
+                intent?.getBooleanExtra(EXTRA_AUTOMATIC, false) ?: false,
                 intent?.getStringExtra(EXTRA_CONTROL_HOST),
             )
         }
         return START_STICKY
     }
 
-    private fun connect(profileUri: String?, controlPlaneHost: String?) {
-        val profile = profileUri?.let(VlessProfile::parse)
-        if (profile == null) {
+    /**
+     * @param serversJson the servers to consider, as
+     *   `[{"uri": "vless://…", "routeState": "healthy"}, …]`. In manual mode
+     *   the list holds the one the person chose.
+     * @param automatic when true the tunnel measures the candidates and decides;
+     *   when false it uses the first entry and does not wander off it.
+     */
+    private fun connect(serversJson: String?, automatic: Boolean, controlPlaneHost: String?) {
+        val servers = parseServers(serversJson)
+        if (servers.isEmpty()) {
             fail("No server was selected")
             return
         }
@@ -90,30 +107,119 @@ class JordanVpnService : VpnService() {
             // so traffic cannot keep flowing through the server just left.
             tearDown()
             try {
-                val descriptor = establish() ?: return@launch
-                tun = descriptor
                 val metricsPort = freeLoopbackPort()
                 val runtime = createXrayBridge({ fd -> protect(fd) }, metricsPort)
                 bridge = runtime
-                runtime.start(
-                    XrayConfigBuilder.build(
-                        profile = profile,
-                        controlPlaneHost = controlPlaneHost,
-                        tunFd = descriptor.fd,
-                        metricsPort = metricsPort,
-                    ),
+
+                // Measuring happens before the interface exists. Once the TUN is
+                // up it carries everything, and a probe would be measuring the
+                // tunnel it is trying to choose.
+                val order = if (automatic) chooseOrder(servers, runtime) else servers
+
+                val descriptor = establish() ?: return@launch
+                tun = descriptor
+
+                var lastFailure: Throwable? = null
+                for (server in order) {
+                    activity.value = "Connecting to ${server.label}"
+                    updateNotification("Connecting to ${server.label}")
+                    try {
+                        runtime.start(
+                            XrayConfigBuilder.build(
+                                profile = server.profile,
+                                controlPlaneHost = controlPlaneHost,
+                                tunFd = descriptor.fd,
+                                metricsPort = metricsPort,
+                            ),
+                        )
+                    } catch (failure: Throwable) {
+                        // One server refusing is not the end of the attempt; the
+                        // next candidate gets the same descriptor.
+                        lastFailure = failure
+                        runCatching { runtime.stop() }
+                        continue
+                    }
+                    runtimeVersion.value = runtime.version()
+                    activeServer.value = server.key
+                    activeLabel.value = server.label
+                    activity.value = null
+                    connectedAt = System.currentTimeMillis()
+                    state.value = State.CONNECTED
+                    lastError.value = null
+                    startStatsLoop()
+                    updateNotification("Connected · ${server.label}")
+                    return@launch
+                }
+                fail(
+                    lastFailure?.message
+                        ?: "No server accepted the connection (${order.size} tried)",
                 )
-                // The core's own version string, for the support screen. Null
-                // means no runtime is bundled in this build.
-                runtimeVersion.value = runtime.version()
-                connectedAt = System.currentTimeMillis()
-                state.value = State.CONNECTED
-                lastError.value = null
-                startStatsLoop()
-                updateNotification("Connected · ${profile.label}")
             } catch (error: Throwable) {
                 fail(error.message ?: "Could not start the tunnel")
             }
+        }
+    }
+
+    /**
+     * Decides which server to use, and in what order to fall back.
+     *
+     * Two measurements, in the order of how much they prove:
+     *
+     *  1. a TCP handshake to every gateway, from this phone. It says the first
+     *     hop is reachable on this network — and nothing at all about whether
+     *     the gateway can still reach the internet.
+     *  2. a real request *through* the best few, made by the core itself. That
+     *     is the only evidence the far half of the path works, and it is why a
+     *     gateway that answers in 20 ms but has a dead egress loses to one that
+     *     answers in 400 ms and works.
+     *
+     * Everything the control plane already knows — its own view of each
+     * gateway's ingress and egress — outranks both, because it watches all of
+     * them continuously and the phone gets one look.
+     */
+    private suspend fun chooseOrder(servers: List<Server>, runtime: XrayBridge): List<Server> {
+        activity.value = "Measuring ${servers.size} servers…"
+        val probes = measure(servers)
+
+        val shortlist = ServerPicker.rank(servers, probes).take(PROBE_SHORTLIST)
+        val endToEnd = if (shortlist.isEmpty()) {
+            emptyMap()
+        } else {
+            activity.value = "Testing ${shortlist.size} of them end to end…"
+            val delays = runCatching {
+                runtime.probe(shortlist.map { XrayConfigBuilder.outboundOnly(it.profile) })
+            }.getOrElse { emptyList() }
+            // No runtime, or a refused batch: no evidence rather than bad
+            // evidence. The handshake ranking then decides on its own.
+            shortlist.indices.filter { it < delays.size }
+                .associate { shortlist[it].key to delays[it] }
+        }
+
+        return ServerPicker.connectOrder(servers, probes, endToEnd, activeServer.value)
+    }
+
+    /** Real handshakes, in parallel, with a short ceiling on each. */
+    private suspend fun measure(servers: List<Server>): Map<String, Probe> = coroutineScope {
+        servers.map { server ->
+            async {
+                val rtt = Latency.measure(server.profile.host, server.profile.port, HANDSHAKE_TIMEOUT_MS)
+                server.key to Probe(server.key, rttMs = rtt, attempted = true)
+            }
+        }.associate { it.await() }
+    }
+
+    private fun parseServers(json: String?): List<Server> {
+        if (json.isNullOrBlank()) return emptyList()
+        val array = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val entry = array.optJSONObject(index) ?: return@mapNotNull null
+            val profile = VlessProfile.parse(entry.optString("uri")) ?: return@mapNotNull null
+            Server(
+                profile = profile,
+                routeState = RouteState.of(entry.optString("routeState").takeIf { it.isNotEmpty() }),
+                gatewayName = entry.optString("gatewayName").takeIf { it.isNotEmpty() },
+                region = entry.optString("region").takeIf { it.isNotEmpty() },
+            )
         }
     }
 
@@ -151,6 +257,7 @@ class JordanVpnService : VpnService() {
         state.value = State.FAILED
         traffic.value = 0L to 0L
         uptimeSeconds.value = 0L
+        activity.value = null
         scope.launch { tearDown() }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -160,6 +267,7 @@ class JordanVpnService : VpnService() {
         state.value = State.DISCONNECTED
         traffic.value = 0L to 0L
         uptimeSeconds.value = 0L
+        activity.value = null
         // Queued behind whatever the worker is doing, so a disconnect during a
         // connect tears down what that connect finished building.
         scope.launch { tearDown() }
@@ -239,11 +347,33 @@ class JordanVpnService : VpnService() {
         const val ACTION_CONNECT = "net.jordanvpn.app.CONNECT"
         const val ACTION_DISCONNECT = "net.jordanvpn.app.DISCONNECT"
 
-        /** The `vless://` line to connect through. */
-        const val EXTRA_PROFILE = "profile"
+        /** The candidate servers, as JSON; see [serversPayload]. */
+        const val EXTRA_SERVERS = "servers"
+
+        /** True to let the tunnel measure and choose; false to use the first entry. */
+        const val EXTRA_AUTOMATIC = "automatic"
 
         /** Hostname of the control plane, kept off the tunnel. */
         const val EXTRA_CONTROL_HOST = "controlHost"
+
+        /** How many of the best candidates are worth an end-to-end test. */
+        private const val PROBE_SHORTLIST = 3
+
+        /** A handshake that has not answered by now is not the one to pick. */
+        private const val HANDSHAKE_TIMEOUT_MS = 2500
+
+        /** The JSON the app hands over, built where the servers are known. */
+        fun serversPayload(servers: List<Server>): String = JSONArray().apply {
+            servers.forEach { server ->
+                put(
+                    JSONObject()
+                        .put("uri", server.profile.uri)
+                        .put("routeState", server.routeState.name.lowercase())
+                        .put("gatewayName", server.gatewayName ?: "")
+                        .put("region", server.region ?: ""),
+                )
+            }
+        }.toString()
 
         private const val CHANNEL_ID = "tunnel"
         private const val NOTIFICATION_ID = 1
@@ -253,6 +383,13 @@ class JordanVpnService : VpnService() {
         /** uplink to downlink bytes, cumulative for the current session. */
         val traffic = MutableStateFlow(0L to 0L)
         val uptimeSeconds = MutableStateFlow(0L)
+
+        /** The server the tunnel actually settled on, as host:port. */
+        val activeServer = MutableStateFlow<String?>(null)
+        val activeLabel = MutableStateFlow<String?>(null)
+
+        /** What the tunnel is doing while it is not yet connected. */
+        val activity = MutableStateFlow<String?>(null)
         /** Xray-core's version, once a session has started it. */
         val runtimeVersion = MutableStateFlow<String?>(null)
         val observableState: StateFlow<State> get() = state

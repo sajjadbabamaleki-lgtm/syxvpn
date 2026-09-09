@@ -89,6 +89,47 @@ reaches the app the same way it reaches every other client — the subscription
 returns a different gateway set. That is why the app refetches the subscription
 URL on every refresh instead of caching a config forever.
 
+## Automatic, or by hand
+
+The switch works without anyone choosing a server. AUTO is the default, and it
+is not a euphemism for "the first one in the list": when the switch goes on, the
+tunnel decides, in the order of how much each source actually proves.
+
+**What the control plane knows** outranks everything. It watches every gateway's
+ingress *and* the egress behind it, continuously, and publishes a route state —
+healthy, degraded, unverified — in `/sub/<token>?format=json`. The app reads
+that form now; the plain base64 list is the fallback for a subscription hosted
+anywhere else, and a server from it carries no route state rather than a
+flattering guess.
+
+**What the phone can measure** breaks ties inside a health class. A real TCP
+handshake to each gateway, in parallel, with a 2.5 s ceiling. It says the first
+hop is reachable on this network — and nothing about whether that gateway can
+still reach the internet.
+
+**What the core can prove** is the strongest evidence and the most expensive, so
+it is spent on the best three: `pingBatch` builds a temporary instance per
+candidate and makes a real request through it. That is why a gateway answering
+in 20 ms with a dead egress loses to one that answers in 400 ms and works. With
+no runtime bundled this returns nothing — no evidence rather than bad evidence,
+and the handshake ranking decides alone.
+
+Then it connects, and if a server refuses it walks down the rest of the list
+rather than giving up: failover is the same ordering, not a second mechanism.
+A server that failed its end-to-end test stays in that list, last — one refused
+handshake is not proof a gateway is gone.
+
+Switching servers costs every open connection, so an automatic re-pick keeps the
+one in use unless the alternative is better in a way a person would notice: a
+better health class, or 40 ms faster. Without that hysteresis two gateways a few
+milliseconds apart would swap on every refresh.
+
+Tapping a row is a statement, so it turns AUTO off and stays off. That decision
+lives in `core/ServerPicker.kt`, which is ordinary Kotlin with no Android in it,
+and `android/tools/PureLogicChecks.kt` runs 13 checks over it — including that
+health beats latency, that a proven-dead egress loses to a slower working one,
+and that the hysteresis holds in both directions.
+
 ## Why the configs are on the connect screen
 
 Other clients put the config list on its own tab. Switching server is the thing
@@ -326,6 +367,7 @@ counters stay at zero.
 | `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, premium, support and account tabs |
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
+| `core/ServerPicker.kt` | Ranking, hysteresis and failover order — no Android in it |
 | `core/SupportContact.kt` | Turns a support contact into an openable link |
 | `app/proguard-rules.pro` | R8 rules for the release build |
 | `preview/connect-screen.html` | Mockup of the screens (not a screenshot) |

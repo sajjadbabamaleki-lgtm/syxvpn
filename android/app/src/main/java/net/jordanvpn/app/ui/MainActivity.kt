@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import net.jordanvpn.app.JordanApp
+import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.vpn.JordanVpnService
 
 /**
@@ -21,16 +22,16 @@ import net.jordanvpn.app.vpn.JordanVpnService
  */
 class MainActivity : ComponentActivity() {
 
-    /** The `vless://` line waiting for the VPN consent dialog to come back. */
-    private val pendingProfile = mutableStateOf<String?>(null)
+    /** The connection waiting for the VPN consent dialog to come back. */
+    private val pendingServers = mutableStateOf<Pair<String, Boolean>?>(null)
 
     /**
      * Android requires an explicit user consent dialog before an app may create
      * a VPN interface. The tunnel can only start after this returns OK.
      */
     private val vpnConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) startTunnel(pendingProfile.value)
-        pendingProfile.value = null
+        if (result.resultCode == Activity.RESULT_OK) startTunnel(pendingServers.value)
+        pendingServers.value = null
     }
 
     /**
@@ -67,29 +68,36 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The app hands the service the chosen `vless://` line, not a finished Xray
+     * The app hands the service the candidate servers, not a finished Xray
      * config: the config has to carry the TUN descriptor, and that only exists
      * once the service has established the interface.
+     *
+     * @param automatic true to let the tunnel measure the candidates and
+     *   decide; false when the person chose one and it is not to wander off it.
      */
-    private fun requestTunnel(profileUri: String) {
+    private fun requestTunnel(servers: List<Server>, automatic: Boolean) {
+        if (servers.isEmpty()) return
+        val request = JordanVpnService.serversPayload(servers) to automatic
         val consentIntent = VpnService.prepare(this)
         if (consentIntent != null) {
-            pendingProfile.value = profileUri
+            pendingServers.value = request
             vpnConsent.launch(consentIntent)
         } else {
-            startTunnel(profileUri)
+            startTunnel(request)
         }
     }
 
-    private fun startTunnel(profileUri: String?) {
-        if (profileUri == null) return
+    private fun startTunnel(request: Pair<String, Boolean>?) {
+        if (request == null) return
+        val (serversJson, automatic) = request
         val controlHost = runCatching {
             java.net.URL(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL).host
         }.getOrNull()
         startService(
             Intent(this, JordanVpnService::class.java)
                 .setAction(JordanVpnService.ACTION_CONNECT)
-                .putExtra(JordanVpnService.EXTRA_PROFILE, profileUri)
+                .putExtra(JordanVpnService.EXTRA_SERVERS, serversJson)
+                .putExtra(JordanVpnService.EXTRA_AUTOMATIC, automatic)
                 .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHost),
         )
     }

@@ -1,5 +1,10 @@
 package net.jordanvpn.app.tools
 
+import net.jordanvpn.app.core.Probe
+import net.jordanvpn.app.core.RouteState
+import net.jordanvpn.app.core.Server
+import net.jordanvpn.app.core.ServerPicker
+import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.supportLink
 import net.jordanvpn.app.ui.formatBytes
 import net.jordanvpn.app.ui.formatRemaining
@@ -59,6 +64,161 @@ fun main() {
     check("supportLink(prose)", supportLink("call us on the phone"), null)
     check("supportLink(empty)", supportLink("   "), null)
 
+    serverPickerChecks()
+
     println(if (failures == 0) "all checks passed" else "$failures check(s) failed")
     if (failures > 0) kotlin.system.exitProcess(1)
+}
+
+/**
+ * Server selection, which is the part of the app most able to be quietly wrong:
+ * a bad order is not a crash, it is a slow connection nobody can explain.
+ */
+private fun server(host: String, state: RouteState) = Server(
+    profile = VlessProfile(
+        uri = "vless://11111111-2222-3333-4444-555555555555@$host:443?type=ws&security=tls",
+        uuid = "11111111-2222-3333-4444-555555555555",
+        host = host,
+        port = 443,
+        label = host,
+        tls = true,
+        sni = null,
+        wsPath = "/ws",
+        wsHost = null,
+    ),
+    routeState = state,
+)
+
+private fun serverPickerChecks() {
+    val healthy = server("healthy.example.net", RouteState.HEALTHY)
+    val degraded = server("degraded.example.net", RouteState.DEGRADED)
+    val unverified = server("unverified.example.net", RouteState.UNVERIFIED)
+    val all = listOf(degraded, unverified, healthy)
+
+    // Health class beats latency: a fast gateway whose egress is struggling is
+    // not a better route than a slower one that works end to end.
+    val probes = mapOf(
+        healthy.key to Probe(healthy.key, rttMs = 220, attempted = true),
+        degraded.key to Probe(degraded.key, rttMs = 20, attempted = true),
+        unverified.key to Probe(unverified.key, rttMs = 10, attempted = true),
+    )
+    check("health beats latency", ServerPicker.pick(all, probes)?.key, healthy.key)
+
+    // Within a class, the faster one wins.
+    val a = server("a.example.net", RouteState.HEALTHY)
+    val b = server("b.example.net", RouteState.HEALTHY)
+    val pair = listOf(a, b)
+    check(
+        "faster of two healthy",
+        ServerPicker.pick(
+            pair,
+            mapOf(a.key to Probe(a.key, 180, true), b.key to Probe(b.key, 60, true)),
+        )?.key,
+        b.key,
+    )
+
+    // Hysteresis: a small gain does not justify dropping every open connection.
+    check(
+        "keeps current for a small gain",
+        ServerPicker.pick(
+            pair,
+            mapOf(a.key to Probe(a.key, 100, true), b.key to Probe(b.key, 75, true)),
+            current = a.key,
+        )?.key,
+        a.key,
+    )
+    check(
+        "switches for a real gain",
+        ServerPicker.pick(
+            pair,
+            mapOf(a.key to Probe(a.key, 100, true), b.key to Probe(b.key, 40, true)),
+            current = a.key,
+        )?.key,
+        b.key,
+    )
+
+    // A server that stopped answering is not defended, and sorts last.
+    check(
+        "leaves a server that stopped answering",
+        ServerPicker.pick(
+            pair,
+            mapOf(a.key to Probe(a.key, null, true), b.key to Probe(b.key, 300, true)),
+            current = a.key,
+        )?.key,
+        b.key,
+    )
+    check(
+        "unreachable sorts last",
+        ServerPicker.rank(pair, mapOf(a.key to Probe(a.key, null, true), b.key to Probe(b.key, 900, true)))
+            .map { it.key },
+        listOf(b.key, a.key),
+    )
+
+    // Not measured is not the same as failed: it only sorts after measured ones.
+    check(
+        "unmeasured sorts after measured, not last",
+        ServerPicker.rank(
+            listOf(a, b, degraded),
+            mapOf(b.key to Probe(b.key, 90, true)),
+        ).map { it.key },
+        listOf(b.key, a.key, degraded.key),
+    )
+
+    // Failover order keeps every server, including the ones that failed.
+    check(
+        "connect order tries the pick first and keeps the rest",
+        ServerPicker.connectOrder(all, probes).map { it.key },
+        listOf(healthy.key, degraded.key, unverified.key),
+    )
+    check("no servers, no pick", ServerPicker.pick(emptyList()), null)
+
+    // End-to-end evidence outranks a first-hop handshake, in both directions:
+    // a gateway that answers fast but cannot reach the internet goes last, and
+    // a slower one that does reach it leads.
+    val near = server("near.example.net", RouteState.HEALTHY)
+    val far = server("far.example.net", RouteState.HEALTHY)
+    val untested = server("untested.example.net", RouteState.HEALTHY)
+    val three = listOf(near, far, untested)
+    val handshakes = mapOf(
+        near.key to Probe(near.key, 20, true),
+        far.key to Probe(far.key, 150, true),
+        untested.key to Probe(untested.key, 90, true),
+    )
+    check(
+        "a dead egress loses to a slower working one",
+        ServerPicker.connectOrder(
+            three,
+            handshakes,
+            endToEnd = mapOf(near.key to null, far.key to 400),
+        ).map { it.key },
+        listOf(far.key, untested.key, near.key),
+    )
+    check(
+        // Among untested servers the ordinary rank still decides, so the one
+        // with the better handshake leads — and the proven-dead one is last.
+        "an untested server outranks a proven-dead one",
+        ServerPicker.connectOrder(three, handshakes, endToEnd = mapOf(near.key to null))
+            .map { it.key },
+        listOf(untested.key, far.key, near.key),
+    )
+    check(
+        "end-to-end hysteresis keeps the server in use",
+        ServerPicker.connectOrder(
+            three,
+            handshakes,
+            endToEnd = mapOf(near.key to 300, far.key to 280),
+            current = near.key,
+        ).first().key,
+        near.key,
+    )
+    check(
+        "end-to-end switches when the gain is real",
+        ServerPicker.connectOrder(
+            three,
+            handshakes,
+            endToEnd = mapOf(near.key to 300, far.key to 150),
+            current = near.key,
+        ).first().key,
+        far.key,
+    )
 }

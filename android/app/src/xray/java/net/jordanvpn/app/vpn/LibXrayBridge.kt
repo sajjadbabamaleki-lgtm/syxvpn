@@ -3,6 +3,7 @@ package net.jordanvpn.app.vpn
 import android.util.Log
 import libXray.DialerController
 import libXray.LibXray
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -90,6 +91,38 @@ class LibXrayBridge(
         return proxy.optLong("uplink", 0L) to proxy.optLong("downlink", 0L)
     }
 
+    /**
+     * libXray's `pingBatch`: one temporary instance, every configuration tested
+     * concurrently through its own outbound.
+     *
+     * The API accepts at most five configurations per call and rejects the
+     * whole batch if given more, so this walks the list in fives. Its error and
+     * timeout sentinels (10000 and 11000 ms) are turned back into null: a
+     * failure is not a slow success, and nothing downstream should be able to
+     * mistake one for the other.
+     */
+    override fun probe(configs: List<String>, timeoutSeconds: Int): List<Long?> =
+        configs.chunked(MAX_PROBE_BATCH).flatMap { batch -> probeBatch(batch, timeoutSeconds) }
+
+    private fun probeBatch(configs: List<String>, timeoutSeconds: Int): List<Long?> {
+        val items = JSONArray()
+        configs.forEach { config -> items.put(JSONObject().put("xrayJson", config)) }
+        val payload = JSONObject()
+            .put("configs", items)
+            .put("timeout", timeoutSeconds)
+            .put("url", PROBE_URL)
+
+        val results = runCatching { invoke("pingBatch", payload).optJSONArray("results") }
+            .getOrNull() ?: return configs.map { null }
+
+        return configs.indices.map { index ->
+            val result = results.optJSONObject(index) ?: return@map null
+            if (!result.optBoolean("success")) return@map null
+            val delay = result.optLong("delay", -1L)
+            if (delay < 0 || delay >= PROBE_ERROR_DELAY) null else delay
+        }
+    }
+
     private fun invoke(method: String, payload: JSONObject?): JSONObject {
         val request = JSONObject()
             .put("apiVersion", API_VERSION)
@@ -113,6 +146,15 @@ class LibXrayBridge(
 
         /** Must be an IP endpoint with a port, per libXray's SetDNS contract. */
         const val DNS_ENDPOINT = "1.1.1.1:53"
+
+        /** pingBatch refuses a request carrying more than five configurations. */
+        const val MAX_PROBE_BATCH = 5
+
+        /** A small, unauthenticated endpoint that answers from everywhere. */
+        const val PROBE_URL = "https://cp.cloudflare.com/"
+
+        /** pingBatch reports 10000 for an error and 11000 for a timeout. */
+        const val PROBE_ERROR_DELAY = 10_000L
     }
 }
 

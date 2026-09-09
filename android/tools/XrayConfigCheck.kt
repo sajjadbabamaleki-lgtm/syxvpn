@@ -42,5 +42,12 @@ fun main(args: Array<String>) {
     )
     // The descriptor must reach Xray through the root env, as a string.
     check("\"xray.tun.fd\":\"42\"" in json.replace(" ", "")) { "tun fd missing from env" }
+
+    // The probe config libXray's pingBatch is given: outbounds only, by design.
+    val probe = XrayConfigBuilder.outboundOnly(profile)
+    check("inbounds" !in probe) { "the probe config must carry no inbound" }
+    check("\"protocol\":\"vless\"" in probe.replace(" ", "")) { "the probe config lost its outbound" }
+    if (args.getOrNull(1) == "--probe") { print(probe); return }
+
     print(json)
 }

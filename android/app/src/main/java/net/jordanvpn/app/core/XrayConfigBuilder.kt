@@ -37,13 +37,53 @@ object XrayConfigBuilder {
      *   counters the connect screen shows are read from it, so they are the
      *   core's own numbers rather than something the app invents.
      */
+    /**
+     * Just the outbound, for a latency probe.
+     *
+     * libXray's `pingBatch` reads only the root `outbounds` of what it is
+     * given, builds a temporary instance and makes a real request through it.
+     * That is the only measurement the phone can make of the *whole* path: a
+     * TCP handshake to the gateway proves the first hop and nothing else.
+     */
+    fun outboundOnly(profile: VlessProfile): String =
+        JSONObject().put("outbounds", JSONArray().put(proxyOutbound(profile))).toString()
+
     fun build(
         profile: VlessProfile,
         controlPlaneHost: String?,
         tunFd: Int,
         metricsPort: Int,
         mtu: Int = MTU,
-    ): String {
+    ): String = JSONObject()
+        .put("log", JSONObject().put("loglevel", "warning"))
+        // Applied to the process environment as the config is built; the
+        // Android TUN reads the descriptor from here.
+        .put("env", JSONObject().put("xray.tun.fd", tunFd.toString()))
+        .put("inbounds", JSONArray().put(tunInbound(mtu)))
+        .put(
+            "outbounds",
+            JSONArray()
+                .put(proxyOutbound(profile))
+                .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
+                .put(JSONObject().put("tag", "block").put("protocol", "blackhole")),
+        )
+        .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", routingRules(profile, controlPlaneHost)))
+        // Counters for the connect screen, read over loopback from the metrics
+        // server rather than estimated anywhere in the app.
+        .put("metrics", JSONObject().put("listen", "127.0.0.1:$metricsPort"))
+        .put("stats", JSONObject())
+        .put(
+            "policy",
+            JSONObject().put(
+                "system",
+                JSONObject()
+                    .put("statsOutboundUplink", true)
+                    .put("statsOutboundDownlink", true),
+            ),
+        )
+        .toString()
+
+    private fun proxyOutbound(profile: VlessProfile): JSONObject {
         val stream = JSONObject()
             .put("network", "ws")
             .put(
@@ -88,7 +128,10 @@ object XrayConfigBuilder {
                 ),
             )
             .put("streamSettings", stream)
+        return proxy
+    }
 
+    private fun routingRules(profile: VlessProfile, controlPlaneHost: String?): JSONArray {
         val rules = JSONArray()
         // The gateway and the control plane stay off the tunnel: if the tunnel
         // breaks, the app must still be able to fetch a new subscription.
@@ -106,58 +149,30 @@ object XrayConfigBuilder {
                 .put("ip", JSONArray().put("127.0.0.0/8").put("::1/128"))
                 .put("outboundTag", "direct"),
         )
-
-        val tunInbound = JSONObject()
-            .put("tag", "tun-in")
-            // A TUN inbound listens on nothing; the port is required and ignored.
-            .put("port", 0)
-            .put("protocol", "tun")
-            .put(
-                "settings",
-                JSONObject()
-                    .put("name", TUN_NAME)
-                    .put("mtu", mtu),
-            )
-            .put(
-                "sniffing",
-                JSONObject()
-                    .put("enabled", true)
-                    .put(
-                        "destOverride",
-                        JSONArray().put("http").put("tls").put("quic"),
-                    )
-                    // Sniffing recovers the hostname for routing; it must not
-                    // rewrite the destination the app asked for.
-                    .put("routeOnly", true),
-            )
-
-        return JSONObject()
-            .put("log", JSONObject().put("loglevel", "warning"))
-            // Applied to the process environment as the config is built; the
-            // Android TUN reads the descriptor from here.
-            .put("env", JSONObject().put("xray.tun.fd", tunFd.toString()))
-            .put("inbounds", JSONArray().put(tunInbound))
-            .put(
-                "outbounds",
-                JSONArray()
-                    .put(proxy)
-                    .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
-                    .put(JSONObject().put("tag", "block").put("protocol", "blackhole")),
-            )
-            .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", rules))
-            // Counters for the connect screen, read over loopback from the
-            // metrics server rather than estimated anywhere in the app.
-            .put("metrics", JSONObject().put("listen", "127.0.0.1:$metricsPort"))
-            .put("stats", JSONObject())
-            .put(
-                "policy",
-                JSONObject().put(
-                    "system",
-                    JSONObject()
-                        .put("statsOutboundUplink", true)
-                        .put("statsOutboundDownlink", true),
-                ),
-            )
-            .toString()
+        return rules
     }
+
+    private fun tunInbound(mtu: Int): JSONObject = JSONObject()
+        .put("tag", "tun-in")
+        // A TUN inbound listens on nothing; the port is required and ignored.
+        .put("port", 0)
+        .put("protocol", "tun")
+        .put(
+            "settings",
+            JSONObject()
+                .put("name", TUN_NAME)
+                .put("mtu", mtu),
+        )
+        .put(
+            "sniffing",
+            JSONObject()
+                .put("enabled", true)
+                .put(
+                    "destOverride",
+                    JSONArray().put("http").put("tls").put("quic"),
+                )
+                // Sniffing recovers the hostname for routing; it must not
+                // rewrite the destination the app asked for.
+                .put("routeOnly", true),
+        )
 }

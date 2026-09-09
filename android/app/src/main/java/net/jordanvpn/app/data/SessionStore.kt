@@ -51,6 +51,18 @@ class SessionStore(context: Context) {
         get() = prefs.getStringSet(KEY_HIDDEN, emptySet()) ?: emptySet()
         set(value) = prefs.edit().putStringSet(KEY_HIDDEN, value).apply()
 
+    /**
+     * Whether the tunnel chooses the server, rather than the person.
+     *
+     * On by default: someone who has just bought a plan has no way to know
+     * which gateway is best for their network, and the tunnel can measure it.
+     * Choosing a server by hand turns it off, and it stays off until they ask
+     * for automatic again.
+     */
+    var automaticServer: Boolean
+        get() = prefs.getBoolean(KEY_AUTOMATIC, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTOMATIC, value).apply()
+
     fun clear() = prefs.edit().clear().apply()
 
     private companion object {
@@ -59,5 +71,6 @@ class SessionStore(context: Context) {
         const val KEY_SUB_URL = "subscription_url"
         const val KEY_PROFILES = "profiles"
         const val KEY_HIDDEN = "hidden_configs"
+        const val KEY_AUTOMATIC = "automatic_server"
     }
 }

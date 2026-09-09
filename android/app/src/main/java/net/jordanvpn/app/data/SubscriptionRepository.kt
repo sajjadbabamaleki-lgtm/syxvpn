@@ -1,5 +1,7 @@
 package net.jordanvpn.app.data
 
+import net.jordanvpn.app.core.RouteState
+import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.VlessProfile
 
 /**
@@ -9,32 +11,52 @@ import net.jordanvpn.app.core.VlessProfile
  * the same source every other client uses and it reflects gateway changes and
  * failover immediately. The cached copy is only a fallback for when the control
  * plane cannot be reached at all — better a stale gateway than no connection.
+ *
+ * A cached server carries no route state. That is deliberate: health is a
+ * statement about now, and a list from an hour ago cannot make it. Automatic
+ * selection then falls back to what the phone can still measure itself.
  */
 class SubscriptionRepository(private val api: ControlPlaneClient) {
 
-    data class Profiles(val profiles: List<VlessProfile>, val stale: Boolean, val error: String?)
+    data class Servers(val servers: List<Server>, val stale: Boolean, val error: String?)
 
-    suspend fun load(session: SessionStore): Profiles {
+    suspend fun load(session: SessionStore): Servers {
         val url = session.subscriptionUrl
         if (url != null) {
             runCatching { api.refreshProfiles(url) }
-                .onSuccess { uris -> return Profiles(parse(uris), stale = false, error = null) }
+                .onSuccess { fresh -> return Servers(convert(fresh), stale = false, error = null) }
                 .onFailure { error ->
                     val cached = session.cachedProfiles?.lines().orEmpty()
-                    if (cached.isNotEmpty()) {
-                        return Profiles(parse(cached), stale = true, error = error.message)
+                        .map { ControlPlaneClient.SubscriptionServer(it, null, null, null) }
+                    val servers = convert(cached)
+                    if (servers.isNotEmpty()) {
+                        return Servers(servers, stale = true, error = error.message)
                     }
                 }
         }
         val subscription = api.subscription()
-            ?: return Profiles(emptyList(), stale = false, error = "No subscription on this account")
+            ?: return Servers(emptyList(), stale = false, error = "No subscription on this account")
         if (!subscription.active) {
-            return Profiles(emptyList(), stale = false, error = describe(subscription.state))
+            return Servers(emptyList(), stale = false, error = describe(subscription.state))
         }
-        return Profiles(parse(subscription.profiles), stale = false, error = null)
+        // The account API hands back plain profile lines, with no route state.
+        return Servers(
+            convert(subscription.profiles.map { ControlPlaneClient.SubscriptionServer(it, null, null, null) }),
+            stale = false,
+            error = null,
+        )
     }
 
-    private fun parse(uris: List<String>) = uris.mapNotNull(VlessProfile::parse)
+    private fun convert(servers: List<ControlPlaneClient.SubscriptionServer>): List<Server> =
+        servers.mapNotNull { server ->
+            val profile = VlessProfile.parse(server.uri) ?: return@mapNotNull null
+            Server(
+                profile = profile,
+                routeState = RouteState.of(server.routeState),
+                gatewayName = server.gatewayName,
+                region = server.region,
+            )
+        }
 
     private fun describe(state: String) = when (state) {
         "expired" -> "Your subscription has expired"
