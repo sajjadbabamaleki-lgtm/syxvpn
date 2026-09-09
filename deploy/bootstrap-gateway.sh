@@ -74,6 +74,31 @@ else
   echo "registered $GW"
 fi
 
+# ---------------------------------------------------------------------- egress
+# A gateway with no egress assigned is not merely unrouted, it is invisible:
+# routeState() answers "no-egress" and the subscription drops the gateway, so
+# the app shows an empty config list and a switch with nothing to connect to.
+say "Making sure the gateway has an egress"
+HAS_EGRESS=$(curl -sS "$CONTROL_URL/api/v1/gateways/$GW" -H "$AUTH" \
+  | python3 -c 'import sys,json;d=(json.load(sys.stdin).get("data") or {});print("yes" if d.get("activeEgressId") else "")')
+if [ -n "$HAS_EGRESS" ]; then
+  echo "already assigned"
+else
+  EG=$(curl -sS "$CONTROL_URL/api/v1/egresses" -H "$AUTH" \
+    | python3 -c 'import sys,json;rows=json.load(sys.stdin).get("data") or []
+print(next((e["id"] for e in rows if e.get("kind")=="direct"), ""))')
+  if [ -z "$EG" ]; then
+    EG=$(printf '{"name":"direct","region":"%s","kind":"direct","probeUrl":"http://connectivitycheck.gstatic.com/generate_204"}' "$GATEWAY_REGION" \
+      | curl -sS -X POST "$CONTROL_URL/api/v1/egresses" -H "$AUTH" -H 'Content-Type: application/json' -d @- \
+      | jget data.id)
+    [ -n "$EG" ] || die "could not create a direct egress"
+  fi
+  printf '{"egressId":"%s","priority":100}' "$EG" \
+    | curl -sS -X POST "$CONTROL_URL/api/v1/gateways/$GW/egresses" -H "$AUTH" \
+      -H 'Content-Type: application/json' -d @- >/dev/null || die "could not assign the egress"
+  echo "assigned $EG"
+fi
+
 say "Issuing an agent key (the previous one stops working)"
 AGENT_KEY=$(curl -sS -X POST "$CONTROL_URL/api/v1/gateways/$GW/agent-key" -H "$AUTH" | jget data.agentKey)
 [ -n "$AGENT_KEY" ] || die "could not issue an agent key"
@@ -86,12 +111,15 @@ docker build -t jordan-agent "$REPO/agent" >/dev/null || die "agent image build 
 say "Starting the agent"
 docker rm -f jordan-agent >/dev/null 2>&1 || true
 ENV_FILE=/etc/jordan-agent.env
-umask 077
-cat > "$ENV_FILE" <<ENV
+# The umask is scoped to this file. Left set for the rest of the script it also
+# made the Caddy block root-only, which validate (run as root) accepted and the
+# caddy user could not read — a reload failure that looked like a bad config.
+(umask 077; cat > "$ENV_FILE" <<ENV
 JORDAN_URL=$CONTROL_URL
 JORDAN_GATEWAY_ID=$GW
 JORDAN_AGENT_KEY=$AGENT_KEY
 ENV
+)
 docker run -d --name jordan-agent --restart unless-stopped --network host \
   --env-file "$ENV_FILE" -v jordan-agent-state:/var/lib/jordan-agent jordan-agent >/dev/null \
   || die "the agent container did not start"
@@ -109,12 +137,19 @@ $GATEWAY_HOST {
 		header Connection *Upgrade*
 		header Upgrade websocket
 	}
-	reverse_proxy @ws 127.0.0.1:$LISTEN_PORT
+	# The proxy goes inside a handle: Caddy sorts handle before reverse_proxy,
+	# so a catch-all handle beside a bare reverse_proxy answers everything first
+	# and the upgrade never reaches Xray — a 404 that looks like a wrong path.
+	handle @ws {
+		reverse_proxy 127.0.0.1:$LISTEN_PORT
+	}
 	handle {
 		respond "" 404
 	}
 }
 CADDY
+# Caddy drops privileges: a block it cannot read is a block that does not exist.
+chmod 644 "$BLOCK"
 
 if [ -f "$CADDYFILE" ]; then
   if grep -q "$BLOCK" "$CADDYFILE"; then
@@ -123,12 +158,14 @@ if [ -f "$CADDYFILE" ]; then
     BACKUP="$CADDYFILE.bak.$(date +%s)"
     cp "$CADDYFILE" "$BACKUP"
     printf '\nimport %s\n' "$BLOCK" >> "$CADDYFILE"
-    if caddy validate --config "$CADDYFILE" >/dev/null 2>&1; then
-      systemctl reload caddy && echo "imported and reloaded"
+    if caddy validate --config "$CADDYFILE" >/dev/null 2>&1 && systemctl reload caddy; then
+      echo "imported and reloaded"
     else
       # Named rather than globbed: a second run must not restore a stale backup.
       cp "$BACKUP" "$CADDYFILE"
-      die "Caddy rejected the config; $CADDYFILE is unchanged. Add $BLOCK by hand."
+      systemctl reload caddy >/dev/null 2>&1 || true
+      die "Caddy would not take the new config; $CADDYFILE is back as it was.
+Read why with: journalctl -xeu caddy.service --no-pager | tail -30"
     fi
   fi
 else
