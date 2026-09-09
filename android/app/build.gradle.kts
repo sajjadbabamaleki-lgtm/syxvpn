@@ -140,6 +140,22 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            /**
+             * The emulator architectures, kept out of every APK.
+             *
+             * gomobile builds four, and two of them only exist on emulators.
+             * They used to be filtered by defaultConfig's abiFilters, which
+             * cannot coexist with a splits block — so with splits alone the
+             * universal APK quietly grew to 239 MB by packaging all four. They
+             * are excluded here, which the split APKs and the universal one
+             * both obey.
+             */
+            excludes += listOf("**/x86/**", "**/x86_64/**")
+        }
+    }
+
     sourceSets["main"].java.srcDir(if (hasXrayRuntime) "src/xray/java" else "src/noxray/java")
 
     buildFeatures {
