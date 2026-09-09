@@ -120,22 +120,28 @@ fun JordanRoot(
 ) {
     var signedIn by remember { mutableStateOf(app.session.token != null) }
     var tab by remember { mutableStateOf(Tab.VPN) }
+    // Set when the Account tab was reached from a Buy button: that person is
+    // here to open an order, so the form starts on "create", not on "sign in".
+    var buying by remember { mutableStateOf(false) }
     val servers = remember(app) { ServerListState(app.session) }
 
-    LaunchedEffect(signedIn) { if (signedIn) servers.refresh(app.subscriptions) }
+    // Refreshed signed in or not: a subscription link saved on this phone still
+    // works without an account, and when there is neither the refresh is what
+    // puts "buy a plan to get servers" on the screen instead of an empty list.
+    LaunchedEffect(signedIn) { servers.refresh(app.subscriptions) }
     // A 401 clears the token; without watching for it the app would sit on a
     // signed-in-looking screen failing every call.
     val expired by app.api.sessionExpired.collectAsState()
     LaunchedEffect(expired) { if (expired) signedIn = false }
 
-    if (!signedIn) {
-        SignInScreen(app, expired) { signedIn = true }
-        return
-    }
-
+    // No sign-in wall. The app opens on the tunnel, because that is what it is
+    // for; an account is only needed to buy a plan, and it is asked for at that
+    // moment, on the Account tab.
     Scaffold(
         containerColor = Background,
-        bottomBar = { BottomBar(tab) { tab = it } },
+        // Choosing a tab by hand clears the "came here to buy" intent, so the
+        // account form is only pre-set to create right after a Buy button.
+        bottomBar = { BottomBar(tab) { chosen -> tab = chosen; if (chosen != Tab.ACCOUNT) buying = false } },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
@@ -154,13 +160,28 @@ fun JordanRoot(
                     onDisconnect = onDisconnect,
                     onOpenPremium = { tab = Tab.PREMIUM },
                 )
-                Tab.PREMIUM -> PremiumScreen(app, onOpenStore)
-                Tab.SUPPORT -> SupportScreen(app)
-                Tab.ACCOUNT -> AccountScreen(
-                    app,
-                    onOpenPremium = { tab = Tab.PREMIUM },
-                    onSignedOut = { signedIn = false },
+                Tab.PREMIUM -> PremiumScreen(
+                    app = app,
+                    signedIn = signedIn,
+                    onOpenStore = onOpenStore,
+                    onNeedsAccount = { buying = true; tab = Tab.ACCOUNT },
                 )
+                Tab.SUPPORT -> SupportScreen(app)
+                Tab.ACCOUNT -> if (signedIn) {
+                    AccountScreen(
+                        app,
+                        onOpenPremium = { tab = Tab.PREMIUM },
+                        onSignedOut = { signedIn = false },
+                    )
+                } else {
+                    SignInScreen(app, expired, startCreating = buying) {
+                        signedIn = true
+                        // Back where the account was asked for, so the order can
+                        // be finished; otherwise stay on the account itself.
+                        if (buying) tab = Tab.PREMIUM
+                        buying = false
+                    }
+                }
             }
         }
     }
@@ -674,7 +695,11 @@ private fun ColumnScope.TunnelPanel(
     // ordinary wording rather than a number nobody measured.
     var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
     LaunchedEffect(Unit) {
-        runCatching { app.api.subscription() }.onSuccess { subscription = it }
+        // Only an account has a plan to report. Without one the card keeps the
+        // plain offer, which is the truth for someone who has not bought yet.
+        if (app.session.signedIn) {
+            runCatching { app.api.subscription() }.onSuccess { subscription = it }
+        }
     }
 
     val connected = tunnelState == JordanVpnService.State.CONNECTED
@@ -1149,7 +1174,12 @@ private fun ConfigsScreen(
 
 
 @Composable
-private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
+private fun PremiumScreen(
+    app: JordanApplication,
+    signedIn: Boolean,
+    onOpenStore: () -> Unit,
+    onNeedsAccount: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
 
     var shopConfig by remember { mutableStateOf<ControlPlaneClient.ShopConfig?>(null) }
@@ -1159,12 +1189,16 @@ private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var busyPlan by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(signedIn) {
+        // Plans and payment settings are public; an open order belongs to an
+        // account, so it is only asked for when there is one.
         runCatching {
             shopConfig = app.api.shopConfig()
             plans = app.api.plans()
-            order = app.api.openOrder()
         }.onFailure { error = it.message }
+        if (signedIn) {
+            runCatching { order = app.api.openOrder() }.onFailure { error = it.message }
+        }
         loading = false
     }
 
@@ -1222,9 +1256,16 @@ private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
                     plan = plan,
                     busy = busyPlan == plan.id,
                     canOrder = canOrder,
+                    signedIn = signedIn,
                     onBuy = {
                         if (!BuildConfig.IN_APP_ORDERS) {
                             onOpenStore()
+                            return@PlanCard
+                        }
+                        // The one moment an account is actually needed: an order
+                        // has to belong to someone.
+                        if (!signedIn) {
+                            onNeedsAccount()
                             return@PlanCard
                         }
                         scope.launch {
@@ -1261,6 +1302,7 @@ private fun PlanCard(
     plan: ControlPlaneClient.Plan,
     busy: Boolean,
     canOrder: Boolean,
+    signedIn: Boolean,
     onBuy: () -> Unit,
 ) {
     Column(
@@ -1293,7 +1335,8 @@ private fun PlanCard(
         }
         Button(
             onClick = onBuy,
-            enabled = (canOrder && !busy) || !BuildConfig.IN_APP_ORDERS,
+            // Signed out the button still works: it asks for the account first.
+            enabled = ((canOrder || !signedIn) && !busy) || !BuildConfig.IN_APP_ORDERS,
             colors = ButtonDefaults.buttonColors(containerColor = Accent, disabledContainerColor = Border),
             shape = RoundedCornerShape(18.dp),
             modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -1302,11 +1345,12 @@ private fun PlanCard(
                 when {
                     !BuildConfig.IN_APP_ORDERS -> "Buy on the website"
                     busy -> "Opening order…"
+                    !signedIn -> "Buy with USDT"
                     canOrder -> "Buy with USDT"
                     else -> "Payments unavailable"
                 },
                 fontWeight = FontWeight.SemiBold,
-                color = if (canOrder || !BuildConfig.IN_APP_ORDERS) OnAccent else TextFaint,
+                color = if (canOrder || !signedIn || !BuildConfig.IN_APP_ORDERS) OnAccent else TextFaint,
             )
         }
     }
@@ -1697,12 +1741,17 @@ private fun LabelledRow(label: String, value: String, valueColor: Color) {
  * the screen is the same form with a different verb.
  */
 @Composable
-private fun SignInScreen(app: JordanApplication, expired: Boolean, onSignedIn: () -> Unit) {
+private fun SignInScreen(
+    app: JordanApplication,
+    expired: Boolean,
+    startCreating: Boolean = false,
+    onSignedIn: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf(app.session.email ?: "") }
     var password by remember { mutableStateOf("") }
     var reveal by remember { mutableStateOf(false) }
-    var creating by remember { mutableStateOf(false) }
+    var creating by remember(startCreating) { mutableStateOf(startCreating) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
@@ -1738,6 +1787,14 @@ private fun SignInScreen(app: JordanApplication, expired: Boolean, onSignedIn: (
             if (creating) "Create an account" else "Sign in with your account",
             color = TextDim,
             fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "An account is only needed to buy a plan and to carry it between " +
+                "devices. The tunnel itself does not ask for one.",
+            color = TextFaint,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
         )
         if (expired && !creating) {
             Spacer(Modifier.height(10.dp))

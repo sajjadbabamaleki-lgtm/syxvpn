@@ -306,6 +306,13 @@ class ControlPlaneClient(
         body: String?,
         authenticated: Boolean,
     ): kotlinx.serialization.json.JsonElement {
+        // No account, no call. A fresh install has no token, and sending the
+        // request anyway would come back 401 and be read as a session that
+        // expired — telling someone who never had an account to sign in again.
+        // Not signed in is a different thing from signed out by the server.
+        if (authenticated && session.token == null) {
+            throw ApiException(401, "NO_SESSION", "Not signed in")
+        }
         val connection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 10_000

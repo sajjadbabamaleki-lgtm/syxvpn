@@ -34,8 +34,13 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
                     }
                 }
         }
+        if (!session.signedIn) {
+            // Not signed in is not an error: it is the ordinary state of a fresh
+            // install. Say what would change it, not what went wrong.
+            return Servers(emptyList(), stale = false, error = "Buy a plan on the Premium tab to get servers")
+        }
         val subscription = api.subscription()
-            ?: return Servers(emptyList(), stale = false, error = "No subscription on this account")
+            ?: return Servers(emptyList(), stale = false, error = "No subscription on this account yet")
         if (!subscription.active) {
             return Servers(emptyList(), stale = false, error = describe(subscription.state))
         }

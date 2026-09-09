@@ -241,11 +241,24 @@ same figures — data left and days left — drawn only once the control plane h
 answered, so an unreachable API leaves the space empty rather than showing a
 full bar nobody measured.
 
-Before any of them there is the sign-in screen, which also creates accounts:
-the first thing a new customer does is install the app, and sending them to a
-browser to type the same two fields loses people. The password field is masked
-with a deliberate Show toggle, and a 401 from the control plane returns the app
-to this screen rather than leaving it signed-in-looking and failing every call.
+**There is no sign-in wall.** The app opens on the tunnel, because that is what
+it is for. An account buys nothing by itself: it exists so that a paid plan
+belongs to someone and can be carried to another phone, so it is asked for at
+the one moment it is actually needed — pressing Buy on a plan, which switches to
+the Account tab with the form already set to create rather than sign in. Every
+other screen works signed out: the plans and the support contact are public, the
+tunnel runs off whatever servers this phone has, and the Account tab is the sign
+-in form until there is a session.
+
+That has a consequence in the client: an authenticated call with no token is not
+sent at all (`ControlPlaneClient.send` throws `NO_SESSION` first). A 401 is how
+the app learns a *session* ended — it clears the token and returns to the form
+saying so — and a fresh install that has never had one must not be told to sign
+in again. The password field is masked with a deliberate Show toggle.
+
+Signed out and with no subscription link saved, the server list is empty and
+says why: *buy a plan on the Premium tab to get servers*. Empty is not an error
+state, and it is not dressed as one.
 
 The notification permission is asked for once on first launch (Android 13+) and
 the answer is not acted on: the tunnel's foreground service runs either way,
@@ -255,7 +268,7 @@ The bottom bar is drawn by hand rather than being a Material `NavigationBar`.
 The default one puts a wide indicator capsule behind the selected icon and
 brings its own metrics; this one is a floating slab in the same language as the
 cards above it (radius 28, 1px border, `Surface` fill) with a small accent-tinted
-block marking the tab you are on, and its four icons are one stroked set at one
+block marking the tab you are on, and its five icons are one stroked set at one
 weight.
 
 ## Build (on a machine with the Android SDK)

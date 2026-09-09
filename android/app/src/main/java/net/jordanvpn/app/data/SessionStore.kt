@@ -27,6 +27,9 @@ class SessionStore(context: Context) {
             if (value == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, value)
         }.apply()
 
+    /** Whether there is a session at all. A fresh install has none, and that is fine. */
+    val signedIn: Boolean get() = token != null
+
     var email: String?
         get() = prefs.getString(KEY_EMAIL, null)
         set(value) = prefs.edit().putString(KEY_EMAIL, value).apply()

@@ -17,8 +17,8 @@ import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.vpn.JordanVpnService
 
 /**
- * Single activity. Four screens — connect, premium, support and account — swap
- * inside it, so a navigation library would cost more than it earns.
+ * Single activity. Five screens — VPN, configs, premium, support and account —
+ * swap inside it, so a navigation library would cost more than it earns.
  */
 class MainActivity : ComponentActivity() {
 
