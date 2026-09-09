@@ -130,22 +130,36 @@ and `android/tools/PureLogicChecks.kt` runs 13 checks over it — including that
 health beats latency, that a proven-dead egress loses to a slower working one,
 and that the hysteresis holds in both directions.
 
-## Why the configs are on the connect screen
+## Two ways to use it, two tabs
 
-Other clients put the config list on its own tab. Switching server is the thing
-people do most often, and a separate screen turns a one-tap action into
-navigation: leave the screen, find the row, come back to connect. Here the list
-sits under the card and scrolls on its own, so the switch, the active
-configuration and the choice of server are all visible at once. It carries no
-header and no refresh button: a list of servers does not need a label saying
-so, and pulling it down refreshes it, which is the gesture people already reach
-for.
+The app has to serve two people. One wants what every VPN app gives them: an
+app, a switch, and no idea what a config is. The other bought configs and wants
+to see them, copy them, hand one to a friend and pick which server carries their
+traffic. Those are different jobs, so they are different screens:
 
-Rows have a fixed height (62) and the list is capped at four of them plus their
-gaps (4 x 62 + 3 x 13 = 287), so it always ends on a whole row. A half-visible
-fifth row reads as a rendering accident rather than as "there is more below". Selecting a
-different config while connected re-establishes the tunnel on it rather than
-leaving traffic on the old one.
+**VPN** is the switch and nothing else to decide. It shows what is left of the
+plan and what the tunnel is connected through, with the counters coming from the
+core itself. Switching it on with no configuration at all is the whole point:
+automatic selection measures the servers and chooses.
+
+**Configs** is the list, with the whole screen to itself — so it shows as many
+servers as fit rather than the four it was capped at when it shared the screen
+with the switch. Each row copies, shares or hides, says what the control plane
+thinks of its route, and AUTO/MANUAL sits above it.
+
+The first version put the list under the switch precisely to avoid a separate
+screen, and the concern behind that was right: switching server must not become
+navigation. Two things keep it from becoming that. The card on the VPN screen is
+a button into the Configs tab, so it is one tap away and always names the server
+in use. And selecting a row there while the tunnel is up moves the tunnel onto
+that server there and then, rather than making anyone walk back to the switch.
+
+Both tabs read one state object, so neither can show a different answer to
+"which server is this".
+
+Rows have a fixed height (62) with a 13 gap. Selecting one by hand also ends
+automatic mode: choosing a server is a statement, and the tunnel should not
+quietly override it on the next connection.
 
 ## One colour
 
@@ -155,19 +169,16 @@ deliberately no amber anywhere in the app. A state that is only being attempted
 — connecting, a payment not yet confirmed — is neutral grey, so colour can never
 imply a connection or a settlement that has not happened. Red stays for failure.
 
-Every screen is inset 16 from the sides: the bar, the card under the switch and
-the config rows all sit on the same two vertical lines.
+Every screen is inset 16 from the sides: the bar, the cards and the config rows
+all sit on the same two vertical lines.
 
-Spare height on a tall phone is split rather than left as one hole above the
-bar: a quarter of it pushes the switch and the card down, the rest sits above
-the list, which stays anchored just over the bar so four whole config rows are
-the last thing on the screen. On a short phone both shrink and the list gives up
-rows first.
+On the VPN screen the spare height is split evenly above and below the switch,
+so the switch sits centred in what is left and the card lands just over the bar
+instead of leaving one hole at the bottom.
 
-## The four tabs
+## The other three tabs
 
-`Connect` is the tunnel and the list of servers. The other three are one screen
-each:
+`VPN` and `Configs` are above. The other three are one screen each:
 
 **Premium** is the storefront. Plans come from `/api/v1/shop/plans`, "Buy with
 USDT" opens a real order through `/api/v1/shop/orders`, and the screen then
@@ -196,7 +207,10 @@ no session token, no subscription URL and no UUID — the subscription URL alone
 is enough to use the account, and support does not need it.
 
 **Account** is the subscription: state, data used against the quota, expiry,
-and a button that goes to Premium.
+and a button that goes to Premium. The VPN screen carries a short version of the
+same figures — data left and days left — drawn only once the control plane has
+answered, so an unreachable API leaves the space empty rather than showing a
+full bar nobody measured.
 
 Before any of them there is the sign-in screen, which also creates accounts:
 the first thing a new customer does is install the app, and sending them to a
@@ -309,8 +323,9 @@ browser.
 The page opens with the switch enlarged in all three states so its geometry can
 be judged on its own, then shows the whole screen: OFF, connecting (the switch
 has moved but the thumb is still grey, with a green light travelling around
-it), and connected (the thumb itself turns green and the light is gone). Three
-more frames follow: the Premium tab's plans, an open USDT order, and Support.
+it), and connected (the thumb itself turns green and the light is gone). Four
+more frames follow: the Configs tab, the Premium tab's plans, an open USDT
+order, and Support.
 
 The switch is a two-segment control: both labels stay visible and the thumb
 slides over the active one. Its geometry follows a single rule — the inset
@@ -364,7 +379,7 @@ counters stay at zero.
 | `vpn/XrayBridge.kt` | The seam the runtime plugs into, and socket protection |
 | `src/xray/.../LibXrayBridge.kt` | The real runtime: libXray's Invoke API, metrics counters |
 | `src/noxray/.../NotWiredXrayBridge.kt` | Compiled when no AAR is present; refuses to start, and says why |
-| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, connect screen with the config list, premium, support and account tabs |
+| `ui/MainActivity.kt`, `ui/Screens.kt` | Consent flow, VPN and Configs tabs, premium, support and account |
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
 | `core/ServerPicker.kt` | Ranking, hysteresis and failover order — no Android in it |

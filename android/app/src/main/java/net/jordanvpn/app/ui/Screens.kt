@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,8 @@ import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.supportLink
 import net.jordanvpn.app.data.ControlPlaneClient
+import net.jordanvpn.app.data.SessionStore
+import net.jordanvpn.app.data.SubscriptionRepository
 import net.jordanvpn.app.vpn.JordanVpnService
 
 private val Background = Color(0xFF0A0C0F)
@@ -92,11 +95,14 @@ fun JordanTheme(content: @Composable () -> Unit) {
     )
 }
 
-private enum class Tab { CONNECT, PREMIUM, SUPPORT, ACCOUNT }
+private enum class Tab { VPN, CONFIGS, PREMIUM, SUPPORT, ACCOUNT }
 
 /**
- * Four tabs: the tunnel, what is for sale, how to reach a human, and the
- * account behind it — the same four things the web app offers.
+ * Five tabs. The first two are the two ways people actually use this app: a
+ * switch that needs no configuration at all, and the configs for someone who
+ * wants to see and handle the servers themselves. They are separate screens
+ * because they are separate jobs, and they share one state so neither can show
+ * a different answer to "which server is this".
  *
  * Everything on screen reflects real state. The switch follows the VPN service,
  * the counters come from the Xray instance, and the latency figure is an actual
@@ -111,7 +117,10 @@ fun JordanRoot(
     onOpenStore: () -> Unit = {},
 ) {
     var signedIn by remember { mutableStateOf(app.session.token != null) }
-    var tab by remember { mutableStateOf(Tab.CONNECT) }
+    var tab by remember { mutableStateOf(Tab.VPN) }
+    val servers = remember(app) { ServerListState(app.session) }
+
+    LaunchedEffect(signedIn) { if (signedIn) servers.refresh(app.subscriptions) }
     // A 401 clears the token; without watching for it the app would sit on a
     // signed-in-looking screen failing every call.
     val expired by app.api.sessionExpired.collectAsState()
@@ -128,7 +137,14 @@ fun JordanRoot(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
-                Tab.CONNECT -> ConnectScreen(app, onConnect, onDisconnect)
+                Tab.VPN -> VpnScreen(
+                    app = app,
+                    state = servers,
+                    onConnect = onConnect,
+                    onDisconnect = onDisconnect,
+                    onOpenConfigs = { tab = Tab.CONFIGS },
+                )
+                Tab.CONFIGS -> ConfigsScreen(app, servers, onConnect)
                 Tab.PREMIUM -> PremiumScreen(app, onOpenStore)
                 Tab.SUPPORT -> SupportScreen(app)
                 Tab.ACCOUNT -> AccountScreen(
@@ -321,6 +337,8 @@ private const val ICON_SHARE =
 private const val ICON_TRASH = "M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"
 private const val ICON_POWER = "M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"
 private const val ICON_CROWN = "M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"
+private const val ICON_SERVERS = "M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"
+private const val ICON_CHEVRON = "M9 5l7 7-7 7"
 private const val ICON_CHAT = "M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"
 private const val ICON_USER = "M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"
 private const val ICON_WALLET = "M3 8a2 2 0 012-2h13a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V8zM3 9h18M16.5 13.5h.01"
@@ -467,7 +485,8 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BottomBarItem(ICON_POWER, "Connect", current == Tab.CONNECT, Modifier.weight(1f)) { onSelect(Tab.CONNECT) }
+            BottomBarItem(ICON_POWER, "VPN", current == Tab.VPN, Modifier.weight(1f)) { onSelect(Tab.VPN) }
+            BottomBarItem(ICON_SERVERS, "Configs", current == Tab.CONFIGS, Modifier.weight(1f)) { onSelect(Tab.CONFIGS) }
             BottomBarItem(ICON_CROWN, "Premium", current == Tab.PREMIUM, Modifier.weight(1f)) { onSelect(Tab.PREMIUM) }
             BottomBarItem(ICON_CHAT, "Support", current == Tab.SUPPORT, Modifier.weight(1f)) { onSelect(Tab.SUPPORT) }
             BottomBarItem(ICON_USER, "Account", current == Tab.ACCOUNT, Modifier.weight(1f)) { onSelect(Tab.ACCOUNT) }
@@ -486,7 +505,7 @@ private fun BottomBarItem(
     Column(
         modifier
             .height(54.dp)
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(20.dp))
             // The tint marks the selected tab without an indicator capsule that
             // would be wider than the icon it is meant to point at.
             .background(if (selected) Accent.copy(alpha = 0.12f) else Color.Transparent)
@@ -494,7 +513,7 @@ private fun BottomBarItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        PathIcon(pathData, 21.dp, if (selected) Accent else TextFaint)
+        PathIcon(pathData, 20.dp, if (selected) Accent else TextFaint)
         Spacer(Modifier.height(4.dp))
         Text(
             label,
@@ -516,11 +535,77 @@ private fun BottomBarItem(
  * the card stay put.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Everything both halves of the app need to agree on.
+ *
+ * The tunnel and the list of servers live on two tabs now, so this is hoisted
+ * out of either of them: which servers the subscription offers, which one the
+ * person chose, whether the tunnel is choosing instead, and what is hidden.
+ * Two screens reading two copies of that would drift apart within a tap.
+ */
+@Stable
+private class ServerListState(private val session: SessionStore) {
+    var servers by mutableStateOf<List<Server>>(emptyList())
+        private set
+    var hidden by mutableStateOf(session.hiddenConfigs)
+        private set
+    var automatic by mutableStateOf(session.automaticServer)
+        private set
+    var chosen by mutableStateOf<Server?>(null)
+    var status by mutableStateOf<String?>(null)
+    var busy by mutableStateOf(false)
+        private set
+
+    val visible: List<Server> get() = servers.filterNot { hidden.contains(it.key) }
+
+    fun setAutomatic(value: Boolean) {
+        automatic = value
+        session.automaticServer = value
+        if (!value && chosen == null) chosen = visible.firstOrNull()
+    }
+
+    fun hide(server: Server) {
+        hidden = hidden + server.key
+        session.hiddenConfigs = hidden
+        if (chosen?.key == server.key) chosen = visible.firstOrNull()
+    }
+
+    fun unhideAll() {
+        hidden = emptySet()
+        session.hiddenConfigs = hidden
+        if (chosen == null) chosen = servers.firstOrNull()
+    }
+
+    suspend fun refresh(repository: SubscriptionRepository) {
+        busy = true
+        runCatching { repository.load(session) }
+            .onSuccess { result ->
+                servers = result.servers
+                val offered = result.servers.filterNot { hidden.contains(it.key) }
+                // Keep the current choice if it is still offered.
+                chosen = offered.firstOrNull { it.key == chosen?.key } ?: offered.firstOrNull()
+                status = result.error ?: if (result.stale) "Showing the last known servers" else null
+            }
+            .onFailure { status = it.message }
+        busy = false
+    }
+}
+
+/**
+ * The VPN screen: a switch, and what it is connected through.
+ *
+ * This is the whole app for someone who never wants to see a config. It carries
+ * no list — the servers are one tab away — but it never hides which server is
+ * carrying the traffic, and the card is a button into that tab, so choosing a
+ * different one is two taps rather than a hunt.
+ */
 @Composable
-private fun ConnectScreen(
+private fun VpnScreen(
     app: JordanApplication,
+    state: ServerListState,
     onConnect: (List<Server>, Boolean) -> Unit,
     onDisconnect: () -> Unit,
+    onOpenConfigs: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val tunnelState by JordanVpnService.state.collectAsState()
@@ -531,49 +616,28 @@ private fun ConnectScreen(
     val activeServer by JordanVpnService.activeServer.collectAsState()
     val activeLabel by JordanVpnService.activeLabel.collectAsState()
 
-    val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
-
-    var servers by remember { mutableStateOf<List<Server>>(emptyList()) }
-    var hidden by remember { mutableStateOf(app.session.hiddenConfigs) }
-    var automatic by remember { mutableStateOf(app.session.automaticServer) }
-    var chosen by remember { mutableStateOf<Server?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
     var pingMs by remember { mutableStateOf<Long?>(null) }
     var pinging by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
+
+    // What is left of the plan. Real figures or nothing: the bar is drawn only
+    // once the control plane has answered, and a failed call leaves the space
+    // empty rather than showing a full bar nobody measured.
+    var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { app.api.subscription() }.onSuccess { subscription = it }
+    }
 
     val connected = tunnelState == JordanVpnService.State.CONNECTED
     val connecting = tunnelState == JordanVpnService.State.CONNECTING
 
-    val visible = servers.filterNot { hidden.contains(it.key) }
-
     // In automatic mode the tunnel decides, so the screen follows it rather
     // than showing a choice nobody made.
-    val current = if (automatic) {
-        visible.firstOrNull { it.key == activeServer } ?: chosen
+    val current = if (state.automatic) {
+        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
     } else {
-        chosen
+        state.chosen
     }
     val selected = current?.profile
-
-    fun refresh() {
-        scope.launch {
-            busy = true
-            runCatching { app.subscriptions.load(app.session) }
-                .onSuccess { result ->
-                    servers = result.servers
-                    val offered = result.servers.filterNot { hidden.contains(it.key) }
-                    // Keep the current choice if it is still offered.
-                    chosen = offered.firstOrNull { it.key == chosen?.key } ?: offered.firstOrNull()
-                    status = result.error ?: if (result.stale) "Showing the last known servers" else null
-                }
-                .onFailure { status = it.message }
-            busy = false
-        }
-    }
-
-    LaunchedEffect(Unit) { refresh() }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(14.dp))
@@ -585,24 +649,23 @@ private fun ConnectScreen(
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
 
-        // Spare height on a tall phone is split rather than left in one hole at
-        // the bottom: a little of it pushes the switch and the card down, the
-        // rest sits above the list, which stays anchored just over the bar. On a
-        // short phone both shrink and the list gives up rows first.
-        Spacer(Modifier.height(26.dp))
-        Spacer(Modifier.weight(0.25f))
+        // The switch belongs in the middle of what is left, not pinned under
+        // the title: this screen has one control and it should be where the
+        // thumb already is.
+        Spacer(Modifier.weight(1f))
+
         Box(Modifier.align(Alignment.CenterHorizontally)) {
             ConnectSwitch(
                 state = tunnelState,
-                enabled = visible.isNotEmpty() || connected || connecting,
+                enabled = state.visible.isNotEmpty() || connected || connecting,
                 onToggle = {
                     if (connected || connecting) {
                         onDisconnect()
-                    } else if (automatic) {
+                    } else if (state.automatic) {
                         // Everything the subscription offers goes over; the
                         // tunnel measures them and decides, and falls back
                         // through the rest if the first one refuses.
-                        if (visible.isNotEmpty()) onConnect(visible, true)
+                        if (state.visible.isNotEmpty()) onConnect(state.visible, true)
                     } else {
                         current?.let { onConnect(listOf(it), false) }
                     }
@@ -637,20 +700,64 @@ private fun ConnectScreen(
             )
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.weight(1f))
 
+        subscription?.let { plan ->
+            if (plan.quotaBytes > 0) {
+                val used = plan.usedBytes.coerceAtMost(plan.quotaBytes)
+                val left = plan.quotaBytes - used
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Surface),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(24.dp)),
+                ) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "${formatBytes(left)} left",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10),
+                                color = TextDim,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { (used.toFloat() / plan.quotaBytes).coerceIn(0f, 1f) },
+                            color = Accent,
+                            trackColor = Border,
+                            gapSize = 0.dp,
+                            drawStopIndicator = {},
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+
+        // The card is also the way to the config list, so a person who wants a
+        // different server does not have to go looking for the tab.
         Card(
             colors = CardDefaults.cardColors(containerColor = Surface),
             shape = RoundedCornerShape(28.dp),
-            modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(28.dp)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Border, RoundedCornerShape(28.dp))
+                .clickable(onClick = onOpenConfigs),
         ) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             when {
-                                automatic && activeLabel != null && connected -> activeLabel!!
-                                automatic && current == null -> "Automatic"
+                                state.automatic && connected && activeLabel != null -> activeLabel!!
+                                state.automatic && current == null -> "Automatic"
                                 else -> current?.label ?: "No server available"
                             },
                             color = Color.White,
@@ -663,7 +770,7 @@ private fun ConnectScreen(
                             when {
                                 activity != null -> activity!!
                                 selected != null -> "${selected.host}:${selected.port}"
-                                servers.isEmpty() -> "buy a plan to get one"
+                                state.servers.isEmpty() -> "buy a plan to get one"
                                 else -> "the tunnel will choose when you switch on"
                             },
                             color = TextDim,
@@ -673,10 +780,14 @@ private fun ConnectScreen(
                         )
                     }
                     Text(
-                        if (selected?.tls == true) "vless · ws · tls" else "vless · ws",
-                        color = TextFaint,
-                        fontSize = 11.sp,
+                        if (state.automatic) "AUTO" else "MANUAL",
+                        color = if (state.automatic) Accent else TextFaint,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
                     )
+                    Spacer(Modifier.width(8.dp))
+                    PathIcon(ICON_CHEVRON, 16.dp, TextFaint)
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -688,19 +799,17 @@ private fun ConnectScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     StatTile(Modifier.weight(1f)) {
-                        TileValue("\u2193", formatBytes(traffic.second), traffic.second > 0)
+                        TileValue("↓", formatBytes(traffic.second), traffic.second > 0)
                     }
                     StatTile(
                         Modifier.weight(1f),
                         onClick = if (selected != null && !pinging) {
                             {
                                 val profile = selected
-                                if (profile != null) {
-                                    scope.launch {
-                                        pinging = true
-                                        pingMs = Latency.measure(profile.host, profile.port)
-                                        pinging = false
-                                    }
+                                scope.launch {
+                                    pinging = true
+                                    pingMs = Latency.measure(profile.host, profile.port)
+                                    pinging = false
                                 }
                             }
                         } else {
@@ -720,7 +829,7 @@ private fun ConnectScreen(
                         )
                     }
                     StatTile(Modifier.weight(1f)) {
-                        TileValue("\u2191", formatBytes(traffic.first), traffic.first > 0)
+                        TileValue("↑", formatBytes(traffic.first), traffic.first > 0)
                     }
                 }
             }
@@ -743,136 +852,145 @@ private fun ConnectScreen(
             }
         }
 
+        Spacer(Modifier.height(14.dp))
+    }
+}
+
+/**
+ * The configs: every server the subscription offers, and what to do with them.
+ *
+ * It is a separate tab from the switch because the two are different jobs — one
+ * is "give me a connection", the other is "let me see and handle the servers" —
+ * but it is not a dead end: selecting a row while the tunnel is up moves the
+ * tunnel onto that server there and then, rather than waiting for a trip back.
+ */
+@Composable
+private fun ConfigsScreen(
+    app: JordanApplication,
+    state: ServerListState,
+    onConnect: (List<Server>, Boolean) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val activeServer by JordanVpnService.activeServer.collectAsState()
+
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+    val current = if (state.automatic) {
+        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
+    } else {
+        state.chosen
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Spacer(Modifier.height(14.dp))
+        Text("Configs", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
         Spacer(Modifier.height(12.dp))
 
         // Automatic or manual, and it says which one is in charge of the list
         // below rather than leaving that to be guessed.
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (automatic) "The tunnel picks the server" else "You pick the server",
+                if (state.automatic) "The tunnel picks the server" else "You pick the server",
                 color = TextFaint,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f),
             )
-            ModeChip("AUTO", automatic) {
-                automatic = true
-                app.session.automaticServer = true
-            }
+            ModeChip("AUTO", state.automatic) { state.setAutomatic(true) }
             Spacer(Modifier.width(6.dp))
-            ModeChip("MANUAL", !automatic) {
-                automatic = false
-                app.session.automaticServer = false
-                if (chosen == null) chosen = visible.firstOrNull()
-            }
+            ModeChip("MANUAL", !state.automatic) { state.setAutomatic(false) }
         }
 
         Spacer(Modifier.height(10.dp))
 
-        // Only this list scrolls: the switch and the card above it stay in
-        // place. There is no header and no refresh button — the list is
-        // self-evident, and pulling it down refreshes it, which is the gesture
-        // people already reach for.
-        // The list is capped at four whole rows: a partly visible fifth row
-        // reads as a rendering accident rather than as "there is more below".
-        Box(
-            Modifier.weight(1f).fillMaxWidth(),
-            contentAlignment = Alignment.BottomCenter,
+        // The list has the screen to itself here, so it shows as many rows as
+        // fit instead of the four it was capped at when it shared with the
+        // switch. Pulling it down refreshes it, which is the gesture people
+        // already reach for.
+        PullToRefreshBox(
+            isRefreshing = state.busy,
+            onRefresh = { scope.launch { state.refresh(app.subscriptions) } },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
-            PullToRefreshBox(
-                isRefreshing = busy,
-                onRefresh = { refresh() },
-                modifier = Modifier.fillMaxWidth().heightIn(max = ConfigListHeight),
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
+                contentPadding = PaddingValues(bottom = 14.dp),
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
-                ) {
-                    if (visible.isEmpty()) {
-                        item {
-                            Column(
-                                Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    when {
-                                        servers.isNotEmpty() -> "Every server is hidden."
-                                        else -> status ?: "No configs yet. Buy a plan on the Account tab."
-                                    },
-                                    color = TextDim,
-                                    fontSize = 13.sp,
-                                    textAlign = TextAlign.Center,
-                                )
-                                if (servers.isNotEmpty()) {
-                                    TextButton(onClick = {
-                                        hidden = emptySet()
-                                        app.session.hiddenConfigs = hidden
-                                        chosen = servers.firstOrNull()
-                                    }) {
-                                        Text("Show them again", color = Accent, fontSize = 13.sp)
-                                    }
+                if (state.visible.isEmpty()) {
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                when {
+                                    state.servers.isNotEmpty() -> "Every server is hidden."
+                                    else -> state.status
+                                        ?: "No configs yet. Buy a plan on the Premium tab."
+                                },
+                                color = TextDim,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                            if (state.servers.isNotEmpty()) {
+                                TextButton(onClick = { state.unhideAll() }) {
+                                    Text("Show them again", color = Accent, fontSize = 13.sp)
                                 }
                             }
                         }
-                    } else {
-                        items(visible, key = { "${it.key}:${it.profile.uuid}" }) { server ->
-                            val profile = server.profile
-                            val isSelected = server.key == current?.key
-                            ConfigRow(
-                                server = server,
-                                selected = isSelected,
-                                connected = connected,
-                                onSelect = {
-                                    // Choosing a row by hand is a statement:
-                                    // automatic mode ends here rather than
-                                    // quietly overriding the choice on the next
-                                    // connection.
-                                    automatic = false
-                                    app.session.automaticServer = false
-                                    if (!isSelected) {
-                                        chosen = server
-                                        pingMs = null
-                                        // Switching server while connected re-establishes
-                                        // the tunnel on the new one rather than silently
-                                        // keeping traffic on the old.
-                                        if (connected || connecting) onConnect(listOf(server), false)
-                                    }
-                                },
-                                onCopy = {
-                                    clipboard.setText(AnnotatedString(profile.uri))
-                                    status = "Config copied"
-                                },
-                                onShare = {
-                                    context.startActivity(
-                                        Intent.createChooser(
-                                            Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(Intent.EXTRA_TEXT, profile.uri)
-                                            },
-                                            null,
-                                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                    )
-                                },
-                                onHide = {
-                                    hidden = hidden + server.key
-                                    app.session.hiddenConfigs = hidden
-                                    if (isSelected) {
-                                        chosen = servers.firstOrNull { !hidden.contains(it.key) }
-                                    }
-                                },
-                            )
-                        }
-                        if (status != null) {
-                            item {
-                                Text(
-                                    status!!,
-                                    color = TextDim,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    }
+                } else {
+                    items(state.visible, key = { "${it.key}:${it.profile.uuid}" }) { server ->
+                        val profile = server.profile
+                        val isSelected = server.key == current?.key
+                        ConfigRow(
+                            server = server,
+                            selected = isSelected,
+                            connected = connected,
+                            onSelect = {
+                                // Choosing a row by hand is a statement:
+                                // automatic mode ends here rather than quietly
+                                // overriding the choice on the next connection.
+                                state.setAutomatic(false)
+                                if (!isSelected) {
+                                    state.chosen = server
+                                    // Switching server while connected
+                                    // re-establishes the tunnel on the new one
+                                    // rather than silently keeping traffic on
+                                    // the old.
+                                    if (connected || connecting) onConnect(listOf(server), false)
+                                }
+                            },
+                            onCopy = {
+                                clipboard.setText(AnnotatedString(profile.uri))
+                                state.status = "Config copied"
+                            },
+                            onShare = {
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, profile.uri)
+                                        },
+                                        null,
+                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                 )
-                            }
+                            },
+                            onHide = { state.hide(server) },
+                        )
+                    }
+                    if (state.status != null) {
+                        item {
+                            Text(
+                                state.status!!,
+                                color = TextDim,
+                                fontSize = 12.sp,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            )
                         }
                     }
                 }

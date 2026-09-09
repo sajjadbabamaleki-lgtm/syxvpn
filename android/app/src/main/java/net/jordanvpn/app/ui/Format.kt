@@ -44,6 +44,18 @@ fun parseIsoMillis(iso: String): Long? {
     return runCatching { format.parse(iso)?.time }.getOrNull()
 }
 
+/** "22 days left" / "last day" / "expired", for a subscription's end date. */
+fun formatDaysLeft(iso: String, now: Long = System.currentTimeMillis()): String? {
+    val at = parseIsoMillis(iso) ?: return null
+    val days = (at - now) / 86_400_000
+    return when {
+        at <= now -> "expired"
+        days < 1 -> "last day"
+        days == 1L -> "1 day left"
+        else -> "$days days left"
+    }
+}
+
 /** "in 42 min" / "in 2 h 5 min" / "expired", for an order deadline. */
 fun formatRemaining(iso: String, now: Long = System.currentTimeMillis()): String {
     val at = parseIsoMillis(iso) ?: return iso.take(16).replace('T', ' ')

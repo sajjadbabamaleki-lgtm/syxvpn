@@ -7,6 +7,7 @@ import net.jordanvpn.app.core.ServerPicker
 import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.supportLink
 import net.jordanvpn.app.ui.formatBytes
+import net.jordanvpn.app.ui.formatDaysLeft
 import net.jordanvpn.app.ui.formatRemaining
 import net.jordanvpn.app.ui.formatUsdt
 import net.jordanvpn.app.ui.parseIsoMillis
@@ -56,6 +57,13 @@ fun main() {
     check("formatRemaining(+42min)", formatRemaining("2026-09-08T16:00:00.000Z", at!! - 42 * 60000), "in 42 min")
     check("formatRemaining(+2h5)", formatRemaining("2026-09-08T16:00:00.000Z", at - 125 * 60000), "in 2 h 5 min")
     check("formatRemaining(past)", formatRemaining("2026-09-08T16:00:00.000Z", at + 1000), "expired")
+
+    val day = 86_400_000L
+    check("formatDaysLeft(22d)", formatDaysLeft("2026-09-08T16:00:00.000Z", at - 22 * day), "22 days left")
+    check("formatDaysLeft(1d)", formatDaysLeft("2026-09-08T16:00:00.000Z", at - day), "1 day left")
+    check("formatDaysLeft(hours)", formatDaysLeft("2026-09-08T16:00:00.000Z", at - 3600_000), "last day")
+    check("formatDaysLeft(past)", formatDaysLeft("2026-09-08T16:00:00.000Z", at + 1000), "expired")
+    check("formatDaysLeft(garbage)", formatDaysLeft("soon"), null)
 
     check("supportLink(handle)", supportLink("@jordanhelp"), "https://t.me/jordanhelp")
     check("supportLink(t.me)", supportLink("t.me/jordanhelp"), "https://t.me/jordanhelp")
