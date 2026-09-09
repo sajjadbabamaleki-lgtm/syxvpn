@@ -493,7 +493,7 @@
 </div>
 
 <div class="frame">
-  <div class="caption"><b>Configs</b>the same switch and card, with the configs themselves under it</div>
+  <div class="caption"><b>Configs</b>the same switch, and the connection itself under it</div>
   <div class="phone">
     <div class="statusbar"><span>21:26</span><span>▮▮ ▾ 38%</span></div>
     <div class="screen">
@@ -511,19 +511,21 @@
       <div class="status on">CONNECTED</div>
       <div class="uptime">03:12</div>
 
-      <div class="vcard">
-        <div class="half">
-          <div class="who"><b>Helsinki Edge · fi-hel</b><span>gw3.example.net:443</span></div>
-          <span class="mode">AUTO</span>
-          <span class="chev">›</span>
-        </div>
-        <div class="half">
-          <div class="who">
-            <span class="offer">31.6 GB left · 22 days left</span>
-            <span class="tagline">More data, and no cut-off mid-month.</span>
+      <!-- The Configs tab's own card: the connection, not the offer. Bytes each
+           way come from the running Xray instance, and the middle tile is a
+           button that opens a real TCP connection and times it. -->
+      <div class="card">
+        <div class="config-row">
+          <div>
+            <div class="name">Helsinki Edge · fi-hel</div>
+            <div class="addr">gw3.example.net:443</div>
           </div>
-          <span class="plans">PLANS</span>
-          <span class="chev on">›</span>
+          <div class="proto">vless · ws · tls</div>
+        </div>
+        <div class="tiles">
+          <div class="tile"><span class="arrow live">↓</span>18.4 MB</div>
+          <div class="tile ping measured">61 ms</div>
+          <div class="tile"><span class="arrow live">↑</span>2.1 MB</div>
         </div>
       </div>
 

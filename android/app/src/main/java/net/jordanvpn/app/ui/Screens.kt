@@ -60,6 +60,7 @@ import net.jordanvpn.app.JordanApp as JordanApplication
 import net.jordanvpn.app.core.CountryGroup
 import net.jordanvpn.app.core.countryOf
 import net.jordanvpn.app.core.groupByCountry
+import net.jordanvpn.app.core.Latency
 import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.supportLink
@@ -158,7 +159,6 @@ fun JordanRoot(
                     state = servers,
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,
-                    onOpenPremium = { tab = Tab.PREMIUM },
                 )
                 Tab.PREMIUM -> PremiumScreen(
                     app = app,
@@ -677,29 +677,115 @@ private class ServerListState(private val session: SessionStore) {
  * different one is two taps rather than a hunt.
  */
 /**
- * The half of the screen that is the same on both tabs: the banner slot, the
- * switch, what state it is in, and the card that names the server and the plan.
+ * The part above the list, and it is the same on both tabs: the banner slot,
+ * the switch, and what state the tunnel is in.
  *
  * Both tabs carry it because both are ways of doing the same thing — the VPN
  * tab lists countries under it, the Configs tab lists the configs themselves —
  * and a switch that appears on one screen and not the other would make the
  * second one feel like a settings page rather than a way to connect.
+ *
+ * What sits under it is *not* shared, and deliberately so: the VPN tab shows
+ * the server and what a plan would add, the Configs tab shows the connection
+ * itself — bytes each way and a ping that can be measured on the spot.
  */
 @Composable
-private fun ColumnScope.TunnelPanel(
-    app: JordanApplication,
+private fun ColumnScope.TunnelSwitch(
     state: ServerListState,
     onConnect: (List<Server>, Boolean) -> Unit,
     onDisconnect: () -> Unit,
+) {
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val uptime by JordanVpnService.uptimeSeconds.collectAsState()
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+
+    // Above the switch: nothing of the app's own. The screen's spare height
+    // collects here, which is where a banner goes.
+    BannerSlot(Modifier.weight(1f))
+
+    Box(Modifier.align(Alignment.CenterHorizontally)) {
+        ConnectSwitch(
+            state = tunnelState,
+            enabled = state.visible.isNotEmpty() || connected || connecting,
+            onToggle = {
+                if (connected || connecting) {
+                    onDisconnect()
+                } else if (state.automatic) {
+                    // Every server in the chosen country goes over — or all of
+                    // them under Automatic. The tunnel measures them, decides,
+                    // and falls back through the rest if the first one refuses.
+                    if (state.pool.isNotEmpty()) onConnect(state.pool, true)
+                } else {
+                    state.chosen?.let { onConnect(listOf(it), false) }
+                }
+            },
+        )
+    }
+
+    Spacer(Modifier.height(16.dp))
+    Text(
+        when (tunnelState) {
+            JordanVpnService.State.CONNECTED -> "CONNECTED"
+            JordanVpnService.State.CONNECTING -> "CONNECTING…"
+            else -> "NOT CONNECTED"
+        },
+        color = when (tunnelState) {
+            JordanVpnService.State.CONNECTED -> Ok
+            JordanVpnService.State.CONNECTING -> Pending
+            else -> TextDim
+        },
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 2.sp,
+        modifier = Modifier.align(Alignment.CenterHorizontally),
+    )
+    if (connected) {
+        Spacer(Modifier.height(3.dp))
+        Text(
+            formatUptime(uptime),
+            color = TextFaint,
+            fontSize = 12.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+    }
+
+    Spacer(Modifier.height(20.dp))
+}
+
+/** The server in use, as both tabs work it out: the tunnel's choice under
+ *  Automatic, the person's choice otherwise. */
+@Composable
+private fun currentServer(state: ServerListState): Server? {
+    val activeServer by JordanVpnService.activeServer.collectAsState()
+    return if (state.automatic) {
+        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
+    } else {
+        state.chosen
+    }
+}
+
+/**
+ * The VPN tab's card: two halves, and both of them go somewhere.
+ *
+ * The server in use opens the config list; the line under it opens the plans.
+ * There are no traffic counters on this tab — that is the Configs tab's card,
+ * and the tunnel's ongoing notification carries them anyway. This screen is for
+ * the one decision a person makes.
+ */
+@Composable
+private fun ColumnScope.ServerAndPlanCard(
+    app: JordanApplication,
+    state: ServerListState,
     onOpenConfigs: () -> Unit,
     onOpenPremium: () -> Unit,
 ) {
     val tunnelState by JordanVpnService.state.collectAsState()
-    val tunnelError by JordanVpnService.lastError.collectAsState()
-    val uptime by JordanVpnService.uptimeSeconds.collectAsState()
     val activity by JordanVpnService.activity.collectAsState()
-    val activeServer by JordanVpnService.activeServer.collectAsState()
     val activeLabel by JordanVpnService.activeLabel.collectAsState()
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val current = currentServer(state)
+    val selected = current?.profile
 
     // What is left of the plan. Real figures or nothing: the line is drawn only
     // once the control plane has answered, and a failed call leaves the offer's
@@ -713,190 +799,273 @@ private fun ColumnScope.TunnelPanel(
         }
     }
 
-    val connected = tunnelState == JordanVpnService.State.CONNECTED
-    val connecting = tunnelState == JordanVpnService.State.CONNECTING
-
-    // In automatic mode the tunnel decides, so the screen follows it rather
-    // than showing a choice nobody made.
-    val current = if (state.automatic) {
-        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
-    } else {
-        state.chosen
-    }
-    val selected = current?.profile
-
-        // Above the switch: nothing of the app's own. The screen's spare height
-        // collects here, which is where a banner goes.
-        BannerSlot(Modifier.weight(1f))
-
-        Box(Modifier.align(Alignment.CenterHorizontally)) {
-            ConnectSwitch(
-                state = tunnelState,
-                enabled = state.visible.isNotEmpty() || connected || connecting,
-                onToggle = {
-                    if (connected || connecting) {
-                        onDisconnect()
-                    } else if (state.automatic) {
-                        // Every server in the chosen country goes over — or all
-                        // of them under Automatic. The tunnel measures them,
-                        // decides, and falls back through the rest if the first
-                        // one refuses.
-                        if (state.pool.isNotEmpty()) onConnect(state.pool, true)
-                    } else {
-                        current?.let { onConnect(listOf(it), false) }
-                    }
-                },
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            when (tunnelState) {
-                JordanVpnService.State.CONNECTED -> "CONNECTED"
-                JordanVpnService.State.CONNECTING -> "CONNECTING…"
-                else -> "NOT CONNECTED"
-            },
-            color = when (tunnelState) {
-                JordanVpnService.State.CONNECTED -> Ok
-                JordanVpnService.State.CONNECTING -> Pending
-                else -> TextDim
-            },
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-        if (connected) {
-            Spacer(Modifier.height(3.dp))
-            Text(
-                formatUptime(uptime),
-                color = TextFaint,
-                fontSize = 12.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
-
-        // Two halves, and both of them go somewhere: the server in use opens
-        // the config list, the line under it opens the plans. There are no
-        // traffic counters here — the tunnel's ongoing notification carries
-        // them, and this screen is for the one decision a person makes.
-        Column(
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Surface)
+            .border(1.dp, Border, RoundedCornerShape(28.dp)),
+    ) {
+        Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(Surface)
-                .border(1.dp, Border, RoundedCornerShape(28.dp)),
+                .clickable(onClick = onOpenConfigs)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenConfigs)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        when {
-                            state.automatic && connected && activeLabel != null -> activeLabel!!
-                            state.automatic && current == null -> "Automatic"
-                            else -> current?.label ?: "No server available"
-                        },
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        when {
-                            activity != null -> activity!!
-                            selected != null -> "${selected.host}:${selected.port}"
-                            state.servers.isEmpty() -> "buy a plan to get one"
-                            else -> "the tunnel will choose when you switch on"
-                        },
-                        color = TextDim,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            Column(Modifier.weight(1f)) {
                 Text(
-                    if (state.automatic) "AUTO" else "MANUAL",
-                    color = if (state.automatic) Accent else TextFaint,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
+                    when {
+                        state.automatic && connected && activeLabel != null -> activeLabel!!
+                        state.automatic && current == null -> "Automatic"
+                        else -> current?.label ?: "No server available"
+                    },
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.width(8.dp))
-                PathIcon(ICON_CHEVRON, 16.dp, TextFaint)
+                Text(
+                    when {
+                        activity != null -> activity!!
+                        selected != null -> "${selected.host}:${selected.port}"
+                        state.servers.isEmpty() -> "buy a plan to get one"
+                        else -> "the tunnel will choose when you switch on"
+                    },
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
+            Text(
+                if (state.automatic) "AUTO" else "MANUAL",
+                color = if (state.automatic) Accent else TextFaint,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+            )
+            Spacer(Modifier.width(8.dp))
+            PathIcon(ICON_CHEVRON, 16.dp, TextFaint)
+        }
 
-            HorizontalDivider(color = Border, thickness = 1.dp)
+        HorizontalDivider(color = Border, thickness = 1.dp)
 
-            // The offer is what a plan actually buys: data, days, and a tunnel
-            // that does not stop mid-month when the data runs out. It does not
-            // claim a faster network, because every subscriber uses the same
-            // gateways — that would be a promise the system cannot keep.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenPremium)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    val plan = subscription
-                    Text(
-                        if (plan != null && plan.quotaBytes > 0) {
-                            val left = plan.quotaBytes - plan.usedBytes.coerceAtMost(plan.quotaBytes)
-                            "${formatBytes(left)} left · ${formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10)}"
-                        } else {
-                            "Want it faster and steadier?"
-                        },
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        "More data, and no cut-off mid-month.",
-                        color = TextDim,
-                        fontSize = 12.sp,
-                        maxLines = 2,
-                    )
-                }
+        // The offer is what a plan actually buys: data, days, and a tunnel that
+        // does not stop mid-month when the data runs out. It does not claim a
+        // faster network, because every subscriber uses the same gateways —
+        // that would be a promise the system cannot keep.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenPremium)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                val plan = subscription
+                Text(
+                    if (plan != null && plan.quotaBytes > 0) {
+                        val left = plan.quotaBytes - plan.usedBytes.coerceAtMost(plan.quotaBytes)
+                        "${formatBytes(left)} left · ${formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10)}"
+                    } else {
+                        "Want it faster and steadier?"
+                    },
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    "More data, and no cut-off mid-month.",
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "PLANS",
+                color = Accent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+            )
+            Spacer(Modifier.width(6.dp))
+            PathIcon(ICON_CHEVRON, 16.dp, Accent)
+        }
+    }
+}
+
+/**
+ * The Configs tab's card: the connection itself.
+ *
+ * The server it is running through, how that server is dressed — vless, ws,
+ * tls — and three tiles: bytes down, the round trip, bytes up. The counters are
+ * the Xray instance's own, and the middle tile is a button: tapping it opens a
+ * real TCP connection to the gateway and times it. Nothing here is a guess, and
+ * a tunnel that is not up shows dashes rather than a number from last time.
+ */
+@Composable
+private fun ColumnScope.ConnectionCard(state: ServerListState) {
+    val scope = rememberCoroutineScope()
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val activity by JordanVpnService.activity.collectAsState()
+    val activeLabel by JordanVpnService.activeLabel.collectAsState()
+    val traffic by JordanVpnService.traffic.collectAsState()
+    val connected = tunnelState == JordanVpnService.State.CONNECTED
+    val current = currentServer(state)
+    val selected = current?.profile
+
+    var pingMs by remember { mutableStateOf<Long?>(null) }
+    var pinging by remember { mutableStateOf(false) }
+    // A measurement belongs to the server it was taken against.
+    LaunchedEffect(current?.key) { pingMs = null }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Surface)
+            .border(1.dp, Border, RoundedCornerShape(28.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    when {
+                        state.automatic && connected && activeLabel != null -> activeLabel!!
+                        state.automatic && current == null -> "Automatic"
+                        else -> current?.label ?: "No server available"
+                    },
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    when {
+                        activity != null -> activity!!
+                        selected != null -> "${selected.host}:${selected.port}"
+                        state.servers.isEmpty() -> "buy a plan to get one"
+                        else -> "the tunnel will choose when you switch on"
+                    },
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            selected?.let { profile ->
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    "PLANS",
-                    color = Accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
+                    listOfNotNull("vless", "ws", if (profile.tls) "tls" else null)
+                        .joinToString("  ·  "),
+                    color = TextFaint,
+                    fontSize = 11.sp,
+                    maxLines = 1,
                 )
-                Spacer(Modifier.width(6.dp))
-                PathIcon(ICON_CHEVRON, 16.dp, Accent)
             }
         }
 
-        if (tunnelError != null && !connected && !connecting) {
-            Spacer(Modifier.height(10.dp))
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth(),
+        Spacer(Modifier.height(12.dp))
+
+        // Down, ping and up as three tiles across the card. Keeping them on one
+        // line is what lets the card stay this short.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatTile(Modifier.weight(1f)) {
+                TileValue("↓", formatBytes(traffic.second), traffic.second > 0)
+            }
+            StatTile(
+                Modifier.weight(1f),
+                onClick = if (selected != null && !pinging) {
+                    {
+                        val profile = selected
+                        scope.launch {
+                            pinging = true
+                            pingMs = Latency.measure(profile.host, profile.port)
+                            pinging = false
+                        }
+                    }
+                } else {
+                    null
+                },
             ) {
                 Text(
-                    tunnelError!!,
-                    color = Bad,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(14.dp),
+                    when {
+                        pinging -> "…"
+                        pingMs != null -> "$pingMs ms"
+                        else -> "PING"
+                    },
+                    color = if (pingMs != null && !pinging) Ok else Pending,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = if (pingMs == null) 1.sp else 0.sp,
                 )
             }
+            StatTile(Modifier.weight(1f)) {
+                TileValue("↑", formatBytes(traffic.first), traffic.first > 0)
+            }
         }
-
+    }
 }
+
+/** A tile inside the Configs card: down, ping, up. Optionally tappable. */
+@Composable
+private fun StatTile(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceHigh)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+        content = { content() },
+    )
+}
+
+@Composable
+private fun TileValue(arrow: String, value: String, live: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(arrow, color = if (live) Ok else TextFaint, fontSize = 13.sp)
+        Spacer(Modifier.width(5.dp))
+        Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Why the tunnel is not up, when it is not, in the tunnel's own words. */
+@Composable
+private fun ColumnScope.TunnelError() {
+    val tunnelState by JordanVpnService.state.collectAsState()
+    val tunnelError by JordanVpnService.lastError.collectAsState()
+    val settled = tunnelState == JordanVpnService.State.DISCONNECTED
+    val message = tunnelError
+    if (message != null && settled) {
+        Spacer(Modifier.height(10.dp))
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1516)),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                message,
+                color = Bad,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(14.dp),
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun VpnScreen(
@@ -912,7 +1081,9 @@ private fun VpnScreen(
     val connecting = tunnelState == JordanVpnService.State.CONNECTING
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelPanel(app, state, onConnect, onDisconnect, onOpenConfigs, onOpenPremium)
+        TunnelSwitch(state, onConnect, onDisconnect)
+        ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
+        TunnelError()
 
         Spacer(Modifier.height(14.dp))
 
@@ -1070,7 +1241,6 @@ private fun ConfigsScreen(
     state: ServerListState,
     onConnect: (List<Server>, Boolean) -> Unit,
     onDisconnect: () -> Unit,
-    onOpenPremium: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
@@ -1087,7 +1257,9 @@ private fun ConfigsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelPanel(app, state, onConnect, onDisconnect, onOpenConfigs = {}, onOpenPremium = onOpenPremium)
+        TunnelSwitch(state, onConnect, onDisconnect)
+        ConnectionCard(state)
+        TunnelError()
 
         Spacer(Modifier.height(14.dp))
 
