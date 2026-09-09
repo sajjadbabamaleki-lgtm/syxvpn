@@ -187,18 +187,23 @@ jobs:
 
       # Printed so the key can be checked rather than assumed: two builds that
       # show the same certificate digest will install over each other, and two
-      # that do not will not.
-      - name: Say which key signed it
+      # that do not will not. The size is printed beside it because this build
+      # ships one APK per architecture to keep that number down, and a change
+      # that quietly undoes the split should be visible in the log.
+      - name: Say which key signed each APK, and how big it is
         working-directory: android
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs \
-            app/build/outputs/apk/debug/app-debug.apk | grep -i 'SHA-256 digest'
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            echo "== $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" \
+              | grep -i 'SHA-256 digest'
+          done
 
-      - name: Attach the APK to this run
+      - name: Attach the APKs to this run
         uses: actions/upload-artifact@v4
         with:
           name: jordan-vpn-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
       # A failed build is the useful output too: the compiler's own words,

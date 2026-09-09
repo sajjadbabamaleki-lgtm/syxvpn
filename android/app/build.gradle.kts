@@ -122,6 +122,27 @@ android {
         }
     }
 
+    /**
+     * One APK per architecture, rather than one carrying both.
+     *
+     * The Go runtime is the app: about 23 MB of native code per architecture,
+     * against roughly 9 MB for everything written here. Shipping both in one
+     * file makes every phone download a copy of the core it cannot run, over a
+     * phone network, to be discarded at install. A split build produces
+     * app-arm64-v8a-debug.apk and app-armeabi-v7a-debug.apk; arm64 is every
+     * phone sold in years, and armeabi-v7a is there for the older ones.
+     *
+     * No universal APK: it would be the file we are trying to stop shipping.
+     */
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
+    }
+
     sourceSets["main"].java.srcDir(if (hasXrayRuntime) "src/xray/java" else "src/noxray/java")
 
     buildFeatures {
