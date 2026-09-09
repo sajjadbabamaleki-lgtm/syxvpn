@@ -139,6 +139,7 @@ traffic. Those are different jobs, so they are different screens:
 
 **VPN** is the switch, a card and a list of countries — the shape of an ordinary
 VPN app, for someone who has never seen a `vless://` line and does not want to.
+It carries no title: the space above the switch is the banner slot.
 
 The card has two halves and both go somewhere: the top names the server in use
 and opens the Configs tab, the bottom shows what is left of the plan and opens
@@ -186,9 +187,14 @@ imply a connection or a settlement that has not happened. Red stays for failure.
 Every screen is inset 16 from the sides: the bar, the cards and the config rows
 all sit on the same two vertical lines.
 
-On the VPN screen the spare height is split evenly above and below the switch,
-so the switch sits centred in what is left and the card lands just over the bar
-instead of leaving one hole at the bottom.
+Both lists end on their third row — countries on the VPN screen, configs on the
+Configs screen — and every pixel left over collects in one place at the top of
+the screen: the banner slot. That is the whole reason the lists are capped. The
+slot draws nothing at all in the app; an empty rectangle with "Ad" written in it
+would be an advertisement for nothing, and a placeholder is a promise the app
+has not kept. The mockup outlines it in a dashed line so the space can be
+judged: about 358 x 200 on the VPN screen, and roughly twice that on Configs,
+which has no switch to fill its middle.
 
 ## The other three tabs
 

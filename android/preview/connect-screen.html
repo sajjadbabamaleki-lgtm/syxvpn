@@ -271,9 +271,16 @@
   .screen h2.left { font-size: 20px; font-weight: 700; margin-top: 14px; flex: none; }
   /* Mirrors Compose on the VPN screen: two equal weighted spacers, so the
      switch sits centred in what is left and the card lands on the bar. */
-  /* Mirrors Compose: a quarter of the spare height above the switch, the
-     country list takes the rest. */
-  .spread { flex: 0.25 1 0; min-height: 0; }
+  /* Mirrors Compose: the screen's spare height collects above the switch and
+     above the config list. In the app this slot draws nothing at all — the
+     dashed outline is only here, so the space can be judged. */
+  .spread { flex: 1 1 0; min-height: 0; }
+  .banner {
+    flex: 1 1 0; min-height: 0; margin-bottom: 4px;
+    border: 1px dashed #2a323d; border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    color: #3d4653; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  }
   .below-card { height: 14px; flex: none; }
   /* The VPN card: two halves, and both of them go somewhere. */
   .vcard { margin-top: 20px; background: #12161c; border: 1px solid #232a34; border-radius: 28px; flex: none; overflow: hidden; }
@@ -292,7 +299,7 @@
 
   /* Countries, not configs: a flag drawn as regional-indicator letters, in the
      app's own circle, so the list needs no image assets. */
-  .countries { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; flex: 1 1 0; min-height: 0; }
+  .countries { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; flex: none; height: 200px; }
   .countries::-webkit-scrollbar { display: none; }
   .country {
     display: flex; align-items: center; gap: 12px; flex: none;
@@ -310,8 +317,8 @@
   .country .who span { font-size: 11px; color: #98a3b2; }
   .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #98a3b2; flex: none; }
   .country.sel.live .pip { background: #5fd97a; }
-  .listwrap.tall { align-items: stretch; }
-  .configs.tall { max-height: none; }
+  .listwrap.tall { flex: none; align-items: stretch; }
+  .configs.tall { max-height: 212px; height: 212px; }
   .card .proto .mode { color: #5fd97a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
   .card .proto .mode.manual { color: #6c7684; }
   .card .proto .chev { color: #6c7684; }
@@ -360,8 +367,7 @@
   <div class="phone">
     <div class="statusbar"><span>21:23</span><span>▮▮ ▾ 39%</span></div>
     <div class="screen">
-      <h1>Jordan VPN</h1>
-      <div class="spread"></div>
+      <div class="banner">banner slot</div>
 
       <div class="switch-wrap">
         <div class="switch">
@@ -407,8 +413,7 @@
   <div class="phone">
     <div class="statusbar"><span>21:23</span><span>▮▮ ▾ 39%</span></div>
     <div class="screen">
-      <h1>Jordan VPN</h1>
-      <div class="spread"></div>
+      <div class="banner">banner slot</div>
 
       <div class="switch-wrap connecting">
         <div class="switch on connecting">
@@ -454,8 +459,7 @@
   <div class="phone">
     <div class="statusbar"><span>21:26</span><span>▮▮ ▾ 38%</span></div>
     <div class="screen">
-      <h1>Jordan VPN</h1>
-      <div class="spread"></div>
+      <div class="banner">banner slot</div>
 
       <div class="switch-wrap">
         <div class="switch on live">
@@ -508,6 +512,7 @@
         <div class="chip on">AUTO</div>
         <div class="chip">MANUAL</div>
       </div>
+      <div class="banner">banner slot</div>
       <div class="listwrap tall"><div class="configs tall">
         <div class="cfg"><div class="dot"></div><div class="who"><b>Frankfurt Edge · de-fra</b><span>gw1.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>
         <div class="cfg"><div class="dot"></div><div class="who"><b>Amsterdam Edge · nl-ams</b><span>gw2.example.net:443</span></div><div class="acts"><div class="act" title="Copy"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></div><div class="act" title="Share"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></div><div class="act" title="Delete"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></div></div></div>

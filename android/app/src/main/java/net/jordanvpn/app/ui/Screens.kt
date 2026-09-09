@@ -382,9 +382,31 @@ private fun RowAction(pathData: String, description: String, onClick: () -> Unit
 // instead of ending on a half-visible one.
 private val ConfigRowHeight = 62.dp
 private val ConfigRowGap = 13.dp
-private const val VISIBLE_CONFIG_ROWS = 4
+private val CountryRowHeight = 60.dp
+private val CountryRowGap = 10.dp
+
+/**
+ * Both lists end on the third row, and everything left over goes to the banner
+ * slot above. A list that filled the screen would leave nowhere to put one.
+ */
+private const val VISIBLE_ROWS = 3
 private val ConfigListHeight =
-    ConfigRowHeight * VISIBLE_CONFIG_ROWS + ConfigRowGap * (VISIBLE_CONFIG_ROWS - 1)
+    ConfigRowHeight * VISIBLE_ROWS + ConfigRowGap * (VISIBLE_ROWS - 1)
+private val CountryListHeight =
+    CountryRowHeight * VISIBLE_ROWS + CountryRowGap * (VISIBLE_ROWS - 1)
+
+/**
+ * Room kept for a banner, on both screens.
+ *
+ * It draws nothing. An empty rectangle with the word "Ad" in it would be an
+ * advertisement for nothing, and a placeholder is a promise the app has not
+ * kept yet — so the space is simply there, and whatever goes in it later gets
+ * a real composable.
+ */
+@Composable
+private fun BannerSlot(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth())
+}
 
 /**
  * One row in the config list.
@@ -658,19 +680,9 @@ private fun VpnScreen(
     val selected = current?.profile
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Spacer(Modifier.height(14.dp))
-        Text(
-            "Jordan VPN",
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-
-        // A quarter of the spare height above the switch, so it is not pinned
-        // under the title; the country list takes the rest.
-        Spacer(Modifier.height(20.dp))
-        Spacer(Modifier.weight(0.25f))
+        // Above the switch: nothing of the app's own. The screen's spare height
+        // collects here, which is where a banner goes.
+        BannerSlot(Modifier.weight(1f))
 
         Box(Modifier.align(Alignment.CenterHorizontally)) {
             ConnectSwitch(
@@ -848,9 +860,8 @@ private fun VpnScreen(
         // servers", rather than under a flag the app made up.
         val groups = remember(state.visible) { groupByCountry(state.visible) }
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 14.dp),
+            modifier = Modifier.fillMaxWidth().height(CountryListHeight),
+            verticalArrangement = Arrangement.spacedBy(CountryRowGap),
         ) {
             item {
                 CountryRow(
@@ -905,6 +916,8 @@ private fun VpnScreen(
                 }
             }
         }
+
+        Spacer(Modifier.height(14.dp))
     }
 }
 
@@ -1026,21 +1039,22 @@ private fun ConfigsScreen(
             ModeChip("MANUAL", !state.automatic) { state.setAutomatic(false) }
         }
 
+        // The same banner slot as the VPN screen, in the same place: the spare
+        // height collects above the list, not below it.
+        BannerSlot(Modifier.weight(1f))
+
         Spacer(Modifier.height(10.dp))
 
-        // The list has the screen to itself here, so it shows as many rows as
-        // fit instead of the four it was capped at when it shared with the
-        // switch. Pulling it down refreshes it, which is the gesture people
-        // already reach for.
+        // Three rows, ending on a whole one, and the rest scrolls. Pulling it
+        // down refreshes it, which is the gesture people already reach for.
         PullToRefreshBox(
             isRefreshing = state.busy,
             onRefresh = { scope.launch { state.refresh(app.subscriptions) } },
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(ConfigListHeight),
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
-                contentPadding = PaddingValues(bottom = 14.dp),
             ) {
                 if (state.visible.isEmpty()) {
                     item {
@@ -1118,6 +1132,8 @@ private fun ConfigsScreen(
                 }
             }
         }
+
+        Spacer(Modifier.height(14.dp))
     }
 }
 
