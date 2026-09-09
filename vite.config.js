@@ -21,6 +21,22 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
+    /**
+     * Three entry points, one build.
+     *
+     * `index.html` is the operator console and storefront — a single-page app
+     * that is deliberately not indexed. The two landing pages are ordinary
+     * static HTML with no script of their own: a marketing page that needs
+     * JavaScript to show its first sentence is a page search engines rank
+     * badly and slow networks never finish.
+     */
+    rollupOptions: {
+      input: {
+        app: 'index.html',
+        landing: 'landing.html',
+        landingEn: 'landing-en.html',
+      },
+    },
     // A single small bundle beats several round trips on a slow link.
     cssCodeSplit: false,
     reportCompressedSize: true,

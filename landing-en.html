@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0c0f" />
+<meta name="color-scheme" content="dark" />
+
+<title>cVPN — one switch, and an app that admits when it cannot connect</title>
+<meta name="description" content="cVPN picks the gateway by measuring the whole path, comes back on its own when a route dies, and keeps your imported configs strictly manual. Direct Android download." />
+<link rel="canonical" href="%VITE_SITE_URL%/en" />
+<link rel="alternate" hreflang="en" href="%VITE_SITE_URL%/en" />
+<link rel="alternate" hreflang="fa" href="%VITE_SITE_URL%/" />
+<link rel="alternate" hreflang="x-default" href="%VITE_SITE_URL%/" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="cVPN" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:title" content="cVPN — one switch, and an app that admits when it cannot connect" />
+<meta property="og:description" content="It measures the whole path, not just the first hop. It comes back on its own. It never touches the configs you imported." />
+<meta property="og:url" content="%VITE_SITE_URL%/en" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="cVPN — one switch, honestly built" />
+<meta name="twitter:description" content="It measures the whole path, not just the first hop. It comes back on its own." />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0c0f'/%3E%3Ctext x='16' y='23' font-family='system-ui,sans-serif' font-size='19' font-weight='700' fill='%235fd97a' text-anchor='middle'%3Ec%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/landing.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "cVPN",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Android 7.0+",
+      "url": "%VITE_SITE_URL%/en",
+      "downloadUrl": "%VITE_APK_URL%",
+      "description": "A VPN app that chooses its gateway from end-to-end measurements, recovers on its own, and keeps imported configs strictly manual."
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "What makes cVPN different?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two things. Selection is based on measurement rather than assumption: the app tests the whole path through a gateway, not merely whether the gateway answers. And the manual config section is genuinely separate — nothing ever reorders, replaces or re-picks a config you imported." } },
+        { "@type": "Question", "name": "Do you keep logs?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Byte counters per subscription, because that is how a data quota works. Not destinations: the gateways run at warning log level, so the addresses you open are not written down." } },
+        { "@type": "Question", "name": "Is there an iOS app?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not yet. Android only. Until an iOS build actually ships, the App Store button on this page stays disabled rather than pointing somewhere irrelevant." } },
+        { "@type": "Question", "name": "What happens when a server dies?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The app notices and reconnects; if that gateway will not answer it moves to the next. When no usable path is left it disconnects and says so, rather than showing a connected tunnel that carries nothing." } },
+        { "@type": "Question", "name": "How do payments work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "USDT on TRON, confirmed on chain. Nothing is unlocked until the transfer is actually seen." } },
+        { "@type": "Question", "name": "Do I need an account?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The app opens straight onto the tunnel. An account is only needed to buy a plan or to carry a subscription to another phone." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/en" aria-label="cVPN">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#12161c" stroke="#232a34"/>
+        <path d="M21.5 11.2a7.5 7.5 0 1 1 -10.9 0M16 8v7" fill="none" stroke="#5fd97a" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      cVPN
+    </a>
+    <nav class="nav">
+      <a href="#features" class="hide-sm">Features</a>
+      <a href="#how" class="hide-sm">How it works</a>
+      <a href="#faq" class="hide-sm">FAQ</a>
+      <a href="/" class="lang" hreflang="fa">فارسی</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-top:none">
+    <div class="wrap">
+      <span class="eyebrow"><span class="dot"></span> Android — direct download</span>
+      <h1>One switch.<br />The rest is <span class="on">our problem</span>.</h1>
+      <p class="lede">
+        cVPN measures the whole path before it picks a gateway, and when a route dies
+        mid-session it comes back on its own — without you touching anything.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg>
+          <span>Download for Android <small>APK · direct install</small></span>
+        </a>
+        <span class="btn btn-ghost" aria-disabled="true" title="Not shipped yet">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>
+          <span>App Store <small>Coming — not shipped yet</small></span>
+        </span>
+      </div>
+      <p class="note">The app opens without an account. One is only needed to buy a plan.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="sub">Three steps, and then you stop thinking about it.</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Install</h3>
+          <p>Take the Android file and install it. It opens straight onto the connect screen — no sign-up form, no email.</p>
+        </div>
+        <div class="step">
+          <h3>Switch on</h3>
+          <p>Press the switch. The app measures the gateways, takes the best one and connects. Want a particular country? Pick it from the list.</p>
+        </div>
+        <div class="step">
+          <h3>Forget it</h3>
+          <p>If the route drops, the app comes back. If a gateway fails, it moves to the next one.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>What is actually in it</h2>
+      <p class="sub">Not a feature list for a landing page — these are written, and they have tests.</p>
+      <div class="grid">
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+          <h3>Smart connect</h3>
+          <p>The app does not just ask whether a gateway answers. It sends a real request <em>through</em> it. A gateway that replies in 20 ms but cannot reach the internet loses to one that takes 400 ms and works.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+          <h3>Purpose modes</h3>
+          <p>Auto, Social, Streaming, Gaming. Each weighs latency, steadiness and a gateway's own record differently — they genuinely settle on different gateways, they are not four labels for one thing.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg></div>
+          <h3>Configs stay yours</h3>
+          <p>Configs you import live in their own tab. Nothing replaces, reorders or auto-selects them. Health is measured and shown; that is the entire extent of its authority.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg></div>
+          <h3>Automatic recovery</h3>
+          <p>When the tunnel drops, the app knows and comes back. Each failure is recorded against the gateway that caused it, so next time it reaches for one that has actually worked.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>It fails closed</h3>
+          <p>With no usable path left, the app disconnects and tells you. Showing "connected" over a tunnel that carries nothing is the worst thing a VPN can do.</p>
+        </article>
+        <article class="card">
+          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg></div>
+          <h3>Xray-core inside</h3>
+          <p>The tunnel engine is Xray-core — what serious clients use — at a pinned version, not an unnamed build.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="honest">
+    <div class="wrap">
+      <h2>What we will not claim</h2>
+      <p class="sub">Every VPN promises these. We do not, because nobody can keep them.</p>
+      <div class="plain">
+        <ul>
+          <li><strong>Not "no logs".</strong> Byte counters per subscription exist, because that is how a data quota works. Destinations do not: the gateways run at warning log level, so the addresses you open are not written down.</li>
+          <li><strong>Not "always connected".</strong> No software can create a path that does not exist. What we can do is notice quickly that one has died and move to the next.</li>
+          <li><strong>Not "the fastest VPN".</strong> Speed depends on your distance to the gateway and the state of your network. What we do is pick the best of what was actually measured.</li>
+          <li><strong>No home-made cryptography.</strong> Standard, published protocols only. Anyone claiming their own encryption is a reason to worry, not to buy.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <h2>Questions</h2>
+      <p class="sub">If yours is not here, message support from inside the app.</p>
+
+      <details>
+        <summary>What makes cVPN different?</summary>
+        <p>Two things. Selection is based on measurement rather than assumption: the app tests the whole path through a gateway, not merely whether the gateway answers. And the manual config section is genuinely separate — nothing ever reorders, replaces or re-picks a config you imported.</p>
+      </details>
+      <details>
+        <summary>Do you keep logs?</summary>
+        <p>Byte counters per subscription, because that is how a data quota works. Not destinations: the gateways run at warning log level, so the addresses you open are not written down.</p>
+      </details>
+      <details>
+        <summary>Is there an iOS app?</summary>
+        <p>Not yet. Android only. Until an iOS build actually ships, the App Store button on this page stays disabled rather than pointing somewhere irrelevant.</p>
+      </details>
+      <details>
+        <summary>What happens when a server dies?</summary>
+        <p>The app notices and reconnects; if that gateway will not answer it moves to the next. When no usable path is left it disconnects and says so.</p>
+      </details>
+      <details>
+        <summary>How do payments work?</summary>
+        <p>USDT on TRON, confirmed on chain. Nothing is unlocked until the transfer is actually seen.</p>
+      </details>
+      <details>
+        <summary>Do I need an account?</summary>
+        <p>No. The app opens straight onto the tunnel. An account is only needed to buy a plan or to carry a subscription to another phone.</p>
+      </details>
+    </div>
+  </section>
+
+  <section id="get">
+    <div class="wrap" style="text-align:center">
+      <h2>Try it now</h2>
+      <p class="sub" style="margin-inline:auto">Installing takes seconds, and opening it needs no account at all.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">Download for Android</a>
+        <a class="btn btn-ghost" href="/app/">Sign in &amp; buy a plan</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© <span id="y">2026</span> cVPN</span>
+    <a href="/" hreflang="fa">فارسی</a>
+    <a href="/app/">Account</a>
+    <span class="spacer">Built on Xray-core</span>
+  </div>
+</footer>
+
+<script>
+  if (location.hash.startsWith('#/')) location.replace('/app/' + location.hash);
+  document.getElementById('y').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
