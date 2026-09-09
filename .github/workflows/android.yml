@@ -40,18 +40,36 @@ jobs:
       # A debug key is generated on the runner, and the runner is new every run.
       # A new key means a new signature, and Android refuses to install an update
       # signed by a different key: every build would demand that the previous one
-      # be uninstalled first, taking its settings with it. Caching the key keeps
-      # one identity across builds, so a new APK installs over the old one.
+      # be uninstalled first, taking its settings with it. So the key is kept in
+      # a directory of this workflow's own, cached under a fixed name, and the
+      # build is pointed at it through JORDAN_DEBUG_KEYSTORE.
       #
-      # This is the ordinary Android debug key — the well-known password, never
+      # The toolchain's own default location is not used, because it is not one
+      # location: it moves with the platform and the SDK's preference directory,
+      # and a cache of a path that turns out to be empty saves nothing at all
+      # while looking like it worked.
+      #
+      # This is the ordinary Android debug key — the published password, never
       # used for a release. Release signing is separate and comes from
       # keystore.properties or the JORDAN_KEYSTORE* variables, and nothing about
       # it is in this repository.
-      - name: Reuse the debug signing key across builds
+      - name: Restore the debug signing key
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore-v1
+          path: ~/.jordan-debug-key
+          key: android-debug-keystore-v2
+
+      - name: Create the debug key if there was none to restore
+        run: |
+          mkdir -p ~/.jordan-debug-key
+          store=~/.jordan-debug-key/debug.keystore
+          if [ ! -f "$store" ]; then
+            keytool -genkeypair -v -keystore "$store" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname 'CN=Android Debug,O=Android,C=US'
+          fi
+          echo "JORDAN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
 
       - name: Build the debug APK
         working-directory: android
