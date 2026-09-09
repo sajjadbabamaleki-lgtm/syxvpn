@@ -54,18 +54,6 @@ android {
         // Where the app talks to the control plane. Override per build.
         buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.cvpn.pro\"")
 
-        // Which machines this APK carries native code for.
-        //
-        // The Xray runtime is Go, compiled per architecture, and gomobile builds
-        // all four: two real phone architectures and two that only exist on
-        // emulators. Carrying x86 doubles the download for every customer so
-        // that a developer's emulator can run it — the wrong trade for an app
-        // people fetch over a phone network. arm64 is every phone sold in years;
-        // armeabi-v7a keeps the old ones working.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
-
         // Whether the Premium tab may open a USDT order inside the app.
         //
         // True is right for a directly distributed APK. A Google Play build must
@@ -133,6 +121,12 @@ android {
      * phone sold in years, and armeabi-v7a is there for the older ones.
      *
      * No universal APK: it would be the file we are trying to stop shipping.
+     *
+     * This list is also what keeps the emulator architectures out. gomobile
+     * builds all four, two of which only exist on emulators, and this is the
+     * only place they may be named: an `abiFilters` in defaultConfig saying the
+     * same thing fails the build outright, because AGP refuses to be told which
+     * architectures to package in two places at once.
      */
     splits {
         abi {
