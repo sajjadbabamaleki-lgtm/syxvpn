@@ -7,7 +7,14 @@
 # and can be run again safely: an existing gateway for the same host is reused
 # rather than duplicated.
 #
-#   sh deploy/bootstrap-gateway.sh
+# On the control-plane host it needs nothing: the admin password comes from the
+# .env beside it. On a machine that is only a gateway — which is where a gateway
+# belongs, away from the control plane and its address — clone the repository
+# and pass the two things that host cannot know:
+#
+#   CONTROL_URL=https://control.cvpn.pro \
+#   GATEWAY_HOST=gw2.cvpn.pro GATEWAY_REGION=nl \
+#   ADMIN_PASSWORD=… sh deploy/bootstrap-gateway.sh
 #
 # Environment (all optional):
 #   CONTROL_URL   control plane base URL         (default https://control.cvpn.pro)
@@ -25,13 +32,27 @@ LISTEN_PORT=${LISTEN_PORT:-10001}
 CADDYFILE=${CADDYFILE:-/etc/caddy/Caddyfile}
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 
+# Everything this run owns is named after the host's first label — gw2.cvpn.pro
+# gives gw2 — so a second gateway, on a second machine or behind the same
+# proxy, cannot overwrite the first one's container, key file or Caddy block.
+LABEL=$(printf '%s' "$GATEWAY_HOST" | cut -d. -f1)
+GATEWAY_NAME=${GATEWAY_NAME:-$LABEL}
+
 say() { printf '\n== %s\n' "$1"; }
+have() { command -v "$1" >/dev/null 2>&1; }
 die() { printf '\nFAILED: %s\n' "$1" >&2; exit 1; }
 jget() { python3 -c 'import sys,json;d=json.load(sys.stdin);
 for k in sys.argv[1].split("."):
     d = d[int(k)] if isinstance(d, list) else d.get(k)
     if d is None: print(""); raise SystemExit
 print(d)' "$1"; }
+
+# ------------------------------------------------------------------ preflight
+# Said now, by name, rather than as a build or a reload failing later.
+have docker || die "docker is not installed on this host"
+have python3 || die "python3 is not installed on this host"
+have curl || die "curl is not installed on this host"
+have caddy || say "WARNING: no caddy on this host — the block will be written but not loaded"
 
 # ---------------------------------------------------------------- credentials
 if [ -z "${ADMIN_PASSWORD:-}" ] && [ -f "$REPO/.env" ]; then
@@ -41,7 +62,8 @@ if [ -z "${ADMIN_USERNAME:-}" ] && [ -f "$REPO/.env" ]; then
   ADMIN_USERNAME=$(grep -E '^ADMIN_USERNAME=' "$REPO/.env" | head -1 | cut -d= -f2- || true)
 fi
 ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-[ -n "${ADMIN_PASSWORD:-}" ] || die "no ADMIN_PASSWORD in the environment or $REPO/.env"
+[ -n "${ADMIN_PASSWORD:-}" ] || die "no ADMIN_PASSWORD in the environment or $REPO/.env
+On a gateway-only host there is no .env: pass ADMIN_PASSWORD=… to this script."
 
 say "Signing in to $CONTROL_URL as $ADMIN_USERNAME"
 TOKEN=$(printf '{"username":%s,"password":%s}' \
@@ -66,8 +88,8 @@ if [ -n "$GW" ]; then
 else
   WS_PATH="/$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   say "Registering $GATEWAY_HOST with wsPath $WS_PATH"
-  RESP=$(printf '{"name":"gw1","region":"%s","host":"%s","port":443,"tlsMode":"reverse-proxy","sni":"%s","wsPath":"%s","listenAddress":"127.0.0.1","listenPort":%s}' \
-    "$GATEWAY_REGION" "$GATEWAY_HOST" "$GATEWAY_HOST" "$WS_PATH" "$LISTEN_PORT" \
+  RESP=$(printf '{"name":"%s","region":"%s","host":"%s","port":443,"tlsMode":"reverse-proxy","sni":"%s","wsPath":"%s","listenAddress":"127.0.0.1","listenPort":%s}' \
+    "$GATEWAY_NAME" "$GATEWAY_REGION" "$GATEWAY_HOST" "$GATEWAY_HOST" "$WS_PATH" "$LISTEN_PORT" \
     | curl -sS -X POST "$CONTROL_URL/api/v1/gateways" -H "$AUTH" -H 'Content-Type: application/json' -d @-)
   GW=$(printf '%s' "$RESP" | jget data.id)
   [ -n "$GW" ] || die "registration failed: $RESP"
@@ -109,8 +131,9 @@ say "Building the agent image (it carries the Xray binary)"
 docker build -t jordan-agent "$REPO/agent" >/dev/null || die "agent image build failed"
 
 say "Starting the agent"
-docker rm -f jordan-agent >/dev/null 2>&1 || true
-ENV_FILE=/etc/jordan-agent.env
+CONTAINER=jordan-agent-$GATEWAY_NAME
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+ENV_FILE=/etc/jordan-agent-$GATEWAY_NAME.env
 # The umask is scoped to this file. Left set for the rest of the script it also
 # made the Caddy block root-only, which validate (run as root) accepted and the
 # caddy user could not read — a reload failure that looked like a bad config.
@@ -120,13 +143,13 @@ JORDAN_GATEWAY_ID=$GW
 JORDAN_AGENT_KEY=$AGENT_KEY
 ENV
 )
-docker run -d --name jordan-agent --restart unless-stopped --network host \
-  --env-file "$ENV_FILE" -v jordan-agent-state:/var/lib/jordan-agent jordan-agent >/dev/null \
+docker run -d --name "$CONTAINER" --restart unless-stopped --network host \
+  --env-file "$ENV_FILE" -v "jordan-agent-$GATEWAY_NAME:/var/lib/jordan-agent" jordan-agent >/dev/null \
   || die "the agent container did not start"
 echo "running — key is in $ENV_FILE (root only)"
 
 # --------------------------------------------------------------------- caddy
-BLOCK=/etc/caddy/cvpn-gw1.caddy
+BLOCK=/etc/caddy/cvpn-$GATEWAY_NAME.caddy
 say "Writing the gateway's Caddy block to $BLOCK"
 cat > "$BLOCK" <<CADDY
 # Generated by deploy/bootstrap-gateway.sh. The path must match the gateway's
@@ -151,7 +174,21 @@ CADDY
 # Caddy drops privileges: a block it cannot read is a block that does not exist.
 chmod 644 "$BLOCK"
 
-if [ -f "$CADDYFILE" ]; then
+# A gateway-only host has no Caddyfile at all. A file holding just this import
+# is a complete config, so the same command works on both kinds of machine.
+if [ ! -f "$CADDYFILE" ] && have caddy; then
+  say "No $CADDYFILE on this host — creating one that imports the block"
+  mkdir -p "$(dirname "$CADDYFILE")"
+  printf 'import %s\n' "$BLOCK" > "$CADDYFILE"
+  if caddy validate --config "$CADDYFILE" >/dev/null 2>&1 && systemctl reload caddy 2>/dev/null; then
+    echo "created and loaded"
+  else
+    systemctl restart caddy >/dev/null 2>&1 \
+      && echo "created and started" \
+      || die "Caddy would not start with $CADDYFILE.
+Read why with: journalctl -xeu caddy.service --no-pager | tail -30"
+  fi
+elif [ -f "$CADDYFILE" ]; then
   if grep -q "$BLOCK" "$CADDYFILE"; then
     echo "already imported"
   else
@@ -169,7 +206,7 @@ Read why with: journalctl -xeu caddy.service --no-pager | tail -30"
     fi
   fi
 else
-  echo "no $CADDYFILE — add the block in $BLOCK to your proxy by hand, then re-run"
+  echo "no caddy here — put $BLOCK in front of $LISTEN_PORT yourself, then re-run"
 fi
 
 # -------------------------------------------------------------------- verdict
@@ -192,5 +229,5 @@ pick the plan -> then settle the order:
 
 If it says "offline", read the agent's own account of why:
 
-  docker logs --tail 50 jordan-agent
+  docker logs --tail 50 $CONTAINER
 NEXT
