@@ -182,6 +182,15 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    /**
+     * Here for one method: OkHttpClient.Builder.dns.
+     *
+     * Nothing else in the app needs a second HTTP client, and the ordinary
+     * request path still goes through the platform's. This is what lets the
+     * fallback supply an address for a name the phone will not resolve while
+     * the URL — and so the SNI and the certificate check — keeps the real host.
+     */
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

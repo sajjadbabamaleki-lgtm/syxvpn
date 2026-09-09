@@ -11,16 +11,16 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * Thin client for the Jordan storefront API (`/api/v1/shop/...`): sign in, the
  * customer's subscription, the plans on sale and the USDT orders that pay for
  * them.
  *
- * Deliberately built on HttpURLConnection: the app should stay small, and the
- * whole surface is a handful of endpoints returning `{ data }`.
+ * Built on the platform's own client: the app should stay small, and the whole
+ * surface is a handful of endpoints returning `{ data }`. It reaches them
+ * through Transport, which adds exactly one thing — a second attempt over
+ * DNS-over-HTTPS when the phone cannot resolve the host at all.
  */
 class ControlPlaneClient(
     private val baseUrl: String,
@@ -245,18 +245,11 @@ class ControlPlaneClient(
         if ('?' in url) "$url&format=json" else "$url?format=json"
 
     private fun fetchSubscription(url: String): String {
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 10_000
-            readTimeout = 15_000
-            setRequestProperty("User-Agent", "JordanVPN-Android/0.1")
+        val reply = transport.exchange("GET", url, mapOf("User-Agent" to USER_AGENT), null)
+        if (reply.status !in 200..299) {
+            throw ApiException(reply.status, "SUBSCRIPTION", "Subscription unavailable")
         }
-        connection.use {
-            if (it.responseCode !in 200..299) {
-                throw ApiException(it.responseCode, "SUBSCRIPTION", "Subscription unavailable")
-            }
-            return it.inputStream.bufferedReader().readText().trim()
-        }
+        return reply.body.trim()
     }
 
     private fun parseJsonSubscription(text: String): List<SubscriptionServer>? {
@@ -318,45 +311,45 @@ class ControlPlaneClient(
         if (authenticated && session.token == null) {
             throw ApiException(401, "NO_SESSION", "Not signed in")
         }
-        val connection = (URL(baseUrl + path).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = 10_000
-            readTimeout = 15_000
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("User-Agent", "JordanVPN-Android/0.1")
-            if (authenticated) session.token?.let { setRequestProperty("Authorization", "Bearer $it") }
-            if (body != null) doOutput = true
+        val headers = buildMap {
+            put("Content-Type", "application/json")
+            put("User-Agent", USER_AGENT)
+            if (authenticated) session.token?.let { put("Authorization", "Bearer $it") }
         }
-        connection.use {
-            if (body != null) it.outputStream.write(body.toByteArray())
-            val status = it.responseCode
-            val text = (if (status in 200..299) it.inputStream else it.errorStream)
-                ?.bufferedReader()?.readText().orEmpty()
-            val payload = runCatching { json.parseToJsonElement(text).objectOrNull }.getOrNull()
-            if (status == 401 && authenticated) {
-                session.token = null
-                expired.value = true
-                throw ApiException(401, "UNAUTHORIZED", "Please sign in again")
-            }
-            if (status !in 200..299) {
-                val error = payload?.get("error").objectOrNull
-                throw ApiException(
-                    status,
-                    error?.get("code")?.jsonPrimitive?.contentOrNullSafe() ?: "ERROR",
-                    error?.get("message")?.jsonPrimitive?.contentOrNullSafe()
-                        ?: "Request failed ($status)",
-                )
-            }
-            return payload?.get("data")
-                ?: throw ApiException(status, "MALFORMED", "Unexpected response")
+        val reply = transport.exchange(method, baseUrl + path, headers, body)
+        val payload = runCatching { json.parseToJsonElement(reply.body).objectOrNull }.getOrNull()
+        if (reply.status == 401 && authenticated) {
+            session.token = null
+            expired.value = true
+            throw ApiException(401, "UNAUTHORIZED", "Please sign in again")
         }
+        if (reply.status !in 200..299) {
+            val error = payload?.get("error").objectOrNull
+            throw ApiException(
+                reply.status,
+                error?.get("code")?.jsonPrimitive?.contentOrNullSafe() ?: "ERROR",
+                error?.get("message")?.jsonPrimitive?.contentOrNullSafe()
+                    ?: "Request failed (${reply.status})",
+            )
+        }
+        return payload?.get("data")
+            ?: throw ApiException(reply.status, "MALFORMED", "Unexpected response")
     }
 
     /** A JSON string literal, escaped by the library rather than by hand. */
     private fun quote(value: String) = JsonPrimitive(value).toString()
 
-    private inline fun <T> HttpURLConnection.use(block: (HttpURLConnection) -> T): T =
-        try { block(this) } finally { disconnect() }
+    /**
+     * The platform's client, with DNS-over-HTTPS behind it.
+     *
+     * Every request goes out the ordinary way. Only a name the phone cannot
+     * resolve — another VPN holding the resolver, an ISP answering "no such
+     * host" for this domain — falls through to the resolver that does not need
+     * the phone's, which is the difference between an app that says it cannot
+     * reach its own control plane and one that reaches it.
+     */
+    private val transport: Transport =
+        ResilientTransport(SystemTransport(), DohTransport(systemDohResolver()))
 
     private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content
@@ -373,4 +366,8 @@ class ControlPlaneClient(
     private val JsonElement?.objectOrNull: JsonObject? get() = this as? JsonObject
 
     private val JsonElement?.arrayOrNull: JsonArray? get() = this as? JsonArray
+
+    private companion object {
+        const val USER_AGENT = "JordanVPN-Android/0.1"
+    }
 }
