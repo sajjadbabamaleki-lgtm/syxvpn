@@ -108,7 +108,7 @@ class ControlPlaneClient(
     }
 
     suspend fun plans(): List<Plan> = withContext(Dispatchers.IO) {
-        requestArray("GET", "/api/v1/shop/plans", null, authenticated = false).map { element ->
+        requestArray("GET", "/api/v1/shop/plans", null, authenticated = false).mapNotNull { element ->
             val plan = element.objectOrNull ?: return@mapNotNull null
             Plan(
                 id = plan["id"]!!.jsonPrimitive.content,
