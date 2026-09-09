@@ -199,11 +199,22 @@ jobs:
               | grep -i 'SHA-256 digest'
           done
 
-      - name: Attach the APKs to this run
+      # One artifact per architecture, not one holding both. GitHub serves an
+      # artifact as a zip of everything in it, so a single artifact would make
+      # someone download the other architecture's copy of the runtime to get
+      # their own — the download this split exists to avoid.
+      - name: Attach the arm64 APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: jordan-vpn-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: jordan-vpn-debug-apk-arm64-v8a
+          path: android/app/build/outputs/apk/debug/*arm64-v8a*.apk
+          if-no-files-found: error
+
+      - name: Attach the armeabi-v7a APK to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: jordan-vpn-debug-apk-armeabi-v7a
+          path: android/app/build/outputs/apk/debug/*armeabi-v7a*.apk
           if-no-files-found: error
 
       # A failed build is the useful output too: the compiler's own words,
