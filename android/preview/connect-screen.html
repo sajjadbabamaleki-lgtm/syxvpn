@@ -52,7 +52,7 @@
      The inset equals the difference of the two radii (36 - 24), which is what
      makes the curves concentric rather than merely close.
   */
-  .switch-wrap { display: flex; justify-content: center; margin-top: 26px; flex: none; }
+  .switch-wrap { display: flex; justify-content: center; margin-top: 20px; flex: none; }
   .switch {
     position: relative;
     width: 208px; height: 72px;
@@ -271,15 +271,45 @@
   .screen h2.left { font-size: 20px; font-weight: 700; margin-top: 14px; flex: none; }
   /* Mirrors Compose on the VPN screen: two equal weighted spacers, so the
      switch sits centred in what is left and the card lands on the bar. */
-  .spread { flex: 1 1 0; min-height: 0; }
+  /* Mirrors Compose: a quarter of the spare height above the switch, the
+     country list takes the rest. */
+  .spread { flex: 0.25 1 0; min-height: 0; }
   .below-card { height: 14px; flex: none; }
-  /* What is left of the plan — real figures or nothing at all. */
-  .quota { background: #12161c; border: 1px solid #232a34; border-radius: 24px; padding: 12px 16px; flex: none; margin-bottom: 10px; }
-  .quota .row { display: flex; align-items: center; font-size: 13px; }
-  .quota .row b { flex: 1; font-weight: 500; color: #fff; }
-  .quota .row span { color: #98a3b2; font-size: 12px; }
-  .quota .bar { height: 4px; border-radius: 2px; background: #232a34; margin-top: 8px; overflow: hidden; }
-  .quota .bar i { display: block; height: 100%; background: #5fd97a; border-radius: 2px; }
+  /* The VPN card: two halves, and both of them go somewhere. */
+  .vcard { margin-top: 20px; background: #12161c; border: 1px solid #232a34; border-radius: 28px; flex: none; overflow: hidden; }
+  .vcard .half { display: flex; align-items: center; padding: 14px 16px; gap: 10px; }
+  .vcard .half + .half { border-top: 1px solid #232a34; }
+  .vcard .who { flex: 1; min-width: 0; }
+  .vcard .who b { display: block; font-size: 15px; font-weight: 500; color: #fff; }
+  .vcard .who span { font-size: 12px; color: #98a3b2; }
+  .vcard .who .offer { font-size: 14px; font-weight: 500; color: #fff; display: block; }
+  .vcard .tagline { font-size: 12px; color: #98a3b2; }
+  .vcard .mode { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #5fd97a; }
+  .vcard .mode.manual { color: #6c7684; }
+  .vcard .plans { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #5fd97a; }
+  .vcard .chev { color: #6c7684; font-size: 15px; }
+  .vcard .chev.on { color: #5fd97a; }
+
+  /* Countries, not configs: a flag drawn as regional-indicator letters, in the
+     app's own circle, so the list needs no image assets. */
+  .countries { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; flex: 1 1 0; min-height: 0; }
+  .countries::-webkit-scrollbar { display: none; }
+  .country {
+    display: flex; align-items: center; gap: 12px; flex: none;
+    height: 60px; padding: 0 14px; border-radius: 20px;
+    background: #12161c; border: 1px solid #232a34;
+  }
+  .country.sel { background: #171c23; border-color: rgba(95,217,122,0.45); }
+  .country .circle {
+    width: 36px; height: 36px; border-radius: 50%; flex: none;
+    background: #171c23; border: 1px solid #232a34;
+    display: flex; align-items: center; justify-content: center; font-size: 19px; color: #98a3b2;
+  }
+  .country .who { flex: 1; min-width: 0; }
+  .country .who b { display: block; font-size: 15px; font-weight: 500; color: #fff; }
+  .country .who span { font-size: 11px; color: #98a3b2; }
+  .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #98a3b2; flex: none; }
+  .country.sel.live .pip { background: #5fd97a; }
   .listwrap.tall { align-items: stretch; }
   .configs.tall { max-height: none; }
   .card .proto .mode { color: #5fd97a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
@@ -343,27 +373,30 @@
       </div>
 
       <div class="status">NOT CONNECTED</div>
-      <div class="spread"></div>
-
-      <div class="quota">
-        <div class="row"><b>31.6 GB left</b><span>22 days left</span></div>
-        <div class="bar"><i style="width:37%"></i></div>
-      </div>
-      <div class="card">
-        <div class="config-row">
-          <div>
-            <div class="name">Automatic</div>
-            <div class="addr">the tunnel will choose when you switch on</div>
+      <div class="vcard">
+        <div class="half">
+          <div class="who"><b>Automatic</b><span>the tunnel will choose when you switch on</span></div>
+          <span class="mode">AUTO</span>
+          <span class="chev">›</span>
+        </div>
+        <div class="half">
+          <div class="who">
+            <span class="offer">Want it faster and steadier?</span>
+            <span class="tagline">More data, and no cut-off mid-month.</span>
           </div>
-          <div class="proto"><span class="mode">AUTO</span> <span class="chev">›</span></div>
-        </div>
-        <div class="tiles">
-          <div class="tile"><span class="arrow">↓</span>0 B</div>
-          <div class="tile ping">PING</div>
-          <div class="tile"><span class="arrow">↑</span>0 B</div>
+          <span class="plans">PLANS</span>
+          <span class="chev on">›</span>
         </div>
       </div>
-      <div class="below-card"></div>
+      <div class="countries">
+        <div class="country sel"><div class="circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/></svg></div><div class="who"><b>Automatic</b><span>the fastest of 7 servers</span></div><div class="pip"></div></div>
+        <div class="country"><div class="circle">🇩🇪</div><div class="who"><b>Germany</b><span>2 servers</span></div></div>
+        <div class="country"><div class="circle">🇳🇱</div><div class="who"><b>Netherlands</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇫🇮</div><div class="who"><b>Finland</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇵🇱</div><div class="who"><b>Poland</b><span>1 server  ·  degraded</span></div></div>
+        <div class="country"><div class="circle">🇹🇷</div><div class="who"><b>Türkiye</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇦🇪</div><div class="who"><b>United Arab Emirates</b><span>1 server</span></div></div>
+      </div>
     </div>
     <div class="navwrap"><div class="nav"><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>
@@ -387,27 +420,30 @@
       </div>
 
       <div class="status waiting">CONNECTING…</div>
-      <div class="spread"></div>
-
-      <div class="quota">
-        <div class="row"><b>31.6 GB left</b><span>22 days left</span></div>
-        <div class="bar"><i style="width:37%"></i></div>
-      </div>
-      <div class="card">
-        <div class="config-row">
-          <div>
-            <div class="name">Automatic</div>
-            <div class="addr">Testing 3 of them end to end…</div>
+      <div class="vcard">
+        <div class="half">
+          <div class="who"><b>Automatic</b><span>Testing 3 of them end to end…</span></div>
+          <span class="mode">AUTO</span>
+          <span class="chev">›</span>
+        </div>
+        <div class="half">
+          <div class="who">
+            <span class="offer">31.6 GB left · 22 days left</span>
+            <span class="tagline">More data, and no cut-off mid-month.</span>
           </div>
-          <div class="proto"><span class="mode">AUTO</span> <span class="chev">›</span></div>
-        </div>
-        <div class="tiles">
-          <div class="tile"><span class="arrow">↓</span>0 B</div>
-          <div class="tile ping">PING</div>
-          <div class="tile"><span class="arrow">↑</span>0 B</div>
+          <span class="plans">PLANS</span>
+          <span class="chev on">›</span>
         </div>
       </div>
-      <div class="below-card"></div>
+      <div class="countries">
+        <div class="country sel"><div class="circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/></svg></div><div class="who"><b>Automatic</b><span>the fastest of 7 servers</span></div><div class="pip"></div></div>
+        <div class="country"><div class="circle">🇩🇪</div><div class="who"><b>Germany</b><span>2 servers</span></div></div>
+        <div class="country"><div class="circle">🇳🇱</div><div class="who"><b>Netherlands</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇫🇮</div><div class="who"><b>Finland</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇵🇱</div><div class="who"><b>Poland</b><span>1 server  ·  degraded</span></div></div>
+        <div class="country"><div class="circle">🇹🇷</div><div class="who"><b>Türkiye</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇦🇪</div><div class="who"><b>United Arab Emirates</b><span>1 server</span></div></div>
+      </div>
     </div>
     <div class="navwrap"><div class="nav"><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>
@@ -432,27 +468,30 @@
 
       <div class="status on">CONNECTED</div>
       <div class="uptime">03:12</div>
-      <div class="spread"></div>
-
-      <div class="quota">
-        <div class="row"><b>31.6 GB left</b><span>22 days left</span></div>
-        <div class="bar"><i style="width:37%"></i></div>
-      </div>
-      <div class="card">
-        <div class="config-row">
-          <div>
-            <div class="name">Helsinki Edge · fi-hel</div>
-            <div class="addr">gw3.example.net:443</div>
+      <div class="vcard">
+        <div class="half">
+          <div class="who"><b>Helsinki Edge · fi-hel</b><span>gw3.example.net:443</span></div>
+          <span class="mode">AUTO</span>
+          <span class="chev">›</span>
+        </div>
+        <div class="half">
+          <div class="who">
+            <span class="offer">31.6 GB left · 22 days left</span>
+            <span class="tagline">More data, and no cut-off mid-month.</span>
           </div>
-          <div class="proto"><span class="mode">AUTO</span> <span class="chev">›</span></div>
-        </div>
-        <div class="tiles">
-          <div class="tile"><span class="arrow live">↓</span>18.4 MB</div>
-          <div class="tile ping measured">61 ms</div>
-          <div class="tile"><span class="arrow live">↑</span>2.1 MB</div>
+          <span class="plans">PLANS</span>
+          <span class="chev on">›</span>
         </div>
       </div>
-      <div class="below-card"></div>
+      <div class="countries">
+        <div class="country"><div class="circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/></svg></div><div class="who"><b>Automatic</b><span>the fastest of 7 servers</span></div></div>
+        <div class="country"><div class="circle">🇩🇪</div><div class="who"><b>Germany</b><span>2 servers</span></div></div>
+        <div class="country"><div class="circle">🇳🇱</div><div class="who"><b>Netherlands</b><span>1 server</span></div></div>
+        <div class="country sel live"><div class="circle">🇫🇮</div><div class="who"><b>Finland</b><span>1 server</span></div><div class="pip"></div></div>
+        <div class="country"><div class="circle">🇵🇱</div><div class="who"><b>Poland</b><span>1 server  ·  degraded</span></div></div>
+        <div class="country"><div class="circle">🇹🇷</div><div class="who"><b>Türkiye</b><span>1 server</span></div></div>
+        <div class="country"><div class="circle">🇦🇪</div><div class="who"><b>United Arab Emirates</b><span>1 server</span></div></div>
+      </div>
     </div>
     <div class="navwrap"><div class="nav"><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4.5 20.5v-1a4.5 4.5 0 014.5-4.5h6a4.5 4.5 0 014.5 4.5v1"/></svg>Account</div></div></div>
   </div>

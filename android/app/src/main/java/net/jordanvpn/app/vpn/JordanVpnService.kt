@@ -290,6 +290,13 @@ class JordanVpnService : VpnService() {
                     runCatching { bridge?.trafficStats() }.getOrNull()
                 } ?: (0L to 0L)
                 uptimeSeconds.value = (System.currentTimeMillis() - connectedAt) / 1000
+                // The VPN screen deliberately shows no counters, so the
+                // session's real traffic lives here, where a glance at the
+                // notification shade finds it.
+                val (up, down) = traffic.value
+                updateNotification(
+                    "Connected · ${activeLabel.value ?: "tunnel"}   ↓ ${shortBytes(down)}   ↑ ${shortBytes(up)}",
+                )
                 delay(1000)
             }
         }
@@ -337,6 +344,20 @@ class JordanVpnService : VpnService() {
             .setSmallIcon(android.R.drawable.stat_sys_vpn_ic)
             .setOngoing(true)
             .build()
+    }
+
+    /** Short enough for one line of a notification. */
+    private fun shortBytes(value: Long): String {
+        if (value < 1024) return "$value B"
+        val units = arrayOf("KB", "MB", "GB", "TB")
+        var size = value.toDouble() / 1024
+        var unit = 0
+        while (size >= 1024 && unit < units.lastIndex) {
+            size /= 1024
+            unit += 1
+        }
+        return if (size < 10) String.format(java.util.Locale.US, "%.1f %s", size, units[unit])
+        else String.format(java.util.Locale.US, "%.0f %s", size, units[unit])
     }
 
     private fun updateNotification(text: String) {

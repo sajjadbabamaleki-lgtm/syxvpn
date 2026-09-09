@@ -63,6 +63,16 @@ class SessionStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTOMATIC, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTOMATIC, value).apply()
 
+    /**
+     * ISO code of the country automatic selection is limited to, or null for
+     * anywhere. Set from the VPN screen's country list.
+     */
+    var country: String?
+        get() = prefs.getString(KEY_COUNTRY, null)
+        set(value) = prefs.edit().apply {
+            if (value == null) remove(KEY_COUNTRY) else putString(KEY_COUNTRY, value)
+        }.apply()
+
     fun clear() = prefs.edit().clear().apply()
 
     private companion object {
@@ -72,5 +82,6 @@ class SessionStore(context: Context) {
         const val KEY_PROFILES = "profiles"
         const val KEY_HIDDEN = "hidden_configs"
         const val KEY_AUTOMATIC = "automatic_server"
+        const val KEY_COUNTRY = "country"
     }
 }

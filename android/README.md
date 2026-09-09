@@ -137,15 +137,29 @@ app, a switch, and no idea what a config is. The other bought configs and wants
 to see them, copy them, hand one to a friend and pick which server carries their
 traffic. Those are different jobs, so they are different screens:
 
-**VPN** is the switch and nothing else to decide. It shows what is left of the
-plan and what the tunnel is connected through, with the counters coming from the
-core itself. Switching it on with no configuration at all is the whole point:
-automatic selection measures the servers and chooses.
+**VPN** is the switch, a card and a list of countries — the shape of an ordinary
+VPN app, for someone who has never seen a `vless://` line and does not want to.
 
-**Configs** is the list, with the whole screen to itself — so it shows as many
-servers as fit rather than the four it was capped at when it shared the screen
-with the switch. Each row copies, shares or hides, says what the control plane
-thinks of its route, and AUTO/MANUAL sits above it.
+The card has two halves and both go somewhere: the top names the server in use
+and opens the Configs tab, the bottom shows what is left of the plan and opens
+the Premium tab. It carries no traffic counters; those are real numbers from the
+core, so they moved to the tunnel's ongoing notification rather than being
+dropped.
+
+The countries under it are worked out, not shipped: a gateway's `region` starts
+with an ISO country code by convention (`de-fra`, `nl-ams`), so when that is
+what it looks like — and the code is a real country — the app names it with
+`Locale` and draws its flag from regional-indicator letters, which every phone
+already has. No image assets, and no flag for a place the operator never
+claimed: a gateway whose region is `eu` or `lab` is offered under "Other
+servers" instead. Choosing a country narrows automatic selection to it; the
+measuring, the hysteresis and the failover all still apply, inside that country.
+
+**Configs** is the same servers as themselves — hostnames, ports, route states —
+with the whole screen to itself, so it shows as many as fit rather than the four
+it was capped at when it shared the screen with the switch. Each row copies,
+shares or hides, and AUTO/MANUAL sits above them. This is the tab for the person
+who bought configs and wants to handle them.
 
 The first version put the list under the switch precisely to avoid a separate
 screen, and the concern behind that was right: switching server must not become
@@ -276,8 +290,9 @@ kotlinc android/app/src/main/java/net/jordanvpn/app/core/SupportContact.kt \
 java -jar /tmp/checks.jar
 ```
 
-That covers micro-USDT formatting, byte and countdown formatting, ISO parsing
-and support-contact parsing.
+That covers micro-USDT formatting, byte, countdown and days-left formatting, ISO
+parsing, support-contact parsing, server ranking and failover order, and the
+region-to-country reading behind the VPN screen's flags.
 
 **The Xray config the app generates, judged by real Xray-core.** This is the
 one that decides whether the tunnel starts at all, and it needs no Android:
@@ -383,6 +398,7 @@ counters stay at zero.
 | | the card's three tiles — down, ping, up — keep it one line tall |
 | `core/Latency.kt` | Real TCP handshake timing behind the PING button |
 | `core/ServerPicker.kt` | Ranking, hysteresis and failover order — no Android in it |
+| `core/Country.kt` | Region to country, flag emoji, grouping — no Android in it |
 | `core/SupportContact.kt` | Turns a support contact into an openable link |
 | `app/proguard-rules.pro` | R8 rules for the release build |
 | `preview/connect-screen.html` | Mockup of the screens (not a screenshot) |

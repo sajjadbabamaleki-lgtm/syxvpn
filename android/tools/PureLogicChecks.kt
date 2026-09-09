@@ -1,5 +1,10 @@
 package net.jordanvpn.app.tools
 
+import net.jordanvpn.app.core.CountryGroup
+import net.jordanvpn.app.core.countryOf
+import net.jordanvpn.app.core.countryOfRegion
+import net.jordanvpn.app.core.flagEmoji
+import net.jordanvpn.app.core.groupByCountry
 import net.jordanvpn.app.core.Probe
 import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
@@ -73,6 +78,7 @@ fun main() {
     check("supportLink(empty)", supportLink("   "), null)
 
     serverPickerChecks()
+    countryChecks()
 
     println(if (failures == 0) "all checks passed" else "$failures check(s) failed")
     if (failures > 0) kotlin.system.exitProcess(1)
@@ -82,20 +88,59 @@ fun main() {
  * Server selection, which is the part of the app most able to be quietly wrong:
  * a bad order is not a crash, it is a slow connection nobody can explain.
  */
-private fun server(host: String, state: RouteState) = Server(
+private fun server(host: String, state: RouteState, region: String? = null, label: String = host) = Server(
     profile = VlessProfile(
         uri = "vless://11111111-2222-3333-4444-555555555555@$host:443?type=ws&security=tls",
         uuid = "11111111-2222-3333-4444-555555555555",
         host = host,
         port = 443,
-        label = host,
+        label = label,
         tls = true,
         sni = null,
         wsPath = "/ws",
         wsHost = null,
     ),
     routeState = state,
+    region = region,
 )
+
+/**
+ * Countries are read from what the operator typed, so the checks are about not
+ * inventing one: a region that is not an ISO country stays unplaced rather than
+ * being drawn under somebody else's flag.
+ */
+private fun countryChecks() {
+    check("region de-fra", countryOfRegion("de-fra")?.name, "Germany")
+    check("region NL", countryOfRegion("NL")?.name, "Netherlands")
+    check("region nl_ams", countryOfRegion("nl_ams")?.name, "Netherlands")
+    check("region eu is not a country", countryOfRegion("eu"), null)
+    check("region lab is not a country", countryOfRegion("lab"), null)
+    check("region deutschland is not a code", countryOfRegion("deutschland"), null)
+    check("region empty", countryOfRegion(""), null)
+    check("region null", countryOfRegion(null), null)
+
+    // Regional indicators: DE is U+1F1E9 U+1F1EA.
+    check("flag DE", flagEmoji("DE")?.codePoints()?.toArray()?.toList(), listOf(0x1F1E9, 0x1F1EA))
+    check("flag lower case", flagEmoji("de"), flagEmoji("DE"))
+    check("flag of a non-code", flagEmoji("e"), null)
+
+    // No region field (a base64 subscription): the label the control plane
+    // writes is "Name · region", so the country is still recoverable.
+    val fromLabel = server("gw1.example.net", RouteState.HEALTHY, region = null, label = "Frankfurt Edge · de-fra")
+    check("country from the profile label", countryOf(fromLabel)?.code, "DE")
+
+    val servers = listOf(
+        server("gw1.example.net", RouteState.HEALTHY, region = "nl-ams"),
+        server("gw2.example.net", RouteState.DEGRADED, region = "de-fra"),
+        server("gw3.example.net", RouteState.HEALTHY, region = "de-fra"),
+        server("gw4.example.net", RouteState.HEALTHY, region = "lab"),
+    )
+    val groups = groupByCountry(servers)
+    check("grouped by country, unplaceable last", groups.map { it.key }, listOf("DE", "NL", CountryGroup.OTHER))
+    check("two gateways in Germany", groups.first().servers.size, 2)
+    check("a country takes its best route state", groups.first().routeState, RouteState.HEALTHY)
+    check("the unplaceable group is named, not flagged", groups.last().country, null)
+}
 
 private fun serverPickerChecks() {
     val healthy = server("healthy.example.net", RouteState.HEALTHY)

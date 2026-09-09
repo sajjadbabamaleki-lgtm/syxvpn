@@ -57,7 +57,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.jordanvpn.app.BuildConfig
 import net.jordanvpn.app.JordanApp as JordanApplication
-import net.jordanvpn.app.core.Latency
+import net.jordanvpn.app.core.CountryGroup
+import net.jordanvpn.app.core.countryOf
+import net.jordanvpn.app.core.groupByCountry
 import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.supportLink
@@ -143,6 +145,7 @@ fun JordanRoot(
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,
                     onOpenConfigs = { tab = Tab.CONFIGS },
+                    onOpenPremium = { tab = Tab.PREMIUM },
                 )
                 Tab.CONFIGS -> ConfigsScreen(app, servers, onConnect)
                 Tab.PREMIUM -> PremiumScreen(app, onOpenStore)
@@ -337,6 +340,7 @@ private const val ICON_SHARE =
 private const val ICON_TRASH = "M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"
 private const val ICON_POWER = "M18.4 6.6a9 9 0 11-12.8 0M12 2.5v8"
 private const val ICON_CROWN = "M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"
+private const val ICON_GLOBE = "M12 21a9 9 0 100-18 9 9 0 000 18zM3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"
 private const val ICON_SERVERS = "M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"
 private const val ICON_CHEVRON = "M9 5l7 7-7 7"
 private const val ICON_CHAT = "M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7a2.5 2.5 0 01-2.5 2.5H10l-6 4.5v-14z"
@@ -551,12 +555,30 @@ private class ServerListState(private val session: SessionStore) {
         private set
     var automatic by mutableStateOf(session.automaticServer)
         private set
+
+    /** ISO code of the country the tunnel may choose from; null means anywhere. */
+    var country by mutableStateOf(session.country)
+        private set
     var chosen by mutableStateOf<Server?>(null)
     var status by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
         private set
 
     val visible: List<Server> get() = servers.filterNot { hidden.contains(it.key) }
+
+    /** Narrows automatic selection to one country, or opens it up again. */
+    fun setCountry(code: String?) {
+        country = code
+        session.country = code
+        automatic = true
+        session.automaticServer = true
+    }
+
+    /** The servers automatic selection may use right now. */
+    val pool: List<Server>
+        get() = country?.let { code ->
+            visible.filter { (countryOf(it)?.code ?: CountryGroup.OTHER) == code }
+        } ?: visible
 
     fun setAutomatic(value: Boolean) {
         automatic = value
@@ -606,18 +628,14 @@ private fun VpnScreen(
     onConnect: (List<Server>, Boolean) -> Unit,
     onDisconnect: () -> Unit,
     onOpenConfigs: () -> Unit,
+    onOpenPremium: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val tunnelState by JordanVpnService.state.collectAsState()
     val tunnelError by JordanVpnService.lastError.collectAsState()
-    val traffic by JordanVpnService.traffic.collectAsState()
     val uptime by JordanVpnService.uptimeSeconds.collectAsState()
     val activity by JordanVpnService.activity.collectAsState()
     val activeServer by JordanVpnService.activeServer.collectAsState()
     val activeLabel by JordanVpnService.activeLabel.collectAsState()
-
-    var pingMs by remember { mutableStateOf<Long?>(null) }
-    var pinging by remember { mutableStateOf(false) }
 
     // What is left of the plan. Real figures or nothing: the bar is drawn only
     // once the control plane has answered, and a failed call leaves the space
@@ -649,10 +667,10 @@ private fun VpnScreen(
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
 
-        // The switch belongs in the middle of what is left, not pinned under
-        // the title: this screen has one control and it should be where the
-        // thumb already is.
-        Spacer(Modifier.weight(1f))
+        // A quarter of the spare height above the switch, so it is not pinned
+        // under the title; the country list takes the rest.
+        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.weight(0.25f))
 
         Box(Modifier.align(Alignment.CenterHorizontally)) {
             ConnectSwitch(
@@ -662,10 +680,11 @@ private fun VpnScreen(
                     if (connected || connecting) {
                         onDisconnect()
                     } else if (state.automatic) {
-                        // Everything the subscription offers goes over; the
-                        // tunnel measures them and decides, and falls back
-                        // through the rest if the first one refuses.
-                        if (state.visible.isNotEmpty()) onConnect(state.visible, true)
+                        // Every server in the chosen country goes over — or all
+                        // of them under Automatic. The tunnel measures them,
+                        // decides, and falls back through the rest if the first
+                        // one refuses.
+                        if (state.pool.isNotEmpty()) onConnect(state.pool, true)
                     } else {
                         current?.let { onConnect(listOf(it), false) }
                     }
@@ -700,138 +719,106 @@ private fun VpnScreen(
             )
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(20.dp))
 
-        subscription?.let { plan ->
-            if (plan.quotaBytes > 0) {
-                val used = plan.usedBytes.coerceAtMost(plan.quotaBytes)
-                val left = plan.quotaBytes - used
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Surface),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(24.dp)),
-                ) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "${formatBytes(left)} left",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10),
-                                color = TextDim,
-                                fontSize = 12.sp,
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { (used.toFloat() / plan.quotaBytes).coerceIn(0f, 1f) },
-                            color = Accent,
-                            trackColor = Border,
-                            gapSize = 0.dp,
-                            drawStopIndicator = {},
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                        )
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-        }
-
-        // The card is also the way to the config list, so a person who wants a
-        // different server does not have to go looking for the tab.
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Surface),
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
+        // Two halves, and both of them go somewhere: the server in use opens
+        // the config list, the line under it opens the plans. There are no
+        // traffic counters here — the tunnel's ongoing notification carries
+        // them, and this screen is for the one decision a person makes.
+        Column(
+            Modifier
                 .fillMaxWidth()
-                .border(1.dp, Border, RoundedCornerShape(28.dp))
-                .clickable(onClick = onOpenConfigs),
+                .clip(RoundedCornerShape(28.dp))
+                .background(Surface)
+                .border(1.dp, Border, RoundedCornerShape(28.dp)),
         ) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            when {
-                                state.automatic && connected && activeLabel != null -> activeLabel!!
-                                state.automatic && current == null -> "Automatic"
-                                else -> current?.label ?: "No server available"
-                            },
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            when {
-                                activity != null -> activity!!
-                                selected != null -> "${selected.host}:${selected.port}"
-                                state.servers.isEmpty() -> "buy a plan to get one"
-                                else -> "the tunnel will choose when you switch on"
-                            },
-                            color = TextDim,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenConfigs)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        if (state.automatic) "AUTO" else "MANUAL",
-                        color = if (state.automatic) Accent else TextFaint,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    PathIcon(ICON_CHEVRON, 16.dp, TextFaint)
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Down, ping and up as three tiles across the card. Keeping them
-                // on one line is what lets the card stay this short.
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    StatTile(Modifier.weight(1f)) {
-                        TileValue("↓", formatBytes(traffic.second), traffic.second > 0)
-                    }
-                    StatTile(
-                        Modifier.weight(1f),
-                        onClick = if (selected != null && !pinging) {
-                            {
-                                val profile = selected
-                                scope.launch {
-                                    pinging = true
-                                    pingMs = Latency.measure(profile.host, profile.port)
-                                    pinging = false
-                                }
-                            }
-                        } else {
-                            null
+                        when {
+                            state.automatic && connected && activeLabel != null -> activeLabel!!
+                            state.automatic && current == null -> "Automatic"
+                            else -> current?.label ?: "No server available"
                         },
-                    ) {
-                        Text(
-                            when {
-                                pinging -> "…"
-                                pingMs != null -> "$pingMs ms"
-                                else -> "PING"
-                            },
-                            color = if (pingMs != null && !pinging) Ok else Pending,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = if (pingMs == null) 1.sp else 0.sp,
-                        )
-                    }
-                    StatTile(Modifier.weight(1f)) {
-                        TileValue("↑", formatBytes(traffic.first), traffic.first > 0)
-                    }
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        when {
+                            activity != null -> activity!!
+                            selected != null -> "${selected.host}:${selected.port}"
+                            state.servers.isEmpty() -> "buy a plan to get one"
+                            else -> "the tunnel will choose when you switch on"
+                        },
+                        color = TextDim,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
+                Text(
+                    if (state.automatic) "AUTO" else "MANUAL",
+                    color = if (state.automatic) Accent else TextFaint,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                PathIcon(ICON_CHEVRON, 16.dp, TextFaint)
+            }
+
+            HorizontalDivider(color = Border, thickness = 1.dp)
+
+            // The offer is what a plan actually buys: data, days, and a tunnel
+            // that does not stop mid-month when the data runs out. It does not
+            // claim a faster network, because every subscriber uses the same
+            // gateways — that would be a promise the system cannot keep.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenPremium)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    val plan = subscription
+                    Text(
+                        if (plan != null && plan.quotaBytes > 0) {
+                            val left = plan.quotaBytes - plan.usedBytes.coerceAtMost(plan.quotaBytes)
+                            "${formatBytes(left)} left · ${formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10)}"
+                        } else {
+                            "Want it faster and steadier?"
+                        },
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "More data, and no cut-off mid-month.",
+                        color = TextDim,
+                        fontSize = 12.sp,
+                        maxLines = 2,
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "PLANS",
+                    color = Accent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+                Spacer(Modifier.width(6.dp))
+                PathIcon(ICON_CHEVRON, 16.dp, Accent)
             }
         }
 
@@ -853,6 +840,141 @@ private fun VpnScreen(
         }
 
         Spacer(Modifier.height(14.dp))
+
+        // Countries, not configs. This is the screen for someone who has never
+        // seen a `vless://` line and does not want to: the control plane's
+        // region is an ISO code first, so a gateway can be placed, named and
+        // flagged. One that cannot be placed is still offered — under "Other
+        // servers", rather than under a flag the app made up.
+        val groups = remember(state.visible) { groupByCountry(state.visible) }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 14.dp),
+        ) {
+            item {
+                CountryRow(
+                    emoji = null,
+                    icon = ICON_GLOBE,
+                    name = "Automatic",
+                    detail = when {
+                        state.visible.isEmpty() -> "no servers yet"
+                        else -> "the fastest of ${state.visible.size} servers"
+                    },
+                    selected = state.country == null,
+                    connected = connected && state.country == null,
+                    onClick = {
+                        state.setCountry(null)
+                        if (connected || connecting) onConnect(state.visible, true)
+                    },
+                )
+            }
+            items(groups, key = { it.key }) { group ->
+                val isSelected = state.country == group.key
+                CountryRow(
+                    emoji = group.country?.flag,
+                    icon = if (group.country == null) ICON_SERVERS else null,
+                    name = group.name,
+                    detail = buildString {
+                        append(if (group.servers.size == 1) "1 server" else "${group.servers.size} servers")
+                        when (group.routeState) {
+                            RouteState.DEGRADED -> append("  ·  degraded")
+                            RouteState.UNVERIFIED -> append("  ·  unverified")
+                            else -> Unit
+                        }
+                    },
+                    selected = isSelected,
+                    connected = connected && isSelected,
+                    onClick = {
+                        state.setCountry(group.key)
+                        // Already up: move onto this country now rather than
+                        // waiting for the next time someone flips the switch.
+                        if (connected || connecting) onConnect(group.servers, true)
+                    },
+                )
+            }
+            if (groups.isEmpty()) {
+                item {
+                    Text(
+                        state.status ?: "No servers yet. Buy a plan on the Premium tab.",
+                        color = TextDim,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One country in the list: a flag in a circle, the country's name, and what is
+ * behind it.
+ *
+ * The circle is the app's own, not an image: the flag is drawn as regional
+ * indicator letters, which every phone already has, so the list needs no assets
+ * and cannot ship a flag for a place the operator never claimed.
+ */
+@Composable
+private fun CountryRow(
+    emoji: String?,
+    icon: String?,
+    name: String,
+    detail: String,
+    selected: Boolean,
+    connected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (selected) SurfaceHigh else Surface)
+            .border(
+                1.dp,
+                if (selected) Accent.copy(alpha = 0.45f) else Border,
+                RoundedCornerShape(20.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(SurfaceHigh)
+                .border(1.dp, Border, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                emoji != null -> Text(emoji, fontSize = 19.sp)
+                icon != null -> PathIcon(icon, 18.dp, TextDim)
+                else -> Text(name.take(1).uppercase(), color = TextDim, fontSize = 14.sp)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                name,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(detail, color = TextDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (selected) {
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (connected) Ok else Pending),
+            )
+        }
     }
 }
 
@@ -1022,42 +1144,6 @@ private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** A tile inside the card: down, ping, up. Optionally tappable. */
-@Composable
-private fun StatTile(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceHigh)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-        content = { content() },
-    )
-}
-
-@Composable
-private fun TileValue(arrow: String, value: String, live: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(arrow, color = if (live) Ok else TextFaint, fontSize = 13.sp)
-        Spacer(Modifier.width(5.dp))
-        Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-/**
- * Premium: what is on sale, and the USDT order that pays for it.
- *
- * Everything here is the storefront's own state. Plans come from
- * `/api/v1/shop/plans`, an order is opened through `/api/v1/shop/orders`, and
- * the screen then polls that order: settlement happens on chain, so the app
- * waits for the control plane to see the transfer rather than claiming anything
- * itself. Nothing is unlocked before the order says fulfilled.
- */
 @Composable
 private fun PremiumScreen(app: JordanApplication, onOpenStore: () -> Unit) {
     val scope = rememberCoroutineScope()
