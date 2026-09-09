@@ -789,13 +789,24 @@ private class ServerListState(private val session: SessionStore) {
 @Composable
 private fun ColumnScope.TunnelSwitch(
     state: ServerListState,
+    /** Which section this switch belongs to; it answers for that one alone. */
+    source: JordanVpnService.Source,
     onConnect: (List<Server>, Boolean) -> Unit,
     onDisconnect: () -> Unit,
 ) {
     val tunnelState by JordanVpnService.state.collectAsState()
+    val tunnelSource by JordanVpnService.source.collectAsState()
     val uptime by JordanVpnService.uptimeSeconds.collectAsState()
-    val connected = tunnelState == JordanVpnService.State.CONNECTED
-    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+
+    // A phone has one tunnel, and the app sells two things through it: servers
+    // a plan provides, and configs a person brought. Reading the tunnel's state
+    // without asking whose it is drew one connection as two — turn the switch
+    // on under Configs and the VPN tab showed itself connected as well.
+    // Each switch now answers for its own section and nothing else.
+    val mine = tunnelSource == source
+    val connected = mine && tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = mine && tunnelState == JordanVpnService.State.CONNECTING
+    val elsewhere = !mine && tunnelSource != JordanVpnService.Source.NONE
 
     // The servers this switch would actually hand over, worked out once.
     //
@@ -806,31 +817,42 @@ private fun ColumnScope.TunnelSwitch(
     // when pressed, and said nothing about why. Enabling and connecting now
     // read the same list, so "pressed it and nothing happened" is not a state
     // this screen has.
-    val candidates = if (state.automatic) {
+    val candidates = if (source == JordanVpnService.Source.AUTOMATIC) {
         // Every server in the chosen country — or all of them under Automatic.
         // The tunnel measures them, decides, and falls back through the rest if
-        // the first one refuses.
+        // the first one refuses. Read from the section, not from a shared flag:
+        // choosing a config on the other tab used to flip this one into manual
+        // and leave it connecting to something nobody picked here.
         state.pool
     } else {
-        // Manual: the chosen config. Falling back to the first one keeps the
+        // The config this person chose. Falling back to the first one keeps the
         // switch alive when nothing has been chosen yet, which is the state a
         // fresh install is in.
-        listOfNotNull(state.chosen ?: state.pool.firstOrNull())
+        listOfNotNull(state.chosen ?: state.visible.firstOrNull())
     }
 
     // Above the switch: nothing of the app's own. The screen's spare height
     // collects here, which is where a banner goes.
     BannerSlot(Modifier.weight(1f))
 
+    // What this section's switch shows: its own connection, never the other's.
+    val shownState = when {
+        connected -> JordanVpnService.State.CONNECTED
+        connecting -> JordanVpnService.State.CONNECTING
+        else -> JordanVpnService.State.DISCONNECTED
+    }
     Box(Modifier.align(Alignment.CenterHorizontally)) {
         ConnectSwitch(
-            state = tunnelState,
+            state = shownState,
             enabled = candidates.isNotEmpty() || connected || connecting,
             onToggle = {
                 if (connected || connecting) {
                     onDisconnect()
                 } else if (candidates.isNotEmpty()) {
-                    onConnect(candidates, state.automatic)
+                    // One tunnel exists, so turning this on while the other
+                    // section holds it moves it here rather than opening a
+                    // second one — which Android does not allow in any case.
+                    onConnect(candidates, source == JordanVpnService.Source.AUTOMATIC)
                 }
             },
         )
@@ -838,12 +860,12 @@ private fun ColumnScope.TunnelSwitch(
 
     Spacer(Modifier.height(16.dp))
     Text(
-        when (tunnelState) {
+        when (shownState) {
             JordanVpnService.State.CONNECTED -> "CONNECTED"
             JordanVpnService.State.CONNECTING -> "CONNECTING…"
             else -> "NOT CONNECTED"
         },
-        color = when (tunnelState) {
+        color = when (shownState) {
             JordanVpnService.State.CONNECTED -> Ok
             JordanVpnService.State.CONNECTING -> Pending
             else -> TextDim
@@ -867,7 +889,27 @@ private fun ColumnScope.TunnelSwitch(
     // it is already looking. Both reasons are ordinary — a phone with no plan
     // on it yet, and a country filter that outlived the servers it was set on —
     // and both used to be silence.
-    if (candidates.isEmpty() && !connected && !connecting) {
+    if (elsewhere) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (source == JordanVpnService.Source.AUTOMATIC) {
+                "The tunnel is running on a config from the Configs tab. " +
+                    "Turning this on moves it to a server from your plan."
+            } else {
+                "The tunnel is running on a server from your plan. " +
+                    "Turning this on moves it to the config chosen here."
+            },
+            color = TextDim,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(horizontal = 28.dp),
+        )
+    }
+
+    if (candidates.isEmpty() && !connected && !connecting && !elsewhere) {
         Spacer(Modifier.height(8.dp))
         Text(
             if (state.visible.isEmpty()) {
@@ -1269,11 +1311,16 @@ private fun VpnScreen(
     onOpenPremium: () -> Unit,
 ) {
     val tunnelState by JordanVpnService.state.collectAsState()
-    val connected = tunnelState == JordanVpnService.State.CONNECTED
-    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+    val tunnelSource by JordanVpnService.source.collectAsState()
+    // This screen's own connection. A tunnel the Configs tab is holding is not
+    // this section being on, and Purpose — which only steers an automatic
+    // choice — must not read as live because of it.
+    val mine = tunnelSource == JordanVpnService.Source.AUTOMATIC
+    val connected = mine && tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = mine && tunnelState == JordanVpnService.State.CONNECTING
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelSwitch(state, onConnect, onDisconnect)
+        TunnelSwitch(state, JordanVpnService.Source.AUTOMATIC, onConnect, onDisconnect)
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
 
@@ -1441,10 +1488,14 @@ private fun ConfigsScreen(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val tunnelState by JordanVpnService.state.collectAsState()
+    val tunnelSource by JordanVpnService.source.collectAsState()
     val activeServer by JordanVpnService.activeServer.collectAsState()
 
-    val connected = tunnelState == JordanVpnService.State.CONNECTED
-    val connecting = tunnelState == JordanVpnService.State.CONNECTING
+    // Likewise this screen's own: tapping a row moves a running tunnel onto
+    // that config, and it should only do that to a tunnel this section owns.
+    val mine = tunnelSource == JordanVpnService.Source.MANUAL
+    val connected = mine && tunnelState == JordanVpnService.State.CONNECTED
+    val connecting = mine && tunnelState == JordanVpnService.State.CONNECTING
     val current = if (state.automatic) {
         state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
     } else {
@@ -1457,7 +1508,7 @@ private fun ConfigsScreen(
     LaunchedEffect(state.visible.map { it.key }) { state.checkHealth() }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelSwitch(state, onConnect, onDisconnect)
+        TunnelSwitch(state, JordanVpnService.Source.MANUAL, onConnect, onDisconnect)
         ConnectionCard(state)
         TunnelError()
 

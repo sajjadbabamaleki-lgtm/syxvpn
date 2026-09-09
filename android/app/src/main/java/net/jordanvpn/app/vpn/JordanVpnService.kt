@@ -56,6 +56,11 @@ class JordanVpnService : VpnService() {
 
     enum class State { DISCONNECTED, CONNECTING, CONNECTED, FAILED }
 
+
+    /** Which of the app's two sections asked for the tunnel that is running. */
+
+    enum class Source { NONE, AUTOMATIC, MANUAL }
+
     /**
      * One thread owns the tunnel's lifecycle.
      *
@@ -120,6 +125,9 @@ class JordanVpnService : VpnService() {
         }
         candidates = servers
         automaticMode = automatic
+        // Set here rather than at CONNECTED, so a screen watching this knows
+        // whose connection attempt is in flight and not only whose succeeded.
+        source.value = if (automatic) Source.AUTOMATIC else Source.MANUAL
         controlHost = controlPlaneHost
         purpose = wanted
         // A fresh request from the app is not a recovery attempt: someone is
@@ -332,6 +340,7 @@ class JordanVpnService : VpnService() {
     private fun fail(message: String) {
         lastError.value = message
         state.value = State.FAILED
+        source.value = Source.NONE
         traffic.value = 0L to 0L
         uptimeSeconds.value = 0L
         activity.value = null
@@ -342,6 +351,7 @@ class JordanVpnService : VpnService() {
 
     private fun disconnect() {
         state.value = State.DISCONNECTED
+        source.value = Source.NONE
         traffic.value = 0L to 0L
         uptimeSeconds.value = 0L
         activity.value = null
@@ -529,6 +539,19 @@ class JordanVpnService : VpnService() {
         private const val NOTIFICATION_ID = 1
 
         val state = MutableStateFlow(State.DISCONNECTED)
+
+        /**
+         * Which part of the app the running tunnel belongs to.
+         *
+         * A phone has one tunnel — Android permits a single VpnService
+         * interface — but the app sells two things through it: servers a plan
+         * provides and picks for you, and configs a person brought themselves.
+         * Without this the screens cannot tell those apart: one tunnel state
+         * drawn on both made turning either switch on look like turning both
+         * on, which is not what either section is.
+         */
+        val source = MutableStateFlow(Source.NONE)
+
         val lastError = MutableStateFlow<String?>(null)
         /** uplink to downlink bytes, cumulative for the current session. */
         val traffic = MutableStateFlow(0L to 0L)
