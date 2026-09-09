@@ -203,6 +203,30 @@ jobs:
       # artifact as a zip of everything in it, so a single artifact would make
       # someone download the other architecture's copy of the runtime to get
       # their own — the download this split exists to avoid.
+      # What each file actually declares. "It will not install" needs facts,
+      # not a guess: the package and version the installer reads, the
+      # architectures inside, and whether the file calls itself a split — a
+      # split APK is not installable on its own, and that is the difference
+      # between a file a phone takes and one it refuses without saying why.
+      - name: Describe each APK
+        working-directory: android
+        run: |
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            echo "== $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" \
+              | grep -E "^(package|sdkVersion|targetSdkVersion|native-code|split)" || true
+            printf '   abis:'
+            unzip -l "$apk" | awk '$4 ~ /^lib\// {split($4, p, "/"); print p[2]}' | sort -u | tr '\n' ' '
+            echo
+          done
+
+      - name: Attach the universal APK to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: jordan-vpn-debug-apk-universal
+          path: android/app/build/outputs/apk/debug/*universal*.apk
+          if-no-files-found: error
+
       - name: Attach the arm64 APK to this run
         uses: actions/upload-artifact@v4
         with:

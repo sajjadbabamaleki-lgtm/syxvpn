@@ -120,7 +120,10 @@ android {
      * app-arm64-v8a-debug.apk and app-armeabi-v7a-debug.apk; arm64 is every
      * phone sold in years, and armeabi-v7a is there for the older ones.
      *
-     * No universal APK: it would be the file we are trying to stop shipping.
+     * The universal APK is built as well, and deliberately. A per-architecture
+     * APK is the smaller download, but it is also the one a phone can refuse;
+     * the universal file installs anywhere and is the fallback to hand someone
+     * whose installer will not take the split.
      *
      * This list is also what keeps the emulator architectures out. gomobile
      * builds all four, two of which only exist on emulators, and this is the
@@ -133,7 +136,7 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
 
