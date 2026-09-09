@@ -28,10 +28,25 @@ independently built runtimes in one process; libXray says so in its own README.
 
 ### Building the runtime
 
-Needs Go, gomobile and the Android NDK:
+**CI does this.** `.github/workflows/android.yml` builds `libXray.aar` from the
+pinned upstream tag (`LIBXRAY_REF`, currently `v26.9.9`, which pins Xray-core
+v26.9.9 through libXray's own go.mod) using libXray's own build script, the way
+its own CI runs it, and hands the artifact to the app build. The result is
+cached on that tag, so it costs about ten minutes once and nothing afterwards.
+
+The tag is pinned deliberately: this is the code that carries every customer's
+traffic, `latest` is not a version anyone can audit, and a build should not be
+able to bump it on its own. Bumping is an edit to that one line.
+
+The app build then refuses to continue if the .aar is not there. It has to:
+Gradle switches source sets on the file's presence and says nothing, so a
+missing runtime would otherwise produce a perfectly green APK that cannot
+connect to anything.
+
+To build it by hand instead — needs Go, Python and the Android NDK:
 
 ```sh
-git clone https://github.com/XTLS/libXray
+git clone --branch v26.9.9 https://github.com/XTLS/libXray
 cd libXray
 python3 build/main.py android      # -> libXray.aar
 cp libXray.aar <this repo>/android/app/libs/

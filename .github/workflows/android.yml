@@ -5,9 +5,11 @@
 # workflow". When it finishes, the APK is attached to that run under
 # "Artifacts".
 #
-# This build has no Xray runtime in it — libXray is a large native artifact that
-# is not vendored here — so the app installs and runs, and the switch says so
-# instead of connecting. See android/README.md.
+# The Xray runtime is built here too. libXray is a large native artifact and is
+# not vendored in this repository, so the first job builds it from the pinned
+# upstream tag and hands the .aar to the app build. That is what makes the APK
+# able to open a tunnel at all: without it Gradle compiles the fail-loudly
+# bridge instead. See android/README.md.
 name: Android APK
 
 on:
@@ -17,13 +19,114 @@ on:
       - 'android/**'
       - '.github/workflows/android.yml'
 
+env:
+  # Pinned deliberately. This is the code that will carry every customer's
+  # traffic; "latest" is not a version anyone can audit, and a silent bump is
+  # not something a build should be able to do on its own. libXray's CalVer tag
+  # v26.9.9 pins Xray-core v26.9.9 through its own go.mod.
+  LIBXRAY_REF: v26.9.9
+  # The NDK libXray's own CI builds with.
+  LIBXRAY_NDK: r29
+
 jobs:
+  # The native runtime. Cached on the pinned tag, so this costs ten minutes once
+  # and nothing on every build after it.
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Reuse the runtime built for this tag
+        id: cached
+        uses: actions/cache@v4
+        with:
+          path: runtime
+          key: libxray-${{ env.LIBXRAY_REF }}-ndk${{ env.LIBXRAY_NDK }}
+
+      - name: Check out libXray at the pinned tag
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: XTLS/libXray
+          ref: ${{ env.LIBXRAY_REF }}
+          path: libxray
+
+      - name: Python
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Go
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Java 21
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Android NDK
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.LIBXRAY_NDK }}
+          add-to-path: true
+
+      # libXray's own build script, run the way its own CI runs it. Anything
+      # else is a compilation method its maintainers will not answer for.
+      - name: Build libXray.aar
+        if: steps.cached.outputs.cache-hit != 'true'
+        working-directory: libxray
+        run: python3 build/main.py android
+
+      - name: Keep it for the app build
+        if: steps.cached.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p runtime
+          cp libxray/libXray.aar runtime/libXray.aar
+          ls -l runtime/
+
+      - name: Hand it to the next job
+        uses: actions/upload-artifact@v4
+        with:
+          name: libxray-runtime
+          path: runtime/libXray.aar
+          if-no-files-found: error
+
   build:
+    needs: runtime
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Take the runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: libxray-runtime
+          path: android/app/libs
+
+      # The build switches source sets on the presence of this file, and it does
+      # so silently. A missing .aar would produce a perfectly green APK that
+      # cannot connect to anything, so it is an error here rather than a
+      # surprise on a phone.
+      - name: Refuse to build an app with no runtime in it
+        run: |
+          test -s android/app/libs/libXray.aar || {
+            echo "libXray.aar is missing — the APK would build without a tunnel" >&2
+            exit 1
+          }
+          ls -l android/app/libs/
 
       - name: Java 17
         uses: actions/setup-java@v4
