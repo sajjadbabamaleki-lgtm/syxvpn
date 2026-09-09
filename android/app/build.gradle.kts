@@ -54,18 +54,6 @@ android {
         // Where the app talks to the control plane. Override per build.
         buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.cvpn.pro\"")
 
-        // Which machines this APK carries native code for.
-        //
-        // The Xray runtime is Go, compiled per architecture, and gomobile builds
-        // all four: two real phone architectures and two that only exist on
-        // emulators. Carrying x86 doubles the download for every customer so
-        // that a developer's emulator can run it — the wrong trade for an app
-        // people fetch over a phone network. arm64 is every phone sold in years;
-        // armeabi-v7a keeps the old ones working.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
-
         // Whether the Premium tab may open a USDT order inside the app.
         //
         // True is right for a directly distributed APK. A Google Play build must
@@ -119,6 +107,52 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+        }
+    }
+
+    /**
+     * One APK per architecture, rather than one carrying both.
+     *
+     * The Go runtime is the app: about 23 MB of native code per architecture,
+     * against roughly 9 MB for everything written here. Shipping both in one
+     * file makes every phone download a copy of the core it cannot run, over a
+     * phone network, to be discarded at install. A split build produces
+     * app-arm64-v8a-debug.apk and app-armeabi-v7a-debug.apk; arm64 is every
+     * phone sold in years, and armeabi-v7a is there for the older ones.
+     *
+     * The universal APK is built as well, and deliberately. A per-architecture
+     * APK is the smaller download, but it is also the one a phone can refuse;
+     * the universal file installs anywhere and is the fallback to hand someone
+     * whose installer will not take the split.
+     *
+     * This list is also what keeps the emulator architectures out. gomobile
+     * builds all four, two of which only exist on emulators, and this is the
+     * only place they may be named: an `abiFilters` in defaultConfig saying the
+     * same thing fails the build outright, because AGP refuses to be told which
+     * architectures to package in two places at once.
+     */
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+
+    packaging {
+        jniLibs {
+            /**
+             * The emulator architectures, kept out of every APK.
+             *
+             * gomobile builds four, and two of them only exist on emulators.
+             * They used to be filtered by defaultConfig's abiFilters, which
+             * cannot coexist with a splits block — so with splits alone the
+             * universal APK quietly grew to 239 MB by packaging all four. They
+             * are excluded here, which the split APKs and the universal one
+             * both obey.
+             */
+            excludes += listOf("**/x86/**", "**/x86_64/**")
         }
     }
 

@@ -187,18 +187,58 @@ jobs:
 
       # Printed so the key can be checked rather than assumed: two builds that
       # show the same certificate digest will install over each other, and two
-      # that do not will not.
-      - name: Say which key signed it
+      # that do not will not. The size is printed beside it because this build
+      # ships one APK per architecture to keep that number down, and a change
+      # that quietly undoes the split should be visible in the log.
+      - name: Say which key signed each APK, and how big it is
         working-directory: android
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs \
-            app/build/outputs/apk/debug/app-debug.apk | grep -i 'SHA-256 digest'
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            echo "== $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" \
+              | grep -i 'SHA-256 digest'
+          done
 
-      - name: Attach the APK to this run
+      # One artifact per architecture, not one holding both. GitHub serves an
+      # artifact as a zip of everything in it, so a single artifact would make
+      # someone download the other architecture's copy of the runtime to get
+      # their own — the download this split exists to avoid.
+      # What each file actually declares. "It will not install" needs facts,
+      # not a guess: the package and version the installer reads, the
+      # architectures inside, and whether the file calls itself a split — a
+      # split APK is not installable on its own, and that is the difference
+      # between a file a phone takes and one it refuses without saying why.
+      - name: Describe each APK
+        working-directory: android
+        run: |
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            echo "== $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" \
+              | grep -E "^(package|sdkVersion|targetSdkVersion|native-code|split)" || true
+            printf '   abis:'
+            unzip -l "$apk" | awk '$4 ~ /^lib\// {split($4, p, "/"); print p[2]}' | sort -u | tr '\n' ' '
+            echo
+          done
+
+      - name: Attach the universal APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: jordan-vpn-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: jordan-vpn-debug-apk-universal
+          path: android/app/build/outputs/apk/debug/*universal*.apk
+          if-no-files-found: error
+
+      - name: Attach the arm64 APK to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: jordan-vpn-debug-apk-arm64-v8a
+          path: android/app/build/outputs/apk/debug/*arm64-v8a*.apk
+          if-no-files-found: error
+
+      - name: Attach the armeabi-v7a APK to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: jordan-vpn-debug-apk-armeabi-v7a
+          path: android/app/build/outputs/apk/debug/*armeabi-v7a*.apk
           if-no-files-found: error
 
       # A failed build is the useful output too: the compiler's own words,
