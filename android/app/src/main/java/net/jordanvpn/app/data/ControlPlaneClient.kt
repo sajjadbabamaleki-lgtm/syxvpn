@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -338,7 +339,8 @@ class ControlPlaneClient(
         }
     }
 
-    private fun quote(value: String) = json.encodeToString(kotlinx.serialization.builtins.serializer(), value)
+    /** A JSON string literal, escaped by the library rather than by hand. */
+    private fun quote(value: String) = JsonPrimitive(value).toString()
 
     private inline fun <T> HttpURLConnection.use(block: (HttpURLConnection) -> T): T =
         try { block(this) } finally { disconnect() }

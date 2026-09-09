@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The tunnel's notification icon.
+
+  Android's own VPN glyph (android.R.drawable.stat_sys_vpn_ic) is a private
+  platform resource and is not on the public API, so the app draws its own.
+  A status-bar icon is used as a mask: only its alpha matters, which is why
+  this is a single white stroke on nothing.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M18.4,6.6 a9,9 0 1 1 -12.8,0"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M12,2.5 L12,10.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
+</vector>

@@ -341,7 +341,8 @@ class JordanVpnService : VpnService() {
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_vpn_ic)
+            // The platform's own VPN glyph is a private resource, so this is ours.
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .build()
     }
