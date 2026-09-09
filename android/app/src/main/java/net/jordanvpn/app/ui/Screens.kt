@@ -53,14 +53,20 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.jordanvpn.app.BuildConfig
 import net.jordanvpn.app.JordanApp as JordanApplication
+import net.jordanvpn.app.core.ConfigHealth
+import net.jordanvpn.app.core.ConnectionMemory
 import net.jordanvpn.app.core.CountryGroup
 import net.jordanvpn.app.core.countryOf
 import net.jordanvpn.app.core.groupByCountry
 import net.jordanvpn.app.core.Latency
+import net.jordanvpn.app.core.Probe
+import net.jordanvpn.app.core.Purpose
 import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.supportLink
@@ -458,6 +464,8 @@ private fun ConfigRow(
     server: Server,
     selected: Boolean,
     connected: Boolean,
+    health: ConfigHealth,
+    pingMs: Long?,
     onSelect: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
@@ -474,6 +482,9 @@ private fun ConfigRow(
             .padding(start = 16.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // One dot, two jobs, and they do not fight: the tunnel's own state when
+        // this is the config carrying it, otherwise what the last health check
+        // measured. Nothing about that check ever changes which config is used.
         Box(
             Modifier
                 .size(8.dp)
@@ -482,6 +493,9 @@ private fun ConfigRow(
                     when {
                         selected && connected -> Ok
                         selected -> Pending
+                        health == ConfigHealth.GOOD -> Ok.copy(alpha = 0.75f)
+                        health == ConfigHealth.UNSTABLE -> Pending
+                        health == ConfigHealth.OFFLINE -> Bad
                         else -> Border
                     },
                 ),
@@ -498,6 +512,10 @@ private fun ConfigRow(
             Text(
                 buildString {
                     append("${server.profile.host}:${server.profile.port}")
+                    // A number only when one was actually measured from this
+                    // phone; there is no place here for a plausible-looking one.
+                    pingMs?.let { append("  ·  $it ms") }
+                    if (pingMs == null && health == ConfigHealth.OFFLINE) append("  ·  no answer")
                     // The control plane's verdict on the far half of the path.
                     // "healthy" is the ordinary case and needs no label.
                     when (server.routeState) {
@@ -506,10 +524,10 @@ private fun ConfigRow(
                         else -> Unit
                     }
                 },
-                color = if (server.routeState == RouteState.HEALTHY || server.routeState == RouteState.UNKNOWN) {
-                    TextDim
-                } else {
-                    Pending
+                color = when {
+                    health == ConfigHealth.OFFLINE -> Bad
+                    server.routeState == RouteState.HEALTHY || server.routeState == RouteState.UNKNOWN -> TextDim
+                    else -> Pending
                 },
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -614,6 +632,79 @@ private class ServerListState(private val session: SessionStore) {
     var busy by mutableStateOf(false)
         private set
 
+    /** What the VPN tab is set to. Read by the tunnel, never by the config list. */
+    var purpose by mutableStateOf(Purpose.of(session.purposeName))
+        private set
+
+    /** First-hop measurements taken on this screen, per server key. */
+    var probes by mutableStateOf<Map<String, Probe>>(emptyMap())
+        private set
+
+    /** What this phone remembers about these servers, shared with the tunnel. */
+    var memory by mutableStateOf(ConnectionMemory.decode(session.connectionMemory))
+        private set
+
+    var checking by mutableStateOf(false)
+        private set
+
+    fun usePurpose(value: Purpose) {
+        purpose = value
+        session.purposeName = value.name
+    }
+
+    /** The health of one config, from measurements only. */
+    fun health(server: Server): ConfigHealth =
+        ConfigHealth.of(probes[server.key], memory.of(server.key), System.currentTimeMillis())
+
+    /** The last round trip measured to it, or null when none was. */
+    fun ping(server: Server): Long? = probes[server.key]?.rttMs
+
+    /**
+     * Measures the first hop to each config and records what came back.
+     *
+     * This is the whole of the health system's power: it opens a TCP connection
+     * and times it. It does not select, reorder, replace or edit anything, and
+     * no result here is read by the connect path — the person's chosen config
+     * stays the chosen config whatever colour its dot turns.
+     *
+     * The app's own sockets are kept out of its own tunnel, so the number means
+     * the same thing whether the tunnel is up or down.
+     */
+    suspend fun checkHealth(servers: List<Server> = visible) {
+        if (checking || servers.isEmpty()) return
+        checking = true
+        val now = System.currentTimeMillis()
+        val measured = probes.toMutableMap()
+        var learned = memory
+        servers.chunked(HEALTH_BATCH).forEach { batch ->
+            val results = coroutineScope {
+                batch.map { server ->
+                    async {
+                        server.key to Latency.measure(
+                            server.profile.host,
+                            server.profile.port,
+                            HEALTH_TIMEOUT_MS,
+                        )
+                    }
+                }.map { it.await() }
+            }
+            results.forEach { (key, rtt) ->
+                measured[key] = Probe(key, rttMs = rtt, attempted = true)
+                // Only a measurement is folded into memory. A refused handshake
+                // is shown as offline, but it is not counted as a failed
+                // connection: those counters are for attempts the tunnel really
+                // made, and a health sweep must not colour them.
+                if (rtt != null) learned = learned.recordSample(key, rtt, now)
+            }
+            // Published per batch, so rows settle as their answers arrive
+            // rather than all at the end.
+            probes = measured.toMap()
+        }
+        memory = learned
+        runCatching { session.connectionMemory = learned.encode() }
+        checking = false
+    }
+
     val visible: List<Server> get() = servers.filterNot { hidden.contains(it.key) }
 
     /**
@@ -651,6 +742,12 @@ private class ServerListState(private val session: SessionStore) {
         hidden = emptySet()
         session.hiddenConfigs = hidden
         if (chosen == null) chosen = servers.firstOrNull()
+    }
+
+    private companion object {
+        /** Handshakes in flight at once: enough to be quick, few enough to be polite. */
+        const val HEALTH_BATCH = 4
+        const val HEALTH_TIMEOUT_MS = 2000
     }
 
     suspend fun refresh(repository: SubscriptionRepository) {
@@ -1067,6 +1164,61 @@ private fun ColumnScope.TunnelError() {
 }
 
 
+/**
+ * What the connection is for: four words, and they change the engine.
+ *
+ * This is not a filter over the list below it. Each one is a set of weights
+ * that [SmartConnect] scores gateways with, so Gaming and Social will settle on
+ * different gateways out of the same subscription. Changing it while the tunnel
+ * is up re-picks immediately, because a setting that only takes effect next
+ * time is a setting people think is broken.
+ *
+ * It belongs to the VPN tab alone. A config someone imported is theirs, and no
+ * weighting is ever applied to it.
+ */
+@Composable
+private fun ColumnScope.PurposeRow(
+    state: ServerListState,
+    live: Boolean,
+    onConnect: (List<Server>, Boolean) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Purpose.entries.forEach { option ->
+            val selected = state.purpose == option
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(17.dp))
+                    .background(if (selected) Accent.copy(alpha = 0.14f) else Surface)
+                    .border(
+                        1.dp,
+                        if (selected) Accent.copy(alpha = 0.45f) else Border,
+                        RoundedCornerShape(17.dp),
+                    )
+                    .clickable {
+                        state.usePurpose(option)
+                        // Already up: re-pick now under the new weights rather
+                        // than leaving the old choice in place.
+                        if (live && state.pool.isNotEmpty()) onConnect(state.pool, true)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    option.label,
+                    color = if (selected) Accent else TextDim,
+                    fontSize = 12.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun VpnScreen(
     app: JordanApplication,
@@ -1085,7 +1237,10 @@ private fun VpnScreen(
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
+        PurposeRow(state, live = connected || connecting, onConnect = onConnect)
+
+        Spacer(Modifier.height(12.dp))
 
         // Countries, not configs. This is the screen for someone who has never
         // seen a `vless://` line and does not want to: the control plane's
@@ -1256,6 +1411,11 @@ private fun ConfigsScreen(
         state.chosen
     }
 
+    // Measured once when the list is first shown, and again on a pull. Not on a
+    // timer: a sweep is real traffic to real servers, and a screen nobody is
+    // looking at has no reason to make it.
+    LaunchedEffect(state.visible.map { it.key }) { state.checkHealth() }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         TunnelSwitch(state, onConnect, onDisconnect)
         ConnectionCard(state)
@@ -1266,8 +1426,13 @@ private fun ConfigsScreen(
         // Three rows, ending on a whole one, and the rest scrolls. Pulling it
         // down refreshes it, which is the gesture people already reach for.
         PullToRefreshBox(
-            isRefreshing = state.busy,
-            onRefresh = { scope.launch { state.refresh(app.subscriptions) } },
+            isRefreshing = state.busy || state.checking,
+            onRefresh = {
+                scope.launch {
+                    state.refresh(app.subscriptions)
+                    state.checkHealth()
+                }
+            },
             modifier = Modifier.fillMaxWidth().height(ConfigListHeight),
         ) {
             LazyColumn(
@@ -1305,6 +1470,8 @@ private fun ConfigsScreen(
                             server = server,
                             selected = isSelected,
                             connected = connected,
+                            health = state.health(server),
+                            pingMs = state.ping(server),
                             onSelect = {
                                 // Choosing a row by hand is a statement:
                                 // automatic mode ends here rather than quietly

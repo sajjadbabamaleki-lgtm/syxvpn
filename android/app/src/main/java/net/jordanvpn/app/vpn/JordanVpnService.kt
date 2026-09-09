@@ -22,11 +22,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import net.jordanvpn.app.R
+import net.jordanvpn.app.core.ConnectionMemory
 import net.jordanvpn.app.core.Latency
 import net.jordanvpn.app.core.Probe
+import net.jordanvpn.app.core.Purpose
+import net.jordanvpn.app.core.RecoveryPolicy
 import net.jordanvpn.app.core.RouteState
 import net.jordanvpn.app.core.Server
 import net.jordanvpn.app.core.ServerPicker
+import net.jordanvpn.app.core.SmartConnect
 import net.jordanvpn.app.core.VlessProfile
 import net.jordanvpn.app.core.XrayConfigBuilder
 import org.json.JSONArray
@@ -70,6 +74,19 @@ class JordanVpnService : VpnService() {
     private var bridge: XrayBridge? = null
     private var connectedAt: Long = 0L
 
+    /**
+     * What the last connect was asked to do, kept so a dropped tunnel can be
+     * rebuilt without the app being in the foreground to ask again.
+     */
+    private var candidates: List<Server> = emptyList()
+    private var automaticMode: Boolean = false
+    private var controlHost: String? = null
+    private var purpose: Purpose = Purpose.AUTO
+    private val recovery = RecoveryPolicy()
+
+    /** What this phone has learned about these gateways. Worker thread only. */
+    private var memory: ConnectionMemory = ConnectionMemory.EMPTY
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_DISCONNECT -> { disconnect(); return START_NOT_STICKY }
@@ -77,6 +94,7 @@ class JordanVpnService : VpnService() {
                 intent?.getStringExtra(EXTRA_SERVERS),
                 intent?.getBooleanExtra(EXTRA_AUTOMATIC, false) ?: false,
                 intent?.getStringExtra(EXTRA_CONTROL_HOST),
+                Purpose.of(intent?.getStringExtra(EXTRA_PURPOSE)),
             )
         }
         return START_STICKY
@@ -89,12 +107,38 @@ class JordanVpnService : VpnService() {
      * @param automatic when true the tunnel measures the candidates and decides;
      *   when false it uses the first entry and does not wander off it.
      */
-    private fun connect(serversJson: String?, automatic: Boolean, controlPlaneHost: String?) {
+    private fun connect(
+        serversJson: String?,
+        automatic: Boolean,
+        controlPlaneHost: String?,
+        wanted: Purpose,
+    ) {
         val servers = parseServers(serversJson)
         if (servers.isEmpty()) {
             fail("No server was selected")
             return
         }
+        candidates = servers
+        automaticMode = automatic
+        controlHost = controlPlaneHost
+        purpose = wanted
+        // A fresh request from the app is not a recovery attempt: someone is
+        // holding the phone, so the budget for automatic retries starts again.
+        recovery.settled()
+        attempt()
+    }
+
+    /**
+     * One pass at bringing the tunnel up on the candidates already stored.
+     *
+     * Recovery re-enters here rather than through [connect]: the decision of
+     * what to connect to was made when the person pressed ON, and a dropped
+     * tunnel does not get to widen it.
+     */
+    private fun attempt() {
+        val servers = candidates
+        val automatic = automaticMode
+        val controlPlaneHost = controlHost
 
         state.value = State.CONNECTING
         startForeground(NOTIFICATION_ID, notification("Connecting…"))
@@ -106,6 +150,8 @@ class JordanVpnService : VpnService() {
             // Switching server while connected: tear the old tunnel down first,
             // so traffic cannot keep flowing through the server just left.
             tearDown()
+            memory = ConnectionMemory.decode(session()?.connectionMemory)
+                .keepOnly(servers.map { it.key }.toSet())
             try {
                 val metricsPort = freeLoopbackPort()
                 val runtime = createXrayBridge({ fd -> protect(fd) }, metricsPort)
@@ -134,11 +180,15 @@ class JordanVpnService : VpnService() {
                         )
                     } catch (failure: Throwable) {
                         // One server refusing is not the end of the attempt; the
-                        // next candidate gets the same descriptor.
+                        // next candidate gets the same descriptor — and the
+                        // refusal is remembered, so tomorrow's ranking knows.
                         lastFailure = failure
+                        memory = memory.recordOutcome(server.key, success = false, now = System.currentTimeMillis())
                         runCatching { runtime.stop() }
                         continue
                     }
+                    memory = memory.recordOutcome(server.key, success = true, now = System.currentTimeMillis())
+                    rememberMeasurements()
                     runtimeVersion.value = runtime.version()
                     activeServer.value = server.key
                     activeLabel.value = server.label
@@ -150,6 +200,7 @@ class JordanVpnService : VpnService() {
                     updateNotification("Connected · ${server.label}")
                     return@launch
                 }
+                rememberMeasurements()
                 fail(
                     lastFailure?.message
                         ?: "No server accepted the connection (${order.size} tried)",
@@ -180,6 +231,10 @@ class JordanVpnService : VpnService() {
     private suspend fun chooseOrder(servers: List<Server>, runtime: XrayBridge): List<Server> {
         activity.value = "Measuring ${servers.size} servers…"
         val probes = measure(servers)
+        val now = System.currentTimeMillis()
+        probes.values.forEach { probe ->
+            probe.rttMs?.let { memory = memory.recordSample(probe.key, it, now) }
+        }
 
         val shortlist = ServerPicker.rank(servers, probes).take(PROBE_SHORTLIST)
         val endToEnd = if (shortlist.isEmpty()) {
@@ -195,7 +250,29 @@ class JordanVpnService : VpnService() {
                 .associate { shortlist[it].key to delays[it] }
         }
 
-        return ServerPicker.connectOrder(servers, probes, endToEnd, activeServer.value)
+        return SmartConnect.connectOrder(
+            servers = servers,
+            probes = probes,
+            endToEnd = endToEnd,
+            memory = memory,
+            purpose = purpose,
+            current = activeServer.value,
+        )
+    }
+
+    /** The app's own store, when the service is running inside the app's process. */
+    private fun session(): net.jordanvpn.app.data.SessionStore? =
+        (application as? net.jordanvpn.app.JordanApp)?.session
+
+    /**
+     * Writes what was learned this attempt.
+     *
+     * Once per attempt rather than per measurement: this is an encrypted file
+     * write, and it has no business on the path between pressing ON and the
+     * tunnel coming up.
+     */
+    private fun rememberMeasurements() {
+        runCatching { session()?.connectionMemory = memory.encode() }
     }
 
     /** Real handshakes, in parallel, with a short ceiling on each. */
@@ -283,6 +360,7 @@ class JordanVpnService : VpnService() {
     private fun startStatsLoop() {
         statsJob?.cancel()
         statsJob = scope.launch {
+            var silentChecks = 0
             while (isActive) {
                 // Off the lifecycle thread: this is an HTTP call to the core's
                 // metrics server, and it must not delay a disconnect.
@@ -290,6 +368,23 @@ class JordanVpnService : VpnService() {
                     runCatching { bridge?.trafficStats() }.getOrNull()
                 } ?: (0L to 0L)
                 uptimeSeconds.value = (System.currentTimeMillis() - connectedAt) / 1000
+
+                // The watchdog. A tunnel can stop being a tunnel without anyone
+                // asking it to — the core exits, the network underneath changes,
+                // the gateway goes away — and until now the app would have gone
+                // on showing CONNECTED over nothing. A few consecutive checks
+                // rather than one, because a single reading is not an outage.
+                val running = withContext(Dispatchers.IO) {
+                    runCatching { bridge?.isRunning() }.getOrNull()
+                }
+                silentChecks = if (running == false) silentChecks + 1 else 0
+                if (silentChecks >= WATCHDOG_STRIKES) {
+                    scope.launch { reconnect() }
+                    return@launch
+                }
+                // A session that has held this long is not a recovery in
+                // progress; the budget for automatic retries starts again.
+                if (uptimeSeconds.value * 1000 >= RecoveryPolicy.SETTLED_AFTER_MS) recovery.settled()
                 // The VPN screen deliberately shows no counters, so the
                 // session's real traffic lives here, where a glance at the
                 // notification shade finds it.
@@ -300,6 +395,32 @@ class JordanVpnService : VpnService() {
                 delay(1000)
             }
         }
+    }
+
+    /**
+     * Brings the tunnel back after it dropped on its own.
+     *
+     * The failure is recorded against the gateway that was carrying it, so the
+     * next ranking already knows; then the same candidate list is tried again,
+     * after a delay that grows with each attempt in the window. When the budget
+     * is spent the tunnel stops and says so — an app that retries for ever
+     * without telling anyone is worse than one that admits it is beaten.
+     */
+    private suspend fun reconnect() {
+        val now = System.currentTimeMillis()
+        activeServer.value?.let { memory = memory.recordOutcome(it, success = false, now = now) }
+        rememberMeasurements()
+
+        if (!recovery.canRetry(now)) {
+            fail("The connection kept dropping. Switch it on again, or choose another server.")
+            return
+        }
+        val wait = recovery.nextDelayMs(now)
+        state.value = State.CONNECTING
+        activity.value = "Reconnecting…"
+        updateNotification("Reconnecting…")
+        if (wait > 0) delay(wait)
+        attempt()
     }
 
     /** Stops the core and releases the interface, in that order. */
@@ -378,11 +499,18 @@ class JordanVpnService : VpnService() {
         /** Hostname of the control plane, kept off the tunnel. */
         const val EXTRA_CONTROL_HOST = "controlHost"
 
+        /** What the connection is for; changes how candidates are weighed. */
+        const val EXTRA_PURPOSE = "purpose"
+
         /** How many of the best candidates are worth an end-to-end test. */
         private const val PROBE_SHORTLIST = 3
 
         /** A handshake that has not answered by now is not the one to pick. */
         private const val HANDSHAKE_TIMEOUT_MS = 2500
+
+        /** Consecutive one-second checks reporting a stopped core before the
+         *  watchdog treats the tunnel as gone. */
+        private const val WATCHDOG_STRIKES = 3
 
         /** The JSON the app hands over, built where the servers are known. */
         fun serversPayload(servers: List<Server>): String = JSONArray().apply {

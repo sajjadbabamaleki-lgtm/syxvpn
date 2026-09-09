@@ -271,6 +271,66 @@ cards above it (radius 28, 1px border, `Surface` fill) with a small accent-tinte
 block marking the tab you are on, and its five icons are one stroked set at one
 weight.
 
+## Two products, kept apart
+
+The app is two things on purpose, and the line between them is the most
+important rule in this client:
+
+**VPN** is automatic. Press ON and the tunnel measures, chooses, connects and —
+if it drops — comes back on its own.
+
+**Configs** is manual. A config someone imported is theirs. Nothing measures its
+way into being selected, nothing replaces it, nothing edits it. The health
+system there may colour a dot and print a number it actually measured, and that
+is the whole of its authority; no code path leads from a health result to a
+connection decision.
+
+### How the VPN side chooses (`core/SmartConnect.kt`)
+
+Evidence outranks scoring. Candidates are put in three tiers before any score is
+compared:
+
+1. proven end to end — a request came back *through* that gateway
+2. untested — nothing was measured through it either way
+3. failed — tried, and did not answer, at either hop
+
+Only inside a tier does the score decide, and the score is arithmetic on four
+signals: what the control plane says about the gateway's whole path, the round
+trip, how steady that round trip has been on this phone, and how often
+connecting to it has actually worked. No model, no network call, nothing that
+can be slow at the moment someone presses ON.
+
+The tunnel keeps the gateway it is on unless a challenger beats it by
+`MIN_SCORE_GAIN`; every switch costs every open connection, so barely better is
+not better.
+
+### Purpose (`core/Purpose.kt`)
+
+Four words on the VPN tab — Auto, Social, Streaming, Gaming — and each is a set
+of weights, not a filter. Gaming puts most of the weight on the round trip and
+its steadiness; Social on whether connecting has reliably worked; Streaming on
+steadiness over speed; Auto spreads it. Two purposes genuinely settle on
+different gateways from the same subscription, which is what
+`SmartConnectTest` pins down. Adding a purpose is adding an enum entry.
+
+### What the phone remembers (`core/ConnectionMemory.kt`)
+
+A smoothed round trip, how much it moves, and how often connecting worked —
+per gateway, kept between sessions in the encrypted store. It holds `host:port`,
+counters and timings; no credential, no UUID, no profile line, and none of it is
+ever logged. A health sweep folds in measurements but never touches the
+connection counters: those are for attempts the tunnel really made.
+
+### Coming back on its own (`core/RecoveryPolicy.kt`)
+
+The stats loop is also a watchdog: three consecutive one-second checks reporting
+a stopped core mean the tunnel is gone, whatever the screen says. The failure is
+recorded against the gateway that was carrying it, and the same candidate list
+is tried again — immediately the first time, then backing off, four times in ten
+minutes. Past that the tunnel stops and says so, because an app that retries for
+ever without telling anyone is worse than one that admits it is beaten. A
+session that holds for a minute clears the record.
+
 ## Build without a toolchain (GitHub Actions)
 
 `.github/workflows/android.yml` builds the debug APK on GitHub's runners and

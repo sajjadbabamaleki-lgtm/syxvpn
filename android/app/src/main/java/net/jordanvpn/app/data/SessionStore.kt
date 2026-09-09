@@ -76,6 +76,36 @@ class SessionStore(context: Context) {
             if (value == null) remove(KEY_COUNTRY) else putString(KEY_COUNTRY, value)
         }.apply()
 
+    /**
+     * What the person said they use the VPN for, as a [net.jordanvpn.app.core.Purpose]
+     * name. It changes how automatic selection weighs its signals, and nothing
+     * else; the Configs tab never reads it.
+     */
+    var purposeName: String?
+        get() = prefs.getString(KEY_PURPOSE, null)
+        set(value) = prefs.edit().apply {
+            if (value == null) remove(KEY_PURPOSE) else putString(KEY_PURPOSE, value)
+        }.apply()
+
+    /**
+     * What this phone has learned about each gateway, encoded by
+     * [net.jordanvpn.app.core.ConnectionMemory].
+     *
+     * It holds host:port, counters and timings — no credential and no profile
+     * line — but it lives in the encrypted store with everything else, because
+     * which gateways a phone has been talking to is not public either.
+     *
+     * Both the tunnel and the Configs health sweep write it. They read, change
+     * and write the whole blob, so two writes in the same instant can lose a
+     * measurement. That is the intended trade: the cost is one sample, and the
+     * alternative is a lock held across a file write on the connect path.
+     */
+    var connectionMemory: String?
+        get() = prefs.getString(KEY_MEMORY, null)
+        set(value) = prefs.edit().apply {
+            if (value == null) remove(KEY_MEMORY) else putString(KEY_MEMORY, value)
+        }.apply()
+
     fun clear() = prefs.edit().clear().apply()
 
     private companion object {
@@ -86,5 +116,7 @@ class SessionStore(context: Context) {
         const val KEY_HIDDEN = "hidden_configs"
         const val KEY_AUTOMATIC = "automatic_server"
         const val KEY_COUNTRY = "country"
+        const val KEY_PURPOSE = "purpose"
+        const val KEY_MEMORY = "connection_memory"
     }
 }

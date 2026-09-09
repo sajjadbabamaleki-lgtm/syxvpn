@@ -98,7 +98,14 @@ class MainActivity : ComponentActivity() {
                 .setAction(JordanVpnService.ACTION_CONNECT)
                 .putExtra(JordanVpnService.EXTRA_SERVERS, serversJson)
                 .putExtra(JordanVpnService.EXTRA_AUTOMATIC, automatic)
-                .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHost),
+                .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHost)
+                // What the VPN tab is set to. The tunnel weighs its candidates
+                // by it; the Configs tab never sends one, because a config the
+                // person imported is not chosen by anything but them.
+                .putExtra(
+                    JordanVpnService.EXTRA_PURPOSE,
+                    (application as JordanApp).session.purposeName,
+                ),
         )
     }
 
