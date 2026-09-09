@@ -260,12 +260,30 @@ weight.
 
 ## Build (on a machine with the Android SDK)
 
+What you need: **JDK 17+** and the **Android SDK** (Android Studio installs both;
+otherwise the command-line tools plus platform 35 and build-tools 35). Point
+`ANDROID_HOME` at the SDK, or write `android/local.properties`:
+
+```properties
+sdk.dir=/absolute/path/to/Android/sdk
+```
+
+Then set the control plane the app talks to — `CONTROL_PLANE_URL` in
+`app/build.gradle.kts` — and build:
+
 ```sh
 cd android
 ./gradlew assembleDebug
-# set the control plane the app talks to:
-#   app/build.gradle.kts -> buildConfigField CONTROL_PLANE_URL
+# the APK lands in app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Or open the `android/` folder in Android Studio and press Run.
+
+First build on a machine that has never built this: Gradle downloads itself and
+the dependencies, which takes a few minutes. It has never been compiled
+anywhere, so treat the first `assembleDebug` as part of the work — the errors it
+finds are ordinary API drift, and they are all in one module.
 
 The Gradle wrapper is committed, so `./gradlew` works on a fresh checkout. Its
 `gradle-wrapper.jar` came out of the official `gradle-8.11.1-bin.zip` fetched

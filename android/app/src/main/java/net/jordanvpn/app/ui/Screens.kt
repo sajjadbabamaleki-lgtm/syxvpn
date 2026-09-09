@@ -558,16 +558,6 @@ private fun BottomBarItem(
 }
 
 /**
- * The whole tunnel on one screen: switch, what it is connected through, and the
- * configs to choose between.
- *
- * The config list is deliberately here rather than on its own tab. Switching
- * server is the thing people do most often, and making it a separate screen
- * turns a one-tap action into navigation. Only the list scrolls; the switch and
- * the card stay put.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-/**
  * Everything both halves of the app need to agree on.
  *
  * The tunnel and the list of servers live on two tabs now, so this is hoisted
@@ -1031,6 +1021,8 @@ private fun CountryRow(
  * but it is not a dead end: selecting a row while the tunnel is up moves the
  * tunnel onto that server there and then, rather than waiting for a trip back.
  */
+// PullToRefreshBox is still experimental in Material3.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConfigsScreen(
     app: JordanApplication,
