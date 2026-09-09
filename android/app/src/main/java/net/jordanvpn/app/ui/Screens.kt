@@ -797,6 +797,27 @@ private fun ColumnScope.TunnelSwitch(
     val connected = tunnelState == JordanVpnService.State.CONNECTED
     val connecting = tunnelState == JordanVpnService.State.CONNECTING
 
+    // The servers this switch would actually hand over, worked out once.
+    //
+    // It used to be enabled on one list and connect with another: enabled on
+    // every visible server, but connecting with the ones in the chosen country
+    // — or with the chosen config, which can be null. A country filter with no
+    // server behind it therefore left a switch that looked ready, did nothing
+    // when pressed, and said nothing about why. Enabling and connecting now
+    // read the same list, so "pressed it and nothing happened" is not a state
+    // this screen has.
+    val candidates = if (state.automatic) {
+        // Every server in the chosen country — or all of them under Automatic.
+        // The tunnel measures them, decides, and falls back through the rest if
+        // the first one refuses.
+        state.pool
+    } else {
+        // Manual: the chosen config. Falling back to the first one keeps the
+        // switch alive when nothing has been chosen yet, which is the state a
+        // fresh install is in.
+        listOfNotNull(state.chosen ?: state.pool.firstOrNull())
+    }
+
     // Above the switch: nothing of the app's own. The screen's spare height
     // collects here, which is where a banner goes.
     BannerSlot(Modifier.weight(1f))
@@ -804,17 +825,12 @@ private fun ColumnScope.TunnelSwitch(
     Box(Modifier.align(Alignment.CenterHorizontally)) {
         ConnectSwitch(
             state = tunnelState,
-            enabled = state.visible.isNotEmpty() || connected || connecting,
+            enabled = candidates.isNotEmpty() || connected || connecting,
             onToggle = {
                 if (connected || connecting) {
                     onDisconnect()
-                } else if (state.automatic) {
-                    // Every server in the chosen country goes over — or all of
-                    // them under Automatic. The tunnel measures them, decides,
-                    // and falls back through the rest if the first one refuses.
-                    if (state.pool.isNotEmpty()) onConnect(state.pool, true)
-                } else {
-                    state.chosen?.let { onConnect(listOf(it), false) }
+                } else if (candidates.isNotEmpty()) {
+                    onConnect(candidates, state.automatic)
                 }
             },
         )
@@ -844,6 +860,30 @@ private fun ColumnScope.TunnelSwitch(
             color = TextFaint,
             fontSize = 12.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+    }
+
+    // Why the switch will not move, under the switch, where the person pressing
+    // it is already looking. Both reasons are ordinary — a phone with no plan
+    // on it yet, and a country filter that outlived the servers it was set on —
+    // and both used to be silence.
+    if (candidates.isEmpty() && !connected && !connecting) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (state.visible.isEmpty()) {
+                "No servers on this phone yet. The Premium tab is where a plan is bought; " +
+                    "an existing subscription arrives by signing in on the Account tab."
+            } else {
+                "No server in the chosen country. Pick another country on the VPN tab, " +
+                    "or switch back to Automatic."
+            },
+            color = TextDim,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(horizontal = 28.dp),
         )
     }
 
