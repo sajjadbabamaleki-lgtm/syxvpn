@@ -58,7 +58,12 @@ gw1.cvpn.pro {
         header Connection *Upgrade*
         header Upgrade websocket
     }
-    reverse_proxy @ws 127.0.0.1:10001
+    # Inside a handle, not beside one: Caddy evaluates handle before
+    # reverse_proxy, so a catch-all handle next to a bare reverse_proxy answers
+    # every request — including the upgrade — with the 404 below.
+    handle @ws {
+        reverse_proxy 127.0.0.1:10001
+    }
 
     # Anything else looks like an ordinary site.
     handle {
