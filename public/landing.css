@@ -275,16 +275,22 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 .badge-store .b-ico svg { width: 24px; height: 24px; }
 .badge-store .b-txt small { font-size: 9px; line-height: 1.35; opacity: .8; }
 .badge-store .b-txt strong { font-size: 15px; letter-spacing: -.2px; }
+/* Both lines are one line each: a wrapped "App Store" turns the badge into a
+   two-line block that no longer matches the one beside it. */
+.badge-store .b-txt small, .badge-store .b-txt strong { white-space: nowrap; }
 .badge-store:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(255, 255, 255, .13); }
 .badge[aria-disabled="true"] { cursor: not-allowed; }
 .badge[aria-disabled="true"]:hover { transform: none; }
 
-/* Three badges do not fit side by side on a narrow phone, and a row that spills
-   off the screen is worse than a column. They keep their fixed size when they
-   stack: a badge stretched to the full width of a phone stops reading as a
-   store badge. */
-@media (max-width: 460px) {
-  .store { flex-direction: column; align-items: center; }
+/* On a phone the row wraps on its own: the two store badges sit side by side
+   and the download badge centres under them. Below 360px even two no longer
+   fit at full size, so they give up a little width rather than the pairing. */
+@media (max-width: 359px) {
+  .store { gap: 8px; }
+  .badge-store { width: 132px; padding: 0 8px; gap: 6px; }
+  .badge-store .b-ico svg { width: 20px; height: 20px; }
+  .badge-store .b-txt small { font-size: 8px; }
+  .badge-store .b-txt strong { font-size: 13px; }
 }
 
 /* A slow glow behind the hero. Pure CSS: nothing to download, nothing to
