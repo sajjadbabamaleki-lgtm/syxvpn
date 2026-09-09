@@ -37,9 +37,34 @@ jobs:
       - name: Install the platform this app compiles against
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      # A debug key is generated on the runner, and the runner is new every run.
+      # A new key means a new signature, and Android refuses to install an update
+      # signed by a different key: every build would demand that the previous one
+      # be uninstalled first, taking its settings with it. Caching the key keeps
+      # one identity across builds, so a new APK installs over the old one.
+      #
+      # This is the ordinary Android debug key — the well-known password, never
+      # used for a release. Release signing is separate and comes from
+      # keystore.properties or the JORDAN_KEYSTORE* variables, and nothing about
+      # it is in this repository.
+      - name: Reuse the debug signing key across builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
       - name: Build the debug APK
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      # Printed so the key can be checked rather than assumed: two builds that
+      # show the same certificate digest will install over each other, and two
+      # that do not will not.
+      - name: Say which key signed it
+        working-directory: android
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs \
+            app/build/outputs/apk/debug/app-debug.apk | grep -i 'SHA-256 digest'
 
       - name: Attach the APK to this run
         uses: actions/upload-artifact@v4
