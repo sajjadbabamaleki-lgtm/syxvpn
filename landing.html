@@ -92,9 +92,19 @@
     </a>
     <nav class="nav">
       <a href="#features" class="hide-sm">امکانات</a>
+      <a href="#plans" class="hide-sm">پلن‌ها</a>
       <a href="#how" class="hide-sm">چطور کار می‌کند</a>
       <a href="#faq" class="hide-sm">سؤالات</a>
-      <a href="/en" class="lang" hreflang="en">EN</a>
+      <details class="langsel">
+        <summary aria-label="تغییر زبان">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
+          فارسی
+        </summary>
+        <div class="menu" role="menu">
+          <a href="/" hreflang="fa" role="menuitem" aria-current="true"><span class="tick">✓</span>فارسی</a>
+          <a href="/en" hreflang="en" role="menuitem"><span class="tick">✓</span>English</a>
+        </div>
+      </details>
     </nav>
   </div>
 </header>
@@ -182,6 +192,30 @@
     </div>
   </section>
 
+
+  <section id="plans">
+    <div class="wrap">
+      <h2>پلن‌ها</h2>
+      <p class="sub">ماهانه، سه‌ماهه، شش‌ماهه و یک‌ساله. پرداخت با تتر (USDT روی شبکه‌ی TRON) و تأیید روی زنجیره.</p>
+
+      <div class="plans" id="plan-grid" aria-live="polite">
+        <div class="plans-empty" id="plan-loading">در حال خواندن پلن‌ها از سرور…</div>
+      </div>
+
+      <noscript>
+        <div class="plans-empty">
+          پلن‌های ماهانه، سه‌ماهه، شش‌ماهه و یک‌ساله در دسترس‌اند.
+          قیمت روز را در <a href="/app/#/store">فروشگاه</a> یا داخل اپ ببینید.
+        </div>
+      </noscript>
+
+      <p class="plans-note">
+        قیمت‌ها همان چیزی است که سرور همین لحظه اعلام می‌کند — روی این صفحه عددی دستی نوشته نشده.
+        اشتراک فقط بعد از دیده‌شدن واقعی تراکنش روی زنجیره فعال می‌شود.
+      </p>
+    </div>
+  </section>
+
   <section id="honest">
     <div class="wrap">
       <h2>چیزهایی که قول نمی‌دهیم</h2>
@@ -255,6 +289,68 @@
   // /app/, so a bookmark from before is forwarded rather than silently landing
   // on a marketing page.
   if (location.hash.startsWith('#/')) location.replace('/app/' + location.hash);
+
+  // The switcher opens and closes on its own; this only dismisses it the way a
+  // menu is expected to be dismissed.
+
+  // Plans come from the control plane, never from this file. An operator who
+  // changes a price should not have to rebuild a web page, and a page that
+  // quotes a price the server no longer honours is worse than one that quotes
+  // none. If the call fails, the section says so rather than inventing numbers.
+  (function () {
+    // Same origin: the reverse proxy in deploy/ serves this page and the API
+    // together. If a deployment ever splits them, set window.CVPN_API before
+    // this script rather than editing it.
+    var API = (window.CVPN_API || '').replace(/\/+$/, '');
+    var grid = document.getElementById('plan-grid');
+    if (!grid) return;
+
+    var term = function (days) {
+      if (days >= 28 && days <= 31) return 'ماهانه';
+      if (days >= 88 && days <= 93) return 'سه‌ماهه';
+      if (days >= 175 && days <= 190) return 'شش‌ماهه';
+      if (days >= 350 && days <= 380) return 'یک‌ساله';
+      return days + ' روزه';
+    };
+    var money = function (micro) {
+      // 3.50 reads as a typo; 3.5 and 9 read as prices.
+      return (micro / 1e6).toFixed(2).replace(/0$/, '').replace(/\.0?$/, '');
+    };
+    var gigabytes = function (bytes) {
+      if (!bytes) return 'بدون محدودیت حجم';
+      return Math.round(bytes / 1073741824) + ' گیگابایت';
+    };
+
+    fetch(API + '/api/v1/shop/plans', { headers: { accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (body) {
+        var plans = (body && body.data) || [];
+        if (!plans.length) throw new Error('empty');
+        plans.sort(function (a, b) { return a.durationDays - b.durationDays; });
+        var longest = plans[plans.length - 1];
+        grid.innerHTML = plans.map(function (p) {
+          var monthly = p.durationDays > 45
+            ? '<div class="per">معادل ' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT در ماه</div>'
+            : '<div class="per"></div>';
+          return '<article class="plan' + (p === longest ? ' best' : '') + '">'
+            + (p === longest ? '<span class="tag">به‌صرفه‌ترین</span>' : '')
+            + '<div class="term">' + term(p.durationDays) + '</div>'
+            + '<div class="price">' + money(p.priceMicro) + '<span>USDT</span></div>'
+            + monthly
+            + '<div class="quota">' + gigabytes(p.quotaBytes) + '</div>'
+            + '<div class="buy"><a href="/app/#/store">خرید</a></div>'
+            + '</article>';
+        }).join('');
+      })
+      .catch(function () {
+        grid.innerHTML = '<div class="plans-empty">پلن‌ها همین حالا در دسترس نیستند. '
+          + 'از <a href="/app/#/store">فروشگاه</a> یا داخل اپ ببینید.</div>';
+      });
+  })();
+
+  var lang = document.querySelector('.langsel');
+  document.addEventListener('click', function (e) { if (lang && !lang.contains(e.target)) lang.open = false; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lang) lang.open = false; });
   document.getElementById('y').textContent = new Date().getFullYear().toLocaleString('fa-IR', { useGrouping: false });
 </script>
 </body>
