@@ -1,0 +1,61 @@
+# Builds the Android app in the cloud, so nobody needs an Android toolchain on
+# their own machine to get an APK.
+#
+# Run it from the repository's Actions tab: pick "Android APK", press "Run
+# workflow". When it finishes, the APK is attached to that run under
+# "Artifacts".
+#
+# This build has no Xray runtime in it — libXray is a large native artifact that
+# is not vendored here — so the app installs and runs, and the switch says so
+# instead of connecting. See android/README.md.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install the platform this app compiles against
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build the debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Attach the APK to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: jordan-vpn-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # A failed build is the useful output too: the compiler's own words,
+      # kept where they can be read without opening a laptop.
+      - name: Keep the build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          if-no-files-found: ignore
