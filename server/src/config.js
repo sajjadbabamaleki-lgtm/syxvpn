@@ -42,6 +42,8 @@ export function loadConfig(env = process.env) {
       password: env.ADMIN_PASSWORD || '',
       passwordHash: env.ADMIN_PASSWORD_HASH || '',
       sessionTtlSeconds: int(env.ADMIN_SESSION_TTL_SECONDS, 12 * 3600),
+      // The name an authenticator app shows beside the code.
+      totpIssuer: env.ADMIN_TOTP_ISSUER || 'cVPN',
     },
 
     agent: {
