@@ -139,11 +139,18 @@ test('admin two-factor', async (t) => {
     });
     assert.equal(noPassword.status, 401, 'a borrowed session must not remove the second factor');
 
+    assert.equal(noPassword.body.error.code, 'REAUTH_FAILED', 'a typo here is not an expired session');
+
     const noCode = await ctx.request('POST', '/api/v1/auth/totp/disable', {
       token,
       body: { password: ADMIN_PASSWORD },
     });
     assert.equal(noCode.status, 401);
+
+    // And the session that asked is still good, so the console can ask again.
+    const state = await ctx.request('GET', '/api/v1/auth/totp', { token });
+    assert.equal(state.status, 200);
+    assert.equal(state.body.data.enabled, true);
   });
 
   await t.test('with both, it comes off and the recovery codes go with it', async () => {

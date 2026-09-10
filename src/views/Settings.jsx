@@ -4,12 +4,18 @@ import { useResource } from '../lib/useResource.js';
 import { useBack } from '../lib/router.js';
 import { Card, Section, Button, Row, Field } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { TwoFactor } from './TwoFactor.jsx';
 import { absoluteTime, relativeTime } from '../lib/format.js';
 
 export function Settings({ onSignedOut }) {
   const back = useBack('/admin/more');
   const session = auth.current;
   const { data: health } = useResource('control-plane-health', api.health, { intervalMs: 30000 });
+  // It changes rarely, and every change to it is made from this screen, so it
+  // is refreshed on demand; the interval is only there to catch a change made
+  // from another browser.
+  const { data: twoFactor, refresh: refreshTwoFactor } =
+    useResource('admin-two-factor', api.twoFactor, { intervalMs: 60000 });
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [message, setMessage] = useState(null);
@@ -55,6 +61,8 @@ export function Settings({ onSignedOut }) {
           <Row label="API base" value={import.meta.env.VITE_API_URL || 'same origin'} mono />
         </Card>
       </Section>
+
+      <TwoFactor state={twoFactor} onChanged={refreshTwoFactor} />
 
       <Section title="Change password" hint="Changing it signs out every session, including this one.">
         <Card>

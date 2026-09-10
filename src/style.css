@@ -612,3 +612,24 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .state-label-plain { text-transform: none; letter-spacing: 0; font-size: 12px; }
 .break { word-break: break-all; }
 .pad { padding: 0 var(--pad) var(--pad); }
+
+/* Recovery codes, on the one screen that ever shows them. Two columns so all
+   eight are visible at once on a phone — they are meant to be copied down. */
+.code-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.code-list li {
+  padding: 7px 8px;
+  background: var(--surface-2);
+  border-radius: 7px;
+  text-align: center;
+  user-select: all;
+}

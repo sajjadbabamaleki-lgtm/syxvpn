@@ -68,6 +68,17 @@ export function sweepSessions(db) {
   db.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').run(Date.now());
 }
 
+/**
+ * Is this the account's password? Asked where the session is already trusted
+ * and only the password is in question — changing it, or taking the second
+ * factor off — so it neither mints a session nor spends a one-time code.
+ */
+export function checkPassword(db, adminId, password) {
+  const admin = db.prepare('SELECT password_hash FROM admins WHERE id = ?').get(adminId);
+  if (!admin) return false;
+  return verifyPassword(password, admin.password_hash);
+}
+
 export function changePassword(db, adminId, newPassword) {
   db.prepare('UPDATE admins SET password_hash = ?, updated_at = ? WHERE id = ?')
     .run(hashPassword(newPassword), Date.now(), adminId);

@@ -59,7 +59,11 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true, wit
   let payload = null;
   try { payload = text ? JSON.parse(text) : null; } catch { /* non-JSON response */ }
 
-  if (response.status === 401 && needsAuth) {
+  // A 401 normally means the session is gone, and the console should stop
+  // pretending otherwise. REAUTH_FAILED is the exception: the session is fine
+  // and a password or code typed into it was wrong, so signing the operator
+  // out would be the wrong answer to a typo.
+  if (response.status === 401 && needsAuth && payload?.error?.code !== 'REAUTH_FAILED') {
     writeSession(null);
     throw new ApiError(401, 'UNAUTHORIZED', 'Session expired — sign in again');
   }
@@ -77,9 +81,14 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true, wit
 }
 
 export const api = {
-  async signIn(username, password) {
+  /**
+   * [code] is the one-time code, or a recovery code, and is absent on the
+   * first attempt: an account with a second factor answers 401 TOTP_REQUIRED,
+   * which is how the sign-in screen learns to ask for one.
+   */
+  async signIn(username, password, code) {
     const data = await request('/api/v1/auth/login', {
-      method: 'POST', body: { username, password }, auth: false,
+      method: 'POST', body: { username, password, ...(code ? { code } : {}) }, auth: false,
     });
     writeSession({ token: data.token, expiresAt: data.expiresAt, admin: data.admin });
     return data;
@@ -90,6 +99,13 @@ export const api = {
   },
   changePassword: (currentPassword, newPassword) =>
     request('/api/v1/auth/password', { method: 'POST', body: { currentPassword, newPassword } }),
+
+  twoFactor: () => request('/api/v1/auth/totp'),
+  startTwoFactor: () => request('/api/v1/auth/totp/setup', { method: 'POST' }),
+  // Returns the recovery codes, the one time they are readable.
+  confirmTwoFactor: (code) => request('/api/v1/auth/totp/confirm', { method: 'POST', body: { code } }),
+  disableTwoFactor: (password, code) =>
+    request('/api/v1/auth/totp/disable', { method: 'POST', body: { password, code } }),
 
   overview: () => request('/api/v1/overview'),
   routes: () => request('/api/v1/routes'),

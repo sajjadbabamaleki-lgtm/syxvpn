@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
 import { ok } from '../lib/respond.js';
-import { unauthorized, badRequest } from '../lib/errors.js';
+import { unauthorized, badRequest, reauthFailed } from '../lib/errors.js';
 import { createRateLimiter, clientIp } from '../lib/ratelimit.js';
 import {
   login,
   logout,
   requireAdmin,
   changePassword,
+  checkPassword,
   beginTotpEnrolment,
   confirmTotpEnrolment,
   disableTotp,
@@ -85,8 +86,9 @@ export function authRoutes({ db }) {
   router.get('/me', requireAdmin(db), (req, res) => ok(res, { admin: req.admin }));
 
   router.post('/password', requireAdmin(db), validate(passwordSchema), (req, res, next) => {
-    const check = login(db, { username: req.admin.username, password: req.body.currentPassword });
-    if (!check) return next(unauthorized('Current password is incorrect'));
+    if (!checkPassword(db, req.admin.id, req.body.currentPassword)) {
+      return next(reauthFailed('Current password is incorrect'));
+    }
     if (req.body.newPassword === req.body.currentPassword) {
       return next(badRequest('New password must differ from the current one'));
     }
@@ -129,7 +131,7 @@ export function authRoutes({ db }) {
 
   router.post('/totp/disable', requireAdmin(db), limiter, validate(disableSchema), (req, res, next) => {
     const done = disableTotp(db, req.admin.id, req.body.password, req.body.code);
-    if (!done) return next(unauthorized('Password or code is wrong'));
+    if (!done) return next(reauthFailed('Password or code is wrong'));
     recordEvent(db, {
       type: 'admin.totp_disabled', severity: 'critical',
       message: `${req.admin.username} switched two-factor off`,

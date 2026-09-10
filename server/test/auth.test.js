@@ -53,6 +53,20 @@ test('admin authentication', async (t) => {
     assert.match(res.body.error.message, /expired/i);
   });
 
+  await t.test('a wrong current password is refused without ending the session', async () => {
+    const token = await ctx.login();
+    const res = await ctx.request('POST', '/api/v1/auth/password', {
+      token,
+      body: { currentPassword: 'not-the-password', newPassword: 'a-much-longer-password' },
+    });
+    assert.equal(res.status, 401);
+    // Its own code, because the console signs the operator out on a plain 401
+    // and a typo on the settings screen is not an expired session.
+    assert.equal(res.body.error.code, 'REAUTH_FAILED');
+    const after = await ctx.request('GET', '/api/v1/gateways', { token });
+    assert.equal(after.status, 200, 'the session that made the request survives it');
+  });
+
   await t.test('changing the password revokes every existing session', async () => {
     const token = await ctx.login();
     const res = await ctx.request('POST', '/api/v1/auth/password', {
