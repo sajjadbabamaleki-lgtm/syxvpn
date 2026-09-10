@@ -1,0 +1,49 @@
+# Runs the control plane's own tests, which until now only ever ran on the
+# machine of whoever last changed them.
+#
+# That is the half of this repository that decides who gets a tunnel, what a
+# gateway is told to run, and whether a payment provisions anything — and the
+# only workflow here built Android. A change that broke it would have reached
+# the server before it reached a test run.
+name: Server
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'server/**'
+      - 'src/**'
+      - 'index.html'
+      - 'landing*.html'
+      - 'public/**'
+      - 'vite.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/server.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # better-sqlite3 is native, so this compiles rather than unpacks.
+      - name: Install the control plane's dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run the control plane's tests
+        working-directory: server
+        run: npm test
+
+      - name: Install the web app's dependencies
+        run: npm ci
+
+      # The console and the storefront are one bundle, and a JSX file that does
+      # not compile is a blank screen for every operator and every customer.
+      - name: Build the console and the storefront
+        run: npm run build
