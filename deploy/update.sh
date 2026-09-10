@@ -37,56 +37,47 @@ chown 1000:1000 "$BACKUPS"
 
 COMPOSE="docker compose --env-file .env -f deploy/docker-compose.yml"
 
-# ---------------------------------------------------------------- the rename
-# The stack used to be called "jordan", which made its data volume
-# jordan_jordan-data and its database /data/jordan.db. Both names are in the
-# compose file, so a plain `up -d` would create a new, empty volume, start
-# cleanly, and serve a control plane with no customers in it — the old data
-# still on disk, and nobody told.
-#
-# So the move is done here, once, before anything starts. It is safe to run
-# again: after the first time there is nothing to find.
-OLD_VOL=jordan_jordan-data
-NEW_VOL=cvpn_cvpn-data
-
-if docker volume inspect "$OLD_VOL" >/dev/null 2>&1 && ! docker volume inspect "$NEW_VOL" >/dev/null 2>&1; then
-  echo "== moving $OLD_VOL to $NEW_VOL"
-  # The old containers are still running under the old project name and still
-  # hold port 8787, so the new stack cannot bind it.
-  #
-  # By name, not by `docker compose -p jordan down`: that reads this compose
-  # file, which requires PUBLIC_BASE_URL and SECRET_KEY, and without --env-file
-  # it fails before stopping anything. It did exactly that once — the failure
-  # was swallowed, the old containers kept the port, and the deploy got as far
-  # as "port is already allocated" with everything else already done.
-  #
-  # The gateway agent on this host is deliberately not in the list: it keeps
-  # running and keeps its gateway online across the whole of this.
-  for c in jordan-api-1 jordan-web-1; do
-    docker rm -f "$c" >/dev/null 2>&1 || true
-  done
-  # Whatever is holding it now, the next step cannot work until it lets go.
-  if command -v ss >/dev/null 2>&1 && ss -ltn '( sport = :8787 )' | grep -q LISTEN; then
-    echo "FAILED: something still holds port 8787. \`docker ps\` will say what." >&2
-    exit 1
-  fi
-
-  docker volume create "$NEW_VOL" >/dev/null
-  docker run --rm -v "$OLD_VOL":/from -v "$NEW_VOL":/to alpine sh -c '
-    cp -a /from/. /to/ &&
-    # The file is named in DB_PATH, and the -wal and -shm belong to it: leaving
-    # them beside a database under another name is how a restore corrupts one.
-    for ext in "" -wal -shm; do
-      [ -f "/to/jordan.db$ext" ] && mv "/to/jordan.db$ext" "/to/cvpn.db$ext"
-    done
-    # Written by an older development build; the code still reads it under this
-    # name if the new one is absent, but it may as well be moved with the rest.
-    [ -f /to/.jordan-secret-key ] && mv /to/.jordan-secret-key /to/.cvpn-secret-key
-    ls -la /to
-  ' || { echo "FAILED: could not move the data volume; nothing was started and $OLD_VOL is untouched" >&2; exit 1; }
-  echo "== moved. $OLD_VOL is left in place until you are satisfied; remove it with:"
-  echo "     docker volume rm $OLD_VOL"
-fi
-
 $COMPOSE up -d --build
-echo 'DEPLOYED'
+
+# --------------------------------------------------------------- did it work?
+# `up -d` returns once the containers have been *started*, which is not the same
+# as serving. It returned cleanly once while the site was down, printed DEPLOYED
+# over the top of an outage, and the first anybody knew of it was a person
+# opening the page — so the script now waits for both halves to actually answer
+# and, when one does not, says which and shows its log.
+#
+# The gateway agent is not checked here: it runs on the gateway hosts, and on
+# this one it is a separate container this script does not own.
+serving() {
+  name=$1
+  url=$2
+  waited=0
+  code=000
+  while [ "$waited" -lt 90 ]; do
+    # curl prints 000 itself when it cannot connect, so the fallback is only
+    # for curl dying before it writes anything -- appending another 000 to the
+    # one curl wrote is how the message ends up reading "HTTP 000000".
+    code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$url" 2>/dev/null || true)
+    [ -n "$code" ] || code=000
+    if [ "$code" = 200 ]; then
+      echo "== $name is serving"
+      return 0
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+  echo "FAILED: $name did not answer on $url within ${waited}s (last: HTTP $code)" >&2
+  return 1
+}
+
+# Readiness, not liveness: it is the check that opens the database, so a control
+# plane that started with an unreadable volume fails here rather than later.
+if serving api http://127.0.0.1:8787/readiness && serving web http://127.0.0.1:8080/; then
+  echo 'DEPLOYED'
+else
+  echo '--- containers -------------------------------------------------' >&2
+  $COMPOSE ps >&2
+  echo '--- logs -------------------------------------------------------' >&2
+  $COMPOSE logs --tail 40 >&2
+  exit 1
+fi
