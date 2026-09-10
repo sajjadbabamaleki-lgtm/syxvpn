@@ -131,12 +131,67 @@ a { color: inherit; text-decoration: none; }
 .langsel .menu a[aria-current="true"] { color: var(--accent); }
 .langsel .menu .tick { width: 14px; text-align: center; opacity: 0; }
 .langsel .menu a[aria-current="true"] .tick { opacity: 1; }
-/* Account leaves the page; the four above it move within it. */
-.menubtn .menu a:last-child {
-  margin-top: 5px; padding-top: 13px;
-  border-top: 1px solid var(--border); border-radius: 0 0 11px 11px;
-  color: var(--text);
+/* The site menu is a sheet, not a dropdown.
+ *
+ * A small panel hanging off the button is what a *language* switcher is — two
+ * items, no navigation. The site menu is how somebody gets around the page, and
+ * everywhere else on the web that opens as a full screen: the page goes away,
+ * the destinations are large enough to hit with a thumb, and the button that
+ * opened it turns into the one that closes it.
+ *
+ * Still no JavaScript. <details> carries the open state; this is only what that
+ * state looks like.
+ */
+.menubtn > summary .ico-close { display: none; }
+.menubtn[open] > summary .ico-open { display: none; }
+.menubtn[open] > summary .ico-close { display: block; }
+.menubtn[open] > summary {
+  /* Above the sheet, in the place it was already in, so closing is the same
+     tap as opening rather than a new thing to find. */
+  position: fixed; top: 15px; inset-inline-end: 20px; z-index: 70;
+  color: var(--text); border-color: var(--faint);
 }
+
+.menubtn[open] .menu {
+  /* Sized in viewport units rather than `inset: 0`, and this is not a
+     preference. The header carries a backdrop-filter, which makes it the
+     containing block for its fixed descendants — so `inset: 0` resolves against
+     the 64px header, and the sheet becomes a 64px strip with its links spilling
+     out over a page that shows straight through. */
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh; height: 100dvh;
+  z-index: 60;
+  min-width: 0; padding: 92px 24px 32px;
+  border: 0; border-radius: 0; box-shadow: none;
+  background: var(--bg);
+  display: flex; flex-direction: column; gap: 2px;
+  animation: sheet-in .2s cubic-bezier(.2, .8, .3, 1);
+}
+.menubtn[open] .menu a {
+  padding: 15px 6px; border-radius: 12px;
+  font-size: 19px; font-weight: 600; color: var(--text);
+}
+.menubtn[open] .menu a:active { background: var(--surface-high); }
+
+/* Account leaves the page; the four above it move within it. */
+.menubtn[open] .menu a:last-child {
+  margin-top: 14px; padding-top: 24px;
+  border-top: 1px solid var(--border); border-radius: 0;
+  color: var(--accent);
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The brand stays put while the sheet is open. Everywhere else on the web it
+   does, and a menu with an empty corner where the logo was reads as the page
+   having been replaced rather than covered. */
+.top:has(.menubtn[open]) .brand { position: relative; z-index: 70; }
+
+/* The page behind a full-screen sheet should not scroll under it. */
+html:has(.menubtn[open]) { overflow: hidden; }
 
 @media (max-width: 720px) {
   .nav .hide-sm { display: none; }
