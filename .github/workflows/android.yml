@@ -189,7 +189,11 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee /tmp/gradle-test.log || {
-            echo "::error::compilation or tests failed — the compiler's lines follow"
+            # As annotations too: an annotation is one small API call away,
+            # where the log tail is the stack trace Gradle prints after them.
+            grep -E '^e: ' /tmp/gradle-test.log | head -30 | while read -r line; do
+              echo "::error::$line"
+            done
             grep -E '^(e|w): ' /tmp/gradle-test.log | head -60
             grep -E '^(FAILED|.*Test.*FAILED)' /tmp/gradle-test.log | head -20
             exit 1
@@ -200,7 +204,9 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew --no-daemon --stacktrace assembleDebug 2>&1 | tee /tmp/gradle-build.log || {
-            echo "::error::the APK build failed — the compiler's lines follow"
+            grep -E '^e: ' /tmp/gradle-build.log | head -30 | while read -r line; do
+              echo "::error::$line"
+            done
             grep -E '^(e|w): ' /tmp/gradle-build.log | head -60
             exit 1
           }
