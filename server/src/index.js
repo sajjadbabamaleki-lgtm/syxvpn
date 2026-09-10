@@ -5,6 +5,7 @@ import { ensureBootstrapAdmin } from './auth/admin.js';
 import { createApp } from './app.js';
 import { startMonitor } from './services/monitor.js';
 import { createPaymentWatcher } from './services/payments.js';
+import { startBackups } from './services/backup.js';
 
 const startedAt = Date.now();
 const db = openDatabase(config.dbPath);
@@ -13,6 +14,7 @@ ensureBootstrapAdmin(db);
 const watcher = config.shop.enabled ? createPaymentWatcher(db) : null;
 const app = createApp({ db, startedAt, watcher });
 const monitor = config.health.enabled ? startMonitor(db) : null;
+const backups = config.backup.enabled ? startBackups(db) : null;
 watcher?.start();
 
 const server = app.listen(config.port, config.host, () => {
@@ -21,6 +23,7 @@ const server = app.listen(config.port, config.host, () => {
     host: config.host,
     env: config.nodeEnv,
     healthMonitor: Boolean(monitor),
+    backups: backups ? `every ${config.backup.intervalHours}h into ${config.backup.dir}` : 'off',
   });
 });
 
@@ -28,6 +31,7 @@ function shutdown(signal) {
   logger.info('shutting down', { signal });
   monitor?.stop();
   watcher?.stop();
+  backups?.stop();
   server.close(() => {
     db.close();
     process.exit(0);

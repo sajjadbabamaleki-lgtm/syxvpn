@@ -107,6 +107,34 @@ export const api = {
   disableTwoFactor: (password, code) =>
     request('/api/v1/auth/totp/disable', { method: 'POST', body: { password, code } }),
 
+  backups: () => request('/api/v1/backups', { withMeta: true }),
+  takeBackup: () => request('/api/v1/backups', { method: 'POST' }),
+  /**
+   * Downloads a snapshot to the operator's own machine.
+   *
+   * Not a plain link: the API needs the bearer token, and an `<a href>` carries
+   * no headers. The file is fetched, handed to the browser as a blob, and the
+   * object URL released — a database is large enough that leaking one per click
+   * is worth avoiding.
+   */
+  async downloadBackup(name) {
+    const response = await fetch(`${BASE}/api/v1/backups/${encodeURIComponent(name)}`, {
+      headers: session ? { authorization: `Bearer ${session.token}` } : {},
+    });
+    if (!response.ok) throw new ApiError(response.status, 'ERROR', 'Could not download that snapshot');
+    const url = URL.createObjectURL(await response.blob());
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+  },
+
   overview: () => request('/api/v1/overview'),
   routes: () => request('/api/v1/routes'),
   reevaluateRoutes: () => request('/api/v1/routes/reevaluate', { method: 'POST' }),

@@ -13,6 +13,7 @@ import { adminGatewayRoutes } from './routes/admin.gateways.js';
 import { adminEgressRoutes } from './routes/admin.egresses.js';
 import { adminSubscriberRoutes } from './routes/admin.subscribers.js';
 import { adminNetworkRoutes } from './routes/admin.network.js';
+import { adminBackupRoutes } from './routes/admin.backups.js';
 import { adminObservabilityRoutes } from './routes/admin.observability.js';
 import { agentRoutes } from './routes/agent.js';
 import { shopRoutes } from './routes/shop.js';
@@ -69,6 +70,7 @@ export function createApp({ db, startedAt = Date.now(), cfg = config, watcher = 
   admin.use('/egresses', adminEgressRoutes({ db }));
   admin.use('/subscribers', adminSubscriberRoutes({ db }));
   admin.use(adminNetworkRoutes({ db, startedAt }));
+  admin.use(adminBackupRoutes({ db }));
   admin.use(adminObservabilityRoutes({ db }));
   admin.use(adminShopRoutes({ db, watcher }));
   app.use('/api/v1', admin);

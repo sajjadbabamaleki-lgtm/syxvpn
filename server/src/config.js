@@ -36,6 +36,19 @@ export function loadConfig(env = process.env) {
       .map((s) => s.trim())
       .filter(Boolean),
 
+    /**
+     * Snapshots of the database. On by default: the cost of one is a few
+     * hundred kilobytes, and the cost of not having one is the paying customer
+     * list. BACKUP_DIR should be a host path that gets copied off the machine —
+     * a snapshot beside the database survives a bad query, not a dead disk.
+     */
+    backup: {
+      enabled: bool(env.BACKUP_ENABLED, true),
+      dir: env.BACKUP_DIR || 'backups',
+      intervalHours: int(env.BACKUP_INTERVAL_HOURS, 6),
+      keep: Math.max(1, int(env.BACKUP_KEEP, 28)),
+    },
+
     admin: {
       username: env.ADMIN_USERNAME || 'admin',
       // Either a plain bootstrap password or a pre-computed scrypt hash.

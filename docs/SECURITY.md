@@ -29,6 +29,15 @@ customer must be able to see their own URL again on every visit. It is a
 deliberate trade-off: an attacker with both the database and `SECRET_KEY` can
 recover subscription URLs. Keep `SECRET_KEY` out of the database backup path.
 
+### Stolen database snapshot
+A snapshot *is* the database: every gateway's agent key, every REALITY private
+key, every subscriber row. `SECRET_KEY` is deliberately not in it, so a snapshot
+alone cannot decrypt sealed subscription tokens — but a snapshot and the key
+stored in the same place are one secret, not two. `BACKUP_DIR` is `0700`, is
+never served by the web container, and downloading a snapshot through the API
+requires an admin session and is recorded as a critical event. See
+docs/DEPLOYMENT.md.
+
 ### Leaked operator token
 Sessions expire (`ADMIN_SESSION_TTL_SECONDS`, 12h default), are stored hashed,
 and a password change revokes every session for that account. Login is rate

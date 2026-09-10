@@ -24,6 +24,13 @@ services:
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -base64 32}
       HEALTH_INTERVAL_SECONDS: ${HEALTH_INTERVAL_SECONDS:-60}
+      # Snapshots of the database. The directory is a bind mount to the host
+      # rather than the data volume on purpose: a snapshot that dies with the
+      # volume it was protecting is not a backup.
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-6}
+      BACKUP_KEEP: ${BACKUP_KEEP:-28}
       SHOP_ENABLED: ${SHOP_ENABLED:-true}
       SUPPORT_CONTACT: ${SUPPORT_CONTACT:-}
       TRON_ADDRESS: ${TRON_ADDRESS:-}
@@ -31,6 +38,9 @@ services:
       PAYMENT_CONFIRMATIONS: ${PAYMENT_CONFIRMATIONS:-19}
     volumes:
       - jordan-data:/data
+      # Every credential in the fleet ends up in here. Keep it 0700 and copy it
+      # somewhere off this machine — see docs/DEPLOYMENT.md.
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
     ports:
       - "127.0.0.1:8787:8787"
 

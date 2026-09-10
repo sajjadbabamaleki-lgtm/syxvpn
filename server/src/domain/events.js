@@ -23,6 +23,11 @@ export const EVENT = {
   CREDENTIAL_ROTATED: 'subscriber.credential_rotated',
   TOKEN_ROTATED: 'subscriber.token_rotated',
   ADMIN_LOGIN_FAILED: 'admin.login_failed',
+  BACKUP_TAKEN: 'backup.taken',
+  BACKUP_FAILED: 'backup.failed',
+  // Downloading a snapshot takes every credential in the fleet off the machine
+  // in one file. It is recorded like the serious thing it is.
+  BACKUP_DOWNLOADED: 'backup.downloaded',
 };
 
 export function recordEvent(db, { type, severity = 'info', targetType = null, targetId = null, message, data = null }) {

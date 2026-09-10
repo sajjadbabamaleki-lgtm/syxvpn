@@ -12,5 +12,18 @@ git -C "$REPO" fetch origin "$BRANCH"
 git -C "$REPO" reset --hard "origin/$BRANCH"
 
 cd "$REPO"
+
+# The database snapshots land on the host, not in the data volume — a backup
+# that dies with the thing it was protecting is not one. Docker would create
+# this bind mount as root, and the API runs as uid 1000 inside its container, so
+# it has to exist with the right owner before the container starts or every
+# snapshot fails with EACCES.
+BACKUPS=${BACKUP_HOST_DIR:-$REPO/backups}
+mkdir -p "$BACKUPS"
+# It holds every agent key, every REALITY private key and the sealed copy of
+# every subscription token. Nobody but root and the API reads it.
+chmod 700 "$BACKUPS"
+chown 1000:1000 "$BACKUPS"
+
 docker compose --env-file .env -f deploy/docker-compose.yml up -d --build
 echo 'DEPLOYED'

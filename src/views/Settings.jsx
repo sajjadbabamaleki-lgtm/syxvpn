@@ -5,6 +5,7 @@ import { useBack } from '../lib/router.js';
 import { Card, Section, Button, Row, Field } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { TwoFactor } from './TwoFactor.jsx';
+import { Backups } from './Backups.jsx';
 import { absoluteTime, relativeTime } from '../lib/format.js';
 
 export function Settings({ onSignedOut }) {
@@ -63,6 +64,8 @@ export function Settings({ onSignedOut }) {
       </Section>
 
       <TwoFactor state={twoFactor} onChanged={refreshTwoFactor} />
+
+      <Backups />
 
       <Section title="Change password" hint="Changing it signs out every session, including this one.">
         <Card>

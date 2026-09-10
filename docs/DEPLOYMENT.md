@@ -152,8 +152,69 @@ customers can browse but not buy.
   than staying green.
 - A gateway with a red `config.inSync` is running an older configuration than
   the control plane intends — usually a stopped agent.
-- Upgrades: migrations run on boot and are forward-only. Take a copy of the
-  database file first.
+- Upgrades: migrations run on boot and are forward-only. Take a snapshot first
+  (below); there is no down migration to fall back on.
+
+## Backups
+
+Everything the business is made of is in one SQLite file: subscribers,
+customers, orders, every gateway's agent key, every REALITY private key, and
+the sealed copy of every subscription token. The control plane snapshots it
+every `BACKUP_INTERVAL_HOURS` (6 by default) into `BACKUP_DIR`, keeping the
+newest `BACKUP_KEEP` (28, so about a week). `/admin/settings` lists them, takes
+one on demand, and downloads one.
+
+Snapshots use SQLite's `VACUUM INTO`, not a file copy. That matters: copying
+`jordan.db` by hand while the service is running produces a file that opens and
+is quietly missing the last few minutes, because the recent pages are still in
+the WAL.
+
+**Two things this does not do for you.**
+
+1. **Get the snapshot off the machine.** `BACKUP_DIR` is a host bind mount
+   (`./backups` by default), so a snapshot survives losing the Docker volume,
+   the container, and any query that empties a table. It does not survive the
+   disk, the provider, or someone with root. Copy it somewhere else — anything
+   that runs on a schedule and leaves the machine:
+
+   ```sh
+   rsync -az --delete /opt/cvpn/backups/ you@elsewhere:/backups/cvpn/
+   ```
+
+2. **Protect the file.** A snapshot is the database. Anyone holding one holds
+   every gateway's agent key and every REALITY private key. Keep the directory
+   `0700`, and do not put it anywhere the web server can serve it.
+
+   `SECRET_KEY` is deliberately *not* in the database, and a snapshot without it
+   cannot decrypt sealed subscription tokens. Keep it somewhere separate — a
+   backup and the key to it in the same place is one secret, not two.
+
+### Restoring
+
+```sh
+cd /opt/cvpn
+docker compose -f deploy/docker-compose.yml stop api
+
+# Into the volume the API reads, under the name it expects.
+docker run --rm -v jordan_jordan-data:/data -v /opt/cvpn/backups:/backups:ro \
+  alpine sh -c 'cp /backups/jordan-20260910T041233Z.sqlite /data/jordan.db && \
+                rm -f /data/jordan.db-wal /data/jordan.db-shm && \
+                chown 1000:1000 /data/jordan.db'
+
+docker compose -f deploy/docker-compose.yml start api
+docker compose -f deploy/docker-compose.yml logs -f api
+```
+
+Removing `-wal` and `-shm` is not optional: they belong to the database that was
+just replaced, and leaving them beside a different file is how a restore turns
+into corruption. Restore the same `SECRET_KEY` as well, or every subscription
+URL in the restored database becomes unreadable.
+
+After the API comes back, migrations run against the restored file — a snapshot
+from an older version is upgraded on boot, so an old backup is still a usable
+one. Check `/readiness`, then re-run a gateway health check from the console:
+the agents will still be running the configuration they had, which may be newer
+than what the restored database thinks it deployed.
 
 ## Scaling limits, honestly
 
