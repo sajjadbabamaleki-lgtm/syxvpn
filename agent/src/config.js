@@ -3,16 +3,24 @@ import path from 'node:path';
 const int = (v, d) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d);
 const bool = (v, d) => (v === undefined || v === '' ? d : ['1', 'true', 'yes', 'on'].includes(String(v).toLowerCase()));
 
+/**
+ * CVPN_* is what these are called. CVPN_* is what they were called, and a
+ * gateway that is already running has the old names in its env file — read by
+ * a container that is restarted by an upgrade, not by somebody at a keyboard.
+ * Falling back keeps that gateway working until its file is rewritten.
+ */
+const read = (env, name) => env[`CVPN_${name}`] || env[`JORDAN_${name}`];
+
 export function loadAgentConfig(env = process.env) {
-  const missing = ['JORDAN_URL', 'JORDAN_GATEWAY_ID', 'JORDAN_AGENT_KEY'].filter((k) => !env[k]);
+  const missing = ['URL', 'GATEWAY_ID', 'AGENT_KEY'].filter((k) => !read(env, k));
   if (missing.length) {
-    throw new Error(`missing required environment: ${missing.join(', ')}`);
+    throw new Error(`missing required environment: ${missing.map((k) => `CVPN_${k}`).join(', ')}`);
   }
-  const stateDir = env.STATE_DIR || '/var/lib/jordan-agent';
+  const stateDir = env.STATE_DIR || '/var/lib/cvpn-agent';
   return {
-    controlPlaneUrl: env.JORDAN_URL.replace(/\/+$/, ''),
-    gatewayId: env.JORDAN_GATEWAY_ID,
-    agentKey: env.JORDAN_AGENT_KEY,
+    controlPlaneUrl: read(env, 'URL').replace(/\/+$/, ''),
+    gatewayId: read(env, 'GATEWAY_ID'),
+    agentKey: read(env, 'AGENT_KEY'),
 
     stateDir,
     configPath: env.XRAY_CONFIG_PATH || path.join(stateDir, 'xray.json'),

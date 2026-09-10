@@ -20,11 +20,11 @@ export function createClient({ controlPlaneUrl, gatewayId, agentKey }) {
       method,
       headers: {
         'content-type': 'application/json',
-        'x-jordan-gateway': gatewayId,
-        'x-jordan-timestamp': String(timestamp),
-        'x-jordan-nonce': nonce,
-        'x-jordan-signature': signature,
-        'user-agent': 'jordan-gateway-agent/0.2.0',
+        'x-cvpn-gateway': gatewayId,
+        'x-cvpn-timestamp': String(timestamp),
+        'x-cvpn-nonce': nonce,
+        'x-cvpn-signature': signature,
+        'user-agent': 'cvpn-gateway-agent/0.2.0',
       },
       ...(payload ? { body: payload } : {}),
     });

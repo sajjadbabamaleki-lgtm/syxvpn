@@ -34,8 +34,8 @@ COPY src ./src
 ENV NODE_ENV=production \
     XRAY_BIN=/usr/local/bin/xray \
     XRAY_LOCATION_ASSET=/usr/local/share/xray \
-    STATE_DIR=/var/lib/jordan-agent \
+    STATE_DIR=/var/lib/cvpn-agent \
     RELOAD_MODE=supervise
-RUN mkdir -p /var/lib/jordan-agent
+RUN mkdir -p /var/lib/cvpn-agent
 
 CMD ["node", "src/index.js"]

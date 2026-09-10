@@ -1,4 +1,4 @@
-name: jordan-lab
+name: cvpn-lab
 
 # Controlled blackout laboratory.
 #
@@ -26,7 +26,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 8787
-      DB_PATH: /data/jordan.db
+      DB_PATH: /data/cvpn.db
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: ${LAB_ADMIN_PASSWORD:-lab-admin-password}
       SECRET_KEY: ${LAB_SECRET_KEY:-lab-secret-key-not-for-production}
@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile.xray
     # Stands in for "the international internet" the egress nodes can reach.
     command: >
-      node -e "require('node:http').createServer((q,s)=>{s.writeHead(200,{'content-type':'text/plain'});s.end('jordan-origin-ok')}).listen(80,'0.0.0.0')"
+      node -e "require('node:http').createServer((q,s)=>{s.writeHead(200,{'content-type':'text/plain'});s.end('cvpn-origin-ok')}).listen(80,'0.0.0.0')"
     networks: [world]
 
   egress-a:
@@ -78,10 +78,10 @@ services:
       context: ..
       dockerfile: lab/Dockerfile.agent
     environment:
-      JORDAN_URL: http://control:8787
-      JORDAN_GATEWAY_ID: ${LAB_GATEWAY_ID:?run ./run-lab.sh, which registers the gateway first}
-      JORDAN_AGENT_KEY: ${LAB_AGENT_KEY:?run ./run-lab.sh, which issues the agent key}
-      STATE_DIR: /var/lib/jordan-agent
+      CVPN_URL: http://control:8787
+      CVPN_GATEWAY_ID: ${LAB_GATEWAY_ID:?run ./run-lab.sh, which registers the gateway first}
+      CVPN_AGENT_KEY: ${LAB_AGENT_KEY:?run ./run-lab.sh, which issues the agent key}
+      STATE_DIR: /var/lib/cvpn-agent
       XRAY_BIN: /usr/local/bin/xray
       RELOAD_MODE: supervise
       HEARTBEAT_SECONDS: 10

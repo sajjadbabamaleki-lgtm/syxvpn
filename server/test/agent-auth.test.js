@@ -54,10 +54,10 @@ test('gateway agent authentication', async (t) => {
   await t.test('rejects a replayed request', async () => {
     const signed = signRequest({ key, method: 'GET', path: '/api/v1/agent/config', body: '' });
     const headers = {
-      'x-jordan-gateway': gateway.id,
-      'x-jordan-timestamp': String(signed.timestamp),
-      'x-jordan-nonce': signed.nonce,
-      'x-jordan-signature': signed.signature,
+      'x-cvpn-gateway': gateway.id,
+      'x-cvpn-timestamp': String(signed.timestamp),
+      'x-cvpn-nonce': signed.nonce,
+      'x-cvpn-signature': signed.signature,
     };
     const first = await fetch(`${ctx.base}/api/v1/agent/config`, { headers });
     assert.equal(first.status, 200);
@@ -73,10 +73,10 @@ test('gateway agent authentication', async (t) => {
     }));
     const res = await fetch(`${ctx.base}/api/v1/agent/config`, {
       headers: {
-        'x-jordan-gateway': gateway.id,
-        'x-jordan-timestamp': String(timestamp),
-        'x-jordan-nonce': nonce,
-        'x-jordan-signature': signature,
+        'x-cvpn-gateway': gateway.id,
+        'x-cvpn-timestamp': String(timestamp),
+        'x-cvpn-nonce': nonce,
+        'x-cvpn-signature': signature,
       },
     });
     assert.equal(res.status, 401);
@@ -90,10 +90,10 @@ test('gateway agent authentication', async (t) => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-jordan-gateway': gateway.id,
-        'x-jordan-timestamp': String(signed.timestamp),
-        'x-jordan-nonce': signed.nonce,
-        'x-jordan-signature': signed.signature,
+        'x-cvpn-gateway': gateway.id,
+        'x-cvpn-timestamp': String(signed.timestamp),
+        'x-cvpn-nonce': signed.nonce,
+        'x-cvpn-signature': signed.signature,
       },
       body: JSON.stringify({ status: 'error', detail: 'tampered' }),
     });
@@ -120,5 +120,53 @@ test('gateway agent authentication', async (t) => {
     });
     assert.equal(res.status, 422);
     assert.equal(res.body.error.code, 'INVALID_INPUT');
+  });
+});
+
+/**
+ * The control plane is upgraded before the agents on the gateways are — that is
+ * the order deploying anything takes. Renaming the signature headers without
+ * this would take every gateway offline the moment the control plane restarted,
+ * and the fix would need applying by hand on machines that had just stopped
+ * being reachable through the console.
+ */
+test('an agent that has not been upgraded yet still gets in', async (t) => {
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const token = await ctx.login();
+  const gateway = await seedGateway(ctx, token, { name: 'Legacy agent', port: 19100 });
+
+  const legacy = async (body) => {
+    const payload = JSON.stringify(body);
+    const path = '/api/v1/agent/heartbeat';
+    const signed = signRequest({ key: gateway.agentKey, method: 'POST', path, body: payload });
+    return ctx.request('POST', path, {
+      body,
+      headers: {
+        // The names these carried before the rename.
+        'x-jordan-gateway': gateway.id,
+        'x-jordan-timestamp': String(signed.timestamp),
+        'x-jordan-nonce': signed.nonce,
+        'x-jordan-signature': signed.signature,
+      },
+    });
+  };
+
+  await t.test('the old header names are still accepted', async () => {
+    const res = await legacy({ agentVersion: '0.2.0', xrayVersion: '1.8.0' });
+    assert.equal(res.status, 200, res.text);
+  });
+
+  await t.test('and they are still only as good as the signature', async () => {
+    const res = await ctx.request('POST', '/api/v1/agent/heartbeat', {
+      body: { agentVersion: '0.2.0' },
+      headers: {
+        'x-jordan-gateway': gateway.id,
+        'x-jordan-timestamp': String(Date.now()),
+        'x-jordan-nonce': 'nonce-that-is-long-enough',
+        'x-jordan-signature': 'not-a-signature',
+      },
+    });
+    assert.equal(res.status, 401);
   });
 });

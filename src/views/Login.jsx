@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { Button, Field } from '../components/ui.jsx';
+import { Logo } from '../components/Logo.jsx';
 
 export function Login({ onSignedIn }) {
   const [username, setUsername] = useState('admin');
@@ -45,9 +46,9 @@ export function Login({ onSignedIn }) {
   return (
     <div className="login">
       <div className="login-brand">
-        <div className="mark">J</div>
+        <Logo size={40} className="mark-logo" />
         <div>
-          <h1>JORDAN</h1>
+          <h1>cVPN</h1>
           <p>Control plane</p>
         </div>
       </div>

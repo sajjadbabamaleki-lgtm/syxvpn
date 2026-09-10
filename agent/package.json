@@ -1,9 +1,9 @@
 {
-  "name": "jordan-gateway-agent",
+  "name": "cvpn-gateway-agent",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Gateway-side agent: deploys Xray configuration safely, probes egress paths and reports usage to the Jordan control plane.",
+  "description": "Gateway-side agent: deploys Xray configuration safely, probes egress paths and reports usage to the cVPN control plane.",
   "scripts": {
     "start": "node src/index.js",
     "once": "node src/index.js --once"

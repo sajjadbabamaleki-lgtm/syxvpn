@@ -91,7 +91,7 @@ export function Lab() {
           <p>
             A lab shows that the software fails over correctly. It cannot show that a gateway
             will remain reachable during a real national disruption, and it cannot create an
-            egress path that does not exist. Jordan only ever routes through connectivity you
+            egress path that does not exist. cVPN only ever routes through connectivity you
             already have and are authorized to use.
           </p>
         </Card>

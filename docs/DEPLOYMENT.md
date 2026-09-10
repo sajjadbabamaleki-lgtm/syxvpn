@@ -106,13 +106,13 @@ TCP on 443 to an unknown IP is what gets throttled. Run both.
 Registration returns an agent key **once**. Then on the gateway host:
 
 ```sh
-docker run -d --name jordan-agent --restart unless-stopped \
+docker run -d --name cvpn-agent --restart unless-stopped \
   --network host \
-  -e JORDAN_URL=https://control.cvpn.pro \
-  -e JORDAN_GATEWAY_ID=gw_... \
-  -e JORDAN_AGENT_KEY=jga_... \
-  -v /var/lib/jordan-agent:/var/lib/jordan-agent \
-  jordan/agent:latest
+  -e CVPN_URL=https://control.cvpn.pro \
+  -e CVPN_GATEWAY_ID=gw_... \
+  -e CVPN_AGENT_KEY=jga_... \
+  -v /var/lib/cvpn-agent:/var/lib/cvpn-agent \
+  cvpn/agent:latest
 ```
 
 The agent fetches its configuration, tests it with `xray -test`, deploys it
@@ -165,7 +165,7 @@ newest `BACKUP_KEEP` (28, so about a week). `/admin/settings` lists them, takes
 one on demand, and downloads one.
 
 Snapshots use SQLite's `VACUUM INTO`, not a file copy. That matters: copying
-`jordan.db` by hand while the service is running produces a file that opens and
+`cvpn.db` by hand while the service is running produces a file that opens and
 is quietly missing the last few minutes, because the recent pages are still in
 the WAL.
 
@@ -196,10 +196,10 @@ cd /opt/cvpn
 docker compose -f deploy/docker-compose.yml stop api
 
 # Into the volume the API reads, under the name it expects.
-docker run --rm -v jordan_jordan-data:/data -v /opt/cvpn/backups:/backups:ro \
-  alpine sh -c 'cp /backups/jordan-20260910T041233Z.sqlite /data/jordan.db && \
-                rm -f /data/jordan.db-wal /data/jordan.db-shm && \
-                chown 1000:1000 /data/jordan.db'
+docker run --rm -v cvpn_cvpn-data:/data -v /opt/cvpn/backups:/backups:ro \
+  alpine sh -c 'cp /backups/cvpn-20260910T041233Z.sqlite /data/cvpn.db && \
+                rm -f /data/cvpn.db-wal /data/cvpn.db-shm && \
+                chown 1000:1000 /data/cvpn.db'
 
 docker compose -f deploy/docker-compose.yml start api
 docker compose -f deploy/docker-compose.yml logs -f api

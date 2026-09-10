@@ -8,7 +8,7 @@ COPY agent/package.json /app/package.json
 WORKDIR /app
 ENV XRAY_LOCATION_ASSET=/usr/local/share/xray \
     XRAY_BIN=/usr/local/bin/xray \
-    STATE_DIR=/var/lib/jordan-agent \
+    STATE_DIR=/var/lib/cvpn-agent \
     RELOAD_MODE=supervise
-RUN chmod +x /usr/local/bin/xray && mkdir -p /var/lib/jordan-agent
+RUN chmod +x /usr/local/bin/xray && mkdir -p /var/lib/cvpn-agent
 CMD ["node", "src/index.js"]

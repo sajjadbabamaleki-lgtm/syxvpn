@@ -15,7 +15,7 @@ import { EVENT, recordEvent } from '../domain/events.js';
  *
  * `VACUUM INTO` is the mechanism rather than copying the file. SQLite runs it
  * inside a read transaction, so the copy is consistent even while the control
- * plane is writing — copying `jordan.db` by hand while WAL has uncommitted
+ * plane is writing — copying `cvpn.db` by hand while WAL has uncommitted
  * pages produces a file that opens and is quietly missing the last minutes.
  * It also compacts, so a snapshot is smaller than the live database.
  *
@@ -24,8 +24,14 @@ import { EVENT, recordEvent } from '../domain/events.js';
  * copied off the machine — see docs/DEPLOYMENT.md.
  */
 
-/** `jordan-20260910T041233Z.sqlite` — sortable, and unambiguous across zones. */
-const NAME_SHAPE = /^jordan-\d{8}T\d{6}Z\.sqlite$/;
+/**
+ * `cvpn-20260910T041233Z.sqlite` — sortable, and unambiguous across zones.
+ *
+ * The old prefix is still recognised so that snapshots taken before the rename
+ * stay listed and downloadable. A backup you cannot find is not a backup, and
+ * the ones from before a rename are exactly the ones worth keeping.
+ */
+const NAME_SHAPE = /^(cvpn|jordan)-\d{8}T\d{6}Z\.sqlite$/;
 
 const stamp = (when) => new Date(when).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
 
@@ -80,7 +86,7 @@ export function pruneBackups(cfg = config) {
  */
 export function takeBackup(db, { cfg = config, now = Date.now(), reason = 'scheduled' } = {}) {
   fs.mkdirSync(cfg.backup.dir, { recursive: true });
-  const name = `jordan-${stamp(now)}.sqlite`;
+  const name = `cvpn-${stamp(now)}.sqlite`;
   const target = backupPath(name, cfg);
   const partial = `${target}.partial`;
   try {

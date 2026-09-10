@@ -27,9 +27,9 @@ test('client profile generation', async (t) => {
   });
 
   await t.test('carries the websocket host and path', () => {
-    const uri = clientProfile(gateway({ ws_path: '/jordan-ws', ws_host: 'cdn.example.net' }), clients[0].uuid);
+    const uri = clientProfile(gateway({ ws_path: '/cvpn-ws', ws_host: 'cdn.example.net' }), clients[0].uuid);
     const params = new URL(uri).searchParams;
-    assert.equal(params.get('path'), '/jordan-ws');
+    assert.equal(params.get('path'), '/cvpn-ws');
     assert.equal(params.get('host'), 'cdn.example.net');
     assert.equal(params.get('type'), 'ws');
     // The Host header is an HTTP-layer value; the TCP destination is unchanged.

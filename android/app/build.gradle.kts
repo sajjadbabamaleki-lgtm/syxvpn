@@ -13,13 +13,13 @@ plugins {
  * The keystore never enters the repository. Put its details in
  * `android/keystore.properties` (git-ignored):
  *
- *     storeFile=/absolute/path/jordan-release.jks
+ *     storeFile=/absolute/path/cvpn-release.jks
  *     storePassword=...
- *     keyAlias=jordan
+ *     keyAlias=cvpn
  *     keyPassword=...
  *
- * or set JORDAN_KEYSTORE / JORDAN_KEYSTORE_PASSWORD / JORDAN_KEY_ALIAS /
- * JORDAN_KEY_PASSWORD in the environment for a CI build. With neither present
+ * or set CVPN_KEYSTORE / CVPN_KEYSTORE_PASSWORD / CVPN_KEY_ALIAS /
+ * CVPN_KEY_PASSWORD in the environment for a CI build. With neither present
  * the release build still runs and is simply left unsigned, so a debug build
  * never fails because of a missing key.
  */
@@ -28,7 +28,7 @@ val keystoreProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val keystorePath: String? = (keystoreProperties.getProperty("storeFile")
-    ?: System.getenv("JORDAN_KEYSTORE"))?.takeIf { it.isNotBlank() }
+    ?: System.getenv("CVPN_KEYSTORE"))?.takeIf { it.isNotBlank() }
 
 /**
  * The Xray runtime is not vendored here: libXray is a large native artifact
@@ -41,11 +41,11 @@ val xrayAars = fileTree("libs") { include("*.aar") }
 val hasXrayRuntime = !xrayAars.isEmpty
 
 android {
-    namespace = "net.jordanvpn.app"
+    namespace = "pro.cvpn.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "net.jordanvpn.app"
+        applicationId = "pro.cvpn.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -68,7 +68,7 @@ android {
         buildConfigField(
             "String",
             "CONTROL_PLANE_URLS",
-            "\"" + (System.getenv("JORDAN_CONTROL_PLANE_URLS")
+            "\"" + (System.getenv("CVPN_CONTROL_PLANE_URLS")
                 ?: "https://control.cvpn.pro") + "\"",
         )
 
@@ -94,7 +94,7 @@ android {
         // These are the published Android debug credentials, not a secret: they
         // are the same on every machine that has ever built a debug APK, and
         // they never sign a release. Unset, the toolchain's own default is used.
-        System.getenv("JORDAN_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
+        System.getenv("CVPN_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
             getByName("debug") {
                 storeFile = file(path)
                 storePassword = "android"
@@ -106,11 +106,11 @@ android {
             create("release") {
                 storeFile = file(keystorePath)
                 storePassword = keystoreProperties.getProperty("storePassword")
-                    ?: System.getenv("JORDAN_KEYSTORE_PASSWORD")
+                    ?: System.getenv("CVPN_KEYSTORE_PASSWORD")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
-                    ?: System.getenv("JORDAN_KEY_ALIAS")
+                    ?: System.getenv("CVPN_KEY_ALIAS")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
-                    ?: System.getenv("JORDAN_KEY_PASSWORD")
+                    ?: System.getenv("CVPN_KEY_PASSWORD")
             }
         }
     }

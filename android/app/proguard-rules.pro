@@ -28,7 +28,7 @@
 -dontwarn org.checkerframework.**
 
 # The VpnService is started by the system from the manifest.
--keep class net.jordanvpn.app.vpn.JordanVpnService { *; }
+-keep class pro.cvpn.app.vpn.TunnelService { *; }
 
 # libXray is a gomobile binding, and gomobile's Go side calls back into Java
 # through JNI — GetMethodID with a literal name and signature. R8 cannot see a

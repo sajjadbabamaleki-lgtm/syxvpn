@@ -34,7 +34,12 @@ export function createApp({ db, startedAt = Date.now(), cfg = config, watcher = 
     origin: cfg.corsOrigins.length ? cfg.corsOrigins : true,
     credentials: false,
     // The dashboard sends a bearer token; agents send signed headers.
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-jordan-gateway', 'x-jordan-timestamp', 'x-jordan-nonce', 'x-jordan-signature'],
+    allowedHeaders: [
+      'Content-Type', 'Authorization',
+      'x-cvpn-gateway', 'x-cvpn-timestamp', 'x-cvpn-nonce', 'x-cvpn-signature',
+      // An agent that has not been upgraded yet still signs with the old names.
+      'x-jordan-gateway', 'x-jordan-timestamp', 'x-jordan-nonce', 'x-jordan-signature',
+    ],
     exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Subscription-Userinfo'],
   }));
 

@@ -300,7 +300,7 @@ test('checking a REALITY gateway from outside', async (t) => {
 
 /** A throwaway certificate, which is exactly what must NOT verify. */
 function selfSigned() {
-  const dir = mkdtempSync(join(tmpdir(), 'jordan-tls-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cvpn-tls-'));
   const keyPath = join(dir, 'key.pem');
   const certPath = join(dir, 'cert.pem');
   execFileSync('openssl', [

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { shop } from '../lib/shopApi.js';
 import { Button, Field } from '../components/ui.jsx';
+import { Logo } from '../components/Logo.jsx';
 
 /** One screen for both sign in and sign up; a phone keyboard is enough. */
 export function Auth({ onDone }) {
@@ -30,9 +31,9 @@ export function Auth({ onDone }) {
   return (
     <div className="login">
       <div className="login-brand">
-        <div className="mark">J</div>
+        <Logo size={40} className="mark-logo" />
         <div>
-          <h1>JORDAN</h1>
+          <h1>cVPN</h1>
           <p>{mode === 'signin' ? 'Sign in to your account' : 'Create an account'}</p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-# Jordan VPN — Android client
+# cVPN — Android client
 
 This is the app that can do what the browser cannot: open the tunnel itself.
 
@@ -89,7 +89,7 @@ refuses a second instance outright.
 libXray states that it does not guarantee API stability. If a future release
 renames a method, the compile breaks in `LibXrayBridge.kt` and nowhere else.
 
-## How it fits the rest of Jordan
+## How it fits the rest of cVPN
 
 ```
 customer buys on the web storefront  ──▶  control plane provisions a subscription
@@ -358,9 +358,9 @@ and each run gets a fresh runner — so each APK would carry a different signatu
 and Android refuses to install an update signed by a different key: every new
 build would have to be installed over an *uninstalled* app, losing its settings.
 
-So the workflow keeps the key itself: it creates `~/.jordan-debug-key/debug.keystore`
+So the workflow keeps the key itself: it creates `~/.cvpn-debug-key/debug.keystore`
 when the cache has none, caches that directory under a fixed name, and passes the
-path to Gradle as `JORDAN_DEBUG_KEYSTORE`, which `app/build.gradle.kts` uses as
+path to Gradle as `CVPN_DEBUG_KEYSTORE`, which `app/build.gradle.kts` uses as
 the debug signing config. The toolchain's own default location is deliberately
 not cached — it moves with the platform and the SDK preference directory, and a
 first attempt at caching it saved nothing while appearing to succeed.
@@ -371,7 +371,7 @@ unused for a week; when that happens the next build starts a new identity, the
 digest changes, and that one APK needs the old app removed first.
 
 This is the ordinary Android debug key, with the well-known password. It never
-signs a release: that path is `keystore.properties` or the `JORDAN_KEYSTORE*`
+signs a release: that path is `keystore.properties` or the `CVPN_KEYSTORE*`
 variables, and nothing about it is in this repository.
 
 ## Build (on a machine with the Android SDK)
@@ -408,7 +408,7 @@ from services.gradle.org over TLS; verify it if you like:
     sha256  gradle/wrapper/gradle-wrapper.jar
             2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
 
-A debug build installs as `net.jordanvpn.app.debug`, so it can sit next to a
+A debug build installs as `pro.cvpn.app.debug`, so it can sit next to a
 release build on the same phone.
 
 ### Signing a release
@@ -416,13 +416,13 @@ release build on the same phone.
 The keystore never enters the repository. Either write
 `android/keystore.properties` (git-ignored):
 
-    storeFile=/absolute/path/jordan-release.jks
+    storeFile=/absolute/path/cvpn-release.jks
     storePassword=...
-    keyAlias=jordan
+    keyAlias=cvpn
     keyPassword=...
 
-or set `JORDAN_KEYSTORE`, `JORDAN_KEYSTORE_PASSWORD`, `JORDAN_KEY_ALIAS` and
-`JORDAN_KEY_PASSWORD` for a CI build. With neither present the release build
+or set `CVPN_KEYSTORE`, `CVPN_KEYSTORE_PASSWORD`, `CVPN_KEY_ALIAS` and
+`CVPN_KEY_PASSWORD` for a CI build. With neither present the release build
 still runs and is simply left unsigned, so a debug build never fails over a
 missing key.
 
@@ -433,8 +433,8 @@ are ordinary Kotlin can — and they are the parts where a quiet mistake is
 expensive, since a wrong amount does not settle an order:
 
 ```sh
-kotlinc android/app/src/main/java/net/jordanvpn/app/core/SupportContact.kt \
-        android/app/src/main/java/net/jordanvpn/app/ui/Format.kt \
+kotlinc android/app/src/main/java/pro/cvpn/app/core/SupportContact.kt \
+        android/app/src/main/java/pro/cvpn/app/ui/Format.kt \
         android/tools/PureLogicChecks.kt -include-runtime -d /tmp/checks.jar
 java -jar /tmp/checks.jar
 ```
@@ -451,8 +451,8 @@ curl -sSLo /tmp/json.jar \
   https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
 kotlinc -cp /tmp/json.jar \
   android/tools/UriStub.kt \
-  android/app/src/main/java/net/jordanvpn/app/core/VlessProfile.kt \
-  android/app/src/main/java/net/jordanvpn/app/core/XrayConfigBuilder.kt \
+  android/app/src/main/java/pro/cvpn/app/core/VlessProfile.kt \
+  android/app/src/main/java/pro/cvpn/app/core/XrayConfigBuilder.kt \
   android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
 java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
 xray -test -config /tmp/xray.json          # any xray binary, e.g. lab/bin/xray
@@ -469,8 +469,8 @@ gomobile expects a `Long`:
 
 ```sh
 kotlinc -cp /tmp/json.jar android/tools/stubs/*.kt \
-  android/app/src/main/java/net/jordanvpn/app/vpn/XrayBridge.kt \
-  android/app/src/xray/java/net/jordanvpn/app/vpn/LibXrayBridge.kt -d /tmp/bridge
+  android/app/src/main/java/pro/cvpn/app/vpn/XrayBridge.kt \
+  android/app/src/xray/java/pro/cvpn/app/vpn/LibXrayBridge.kt -d /tmp/bridge
 ```
 
 It cannot prove the AAR you build exports exactly that — libXray does not
@@ -539,7 +539,7 @@ counters stay at zero.
 | `data/SubscriptionRepository.kt` | Refresh-then-fallback profile loading |
 | `core/VlessProfile.kt` | Parses `vless://` — first hop only |
 | `core/XrayConfigBuilder.kt` | Client config, with the control plane routed direct |
-| `vpn/JordanVpnService.kt` | TUN setup, foreground service, lifecycle |
+| `vpn/TunnelService.kt` | TUN setup, foreground service, lifecycle |
 | `vpn/XrayBridge.kt` | The seam the runtime plugs into, and socket protection |
 | `src/xray/.../LibXrayBridge.kt` | The real runtime: libXray's Invoke API, metrics counters |
 | `src/noxray/.../NotWiredXrayBridge.kt` | Compiled when no AAR is present; refuses to start, and says why |

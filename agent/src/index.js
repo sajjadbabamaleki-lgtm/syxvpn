@@ -208,7 +208,7 @@ async function safely(name, fn) {
 }
 
 async function main() {
-  log.info('jordan gateway agent starting', {
+  log.info('cvpn gateway agent starting', {
     gatewayId: cfg.gatewayId,
     controlPlane: cfg.controlPlaneUrl,
     reloadMode: cfg.reloadMode,

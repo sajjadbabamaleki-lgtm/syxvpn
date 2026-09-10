@@ -33,7 +33,7 @@ function httpGet(socket) {
   // HTTP/1.0 keeps the response unchunked, so the body prints verbatim.
   socket.write(
     `GET ${target.pathname}${target.search} HTTP/1.0\r\nHost: ${target.hostname}\r\n` +
-    'Connection: close\r\nUser-Agent: jordan-lab-probe\r\n\r\n',
+    'Connection: close\r\nUser-Agent: cvpn-lab-probe\r\n\r\n',
   );
 }
 

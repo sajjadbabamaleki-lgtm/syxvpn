@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Runs the Jordan blackout lab end to end and tears it down afterwards.
+# Runs the cVPN blackout lab end to end and tears it down afterwards.
 # Requires docker (with compose v2) and node 22+.
 set -euo pipefail
 

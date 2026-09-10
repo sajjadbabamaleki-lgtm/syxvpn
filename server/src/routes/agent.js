@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
 import { ok } from '../lib/respond.js';
-import { requireAgent } from '../auth/agent.js';
+import { requireAgent, agentHeader } from '../auth/agent.js';
 import { buildGatewayConfig, egressProbePlan, recordDeployment } from '../domain/gateways.js';
 import { decryptSecrets } from '../domain/egresses.js';
 import { applyAgentEgressHealth } from '../domain/health.js';
@@ -70,7 +70,7 @@ export function agentRoutes({ db }) {
   const router = Router();
   router.use(createRateLimiter({
     ...config.rateLimit.agent,
-    keyFn: (req) => `agent:${req.get('x-jordan-gateway') || 'unknown'}`,
+    keyFn: (req) => `agent:${agentHeader(req, 'gateway') || 'unknown'}`,
   }));
   router.use(requireAgent(db));
 

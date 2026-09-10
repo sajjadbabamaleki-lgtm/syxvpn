@@ -1,4 +1,4 @@
-# Jordan gateway agent
+# cVPN gateway agent
 
 Runs on a gateway host next to Xray. It is the only component that holds
 data-plane secrets, and the only one that touches the Xray configuration file.
@@ -69,10 +69,10 @@ be rotated from the dashboard.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `JORDAN_URL` | — | Control-plane base URL (required) |
-| `JORDAN_GATEWAY_ID` | — | Gateway id from registration (required) |
-| `JORDAN_AGENT_KEY` | — | Agent key issued at registration (required) |
-| `STATE_DIR` | `/var/lib/jordan-agent` | Where config and last-known-good live |
+| `CVPN_URL` | — | Control-plane base URL (required) |
+| `CVPN_GATEWAY_ID` | — | Gateway id from registration (required) |
+| `CVPN_AGENT_KEY` | — | Agent key issued at registration (required) |
+| `STATE_DIR` | `/var/lib/cvpn-agent` | Where config and last-known-good live |
 | `XRAY_BIN` | `xray` | Path to the Xray binary |
 | `XRAY_CONFIG_PATH` | `$STATE_DIR/xray.json` | Active configuration file |
 | `RELOAD_MODE` | `supervise` | `supervise` (agent runs Xray) or `command` |

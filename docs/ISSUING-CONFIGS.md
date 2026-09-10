@@ -64,7 +64,7 @@ Adding a user to Xray normally means rewriting the config and restarting it,
 which drops every connection on that gateway. Issuing a hundred configs a day
 that way would mean a hundred interruptions.
 
-Jordan splits a gateway's configuration into its structure (inbound, outbounds,
+cVPN splits a gateway's configuration into its structure (inbound, outbounds,
 routing) and its client list. When only the client list changed, the agent
 applies it through Xray's API — `xray api adu` / `rmu` — and rewrites the config
 file without restarting. A batch of a hundred is one API call and zero dropped

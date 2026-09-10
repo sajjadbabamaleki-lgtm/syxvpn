@@ -3,6 +3,7 @@ import { auth } from './lib/api.js';
 import { customer, shop } from './lib/shopApi.js';
 import { useRoute, match, navigate } from './lib/router.js';
 import { Icon } from './components/Icon.jsx';
+import { Logo } from './components/Logo.jsx';
 
 // Customer app — the two screens almost everyone uses.
 import { Auth } from './shop/Auth.jsx';
@@ -114,9 +115,9 @@ function AdminApp({ path }) {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="mark">J</span>
+          <Logo size={22} className="mark-logo" />
           <div>
-            <strong>JORDAN</strong>
+            <strong>cVPN</strong>
             <span className="screen-title">{screen.title}</span>
           </div>
         </div>
@@ -153,9 +154,9 @@ function CustomerApp({ path }) {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <span className="mark">J</span>
+          <Logo size={22} className="mark-logo" />
           <div>
-            <strong>JORDAN</strong>
+            <strong>cVPN</strong>
             <span className="screen-title">{screen.title}</span>
           </div>
         </div>

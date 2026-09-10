@@ -20,12 +20,17 @@ function resolveKeyMaterial() {
       code: 'CONFIG_INVALID',
     });
   }
-  const file = config.dbPath === ':memory:'
-    ? null
-    : path.join(path.dirname(path.resolve(config.dbPath)), '.jordan-secret-key');
+  const dir = config.dbPath === ':memory:' ? null : path.dirname(path.resolve(config.dbPath));
+  const file = dir && path.join(dir, '.cvpn-secret-key');
   if (!file) return crypto.randomBytes(32).toString('base64');
   try {
     return fs.readFileSync(file, 'utf8').trim();
+  } catch { /* not there yet, or it is still under its old name */ }
+  try {
+    // Development only, and only until this file is renamed: generating a new
+    // key instead of finding the old one would make every sealed token in that
+    // database unreadable.
+    return fs.readFileSync(path.join(dir, '.jordan-secret-key'), 'utf8').trim();
   } catch {
     const generated = crypto.randomBytes(32).toString('base64');
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -38,6 +43,10 @@ function resolveKeyMaterial() {
 let cachedKey = null;
 function key() {
   if (!cachedKey) {
+    // The salt stays as it is, and is the one name in this repository that
+    // cannot be changed. It is an input to the key that every sealed
+    // subscription token was encrypted with: rename it and the ciphertexts do
+    // not become wrong, they become undecryptable, with nothing to say why.
     cachedKey = crypto.scryptSync(resolveKeyMaterial(), 'jordan-secretbox-v1', 32);
   }
   return cachedKey;

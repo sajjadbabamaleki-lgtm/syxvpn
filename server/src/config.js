@@ -25,7 +25,7 @@ export function loadConfig(env = process.env) {
     isProd,
     port: int(env.PORT, 8787),
     host: env.HOST || '0.0.0.0',
-    dbPath: env.DB_PATH || 'jordan.db',
+    dbPath: env.DB_PATH || 'cvpn.db',
     logLevel: env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
 
     // Public base URL used when rendering subscription links for operators.

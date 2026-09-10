@@ -45,10 +45,10 @@ export async function startTestServer() {
     const signed = signRequest({ key, method, path, body: payload });
     const headers = {
       'content-type': 'application/json',
-      'x-jordan-gateway': gatewayId,
-      'x-jordan-timestamp': String(signed.timestamp),
-      'x-jordan-nonce': signed.nonce,
-      'x-jordan-signature': signed.signature,
+      'x-cvpn-gateway': gatewayId,
+      'x-cvpn-timestamp': String(signed.timestamp),
+      'x-cvpn-nonce': signed.nonce,
+      'x-cvpn-signature': signed.signature,
       ...overrides,
     };
     const res = await fetch(base + path, { method, headers, ...(payload ? { body: payload } : {}) });

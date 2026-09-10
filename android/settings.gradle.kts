@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "JordanVPN"
+rootProject.name = "cVPN"
 include(":app")

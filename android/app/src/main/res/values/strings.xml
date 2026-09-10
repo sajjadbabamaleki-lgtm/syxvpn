@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Jordan VPN</string>
+    <string name="app_name">cVPN</string>
     <string name="notification_channel">Tunnel status</string>
 </resources>

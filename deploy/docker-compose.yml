@@ -1,4 +1,4 @@
-name: jordan
+name: cvpn
 
 # Control plane and web app. Put a TLS reverse proxy in front of both; see
 # deploy/Caddyfile.example.
@@ -14,7 +14,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8787
-      DB_PATH: /data/jordan.db
+      DB_PATH: /data/cvpn.db
       LOG_LEVEL: ${LOG_LEVEL:-info}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
@@ -37,7 +37,7 @@ services:
       TRON_API_KEY: ${TRON_API_KEY:-}
       PAYMENT_CONFIRMATIONS: ${PAYMENT_CONFIRMATIONS:-19}
     volumes:
-      - jordan-data:/data
+      - cvpn-data:/data
       # Every credential in the fleet ends up in here. Keep it 0700 and copy it
       # somewhere off this machine — see docs/DEPLOYMENT.md.
       - ${BACKUP_HOST_DIR:-./backups}:/backups
@@ -64,4 +64,4 @@ services:
       - api
 
 volumes:
-  jordan-data:
+  cvpn-data:

@@ -1,5 +1,5 @@
-import net.jordanvpn.app.core.VlessProfile
-import net.jordanvpn.app.core.XrayConfigBuilder
+import pro.cvpn.app.core.VlessProfile
+import pro.cvpn.app.core.XrayConfigBuilder
 
 /**
  * Prints the Xray config the app would build, so real Xray-core can judge it.
@@ -13,8 +13,8 @@ import net.jordanvpn.app.core.XrayConfigBuilder
  *       https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
  *     kotlinc -cp /tmp/json.jar \
  *       android/tools/UriStub.kt \
- *       android/app/src/main/java/net/jordanvpn/app/core/VlessProfile.kt \
- *       android/app/src/main/java/net/jordanvpn/app/core/XrayConfigBuilder.kt \
+ *       android/app/src/main/java/pro/cvpn/app/core/VlessProfile.kt \
+ *       android/app/src/main/java/pro/cvpn/app/core/XrayConfigBuilder.kt \
  *       android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
  *     java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
  *     xray -test -config /tmp/xray.json

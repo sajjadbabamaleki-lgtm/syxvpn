@@ -12,7 +12,7 @@ import { config } from '../src/config.js';
 
 /** A configuration pointing at a directory this test owns and can delete. */
 function sandbox(t, overrides = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jordan-backup-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cvpn-backup-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return { backup: { enabled: true, dir, intervalHours: 6, keep: 3, ...overrides } };
 }
@@ -80,12 +80,12 @@ test('database snapshots', async (t) => {
   await t.test('a half-written snapshot never appears as one', () => {
     const cfg = sandbox(t);
     // What a full disk or a killed container leaves behind.
-    fs.writeFileSync(path.join(cfg.backup.dir, 'jordan-20260101T000000Z.sqlite.partial'), 'truncated');
+    fs.writeFileSync(path.join(cfg.backup.dir, 'cvpn-20260101T000000Z.sqlite.partial'), 'truncated');
     assert.deepEqual(listBackups(cfg), [], 'a .partial is not restorable and is not listed');
   });
 
   await t.test('a directory that does not exist yet reads as no backups, not as an error', () => {
-    const cfg = { backup: { enabled: true, dir: '/tmp/jordan-backup-never-created-xyz', keep: 3, intervalHours: 6 } };
+    const cfg = { backup: { enabled: true, dir: '/tmp/cvpn-backup-never-created-xyz', keep: 3, intervalHours: 6 } };
     assert.deepEqual(listBackups(cfg), []);
   });
 
@@ -110,16 +110,26 @@ test('database snapshots', async (t) => {
     assert.equal(events[0].severity, 'critical');
   });
 
+  await t.test('snapshots taken before the rename are still listed', () => {
+    // A backup you cannot find is not a backup, and the ones from before a
+    // rename are exactly the ones worth keeping.
+    const cfg = sandbox(t);
+    const entry = takeBackup(ctx.db, { cfg });
+    fs.renameSync(backupPath(entry.name, cfg), backupPath('jordan-20250101T000000Z.sqlite', cfg));
+    assert.deepEqual(listBackups(cfg).map((e) => e.name), ['jordan-20250101T000000Z.sqlite']);
+  });
+
   await t.test('names this service did not write are not names it will serve', () => {
-    assert.ok(isBackupName('jordan-20260910T041233Z.sqlite'));
+    assert.ok(isBackupName('cvpn-20260910T041233Z.sqlite'));
+    assert.ok(isBackupName('jordan-20260910T041233Z.sqlite'), 'taken before the rename');
     for (const bad of [
       '../../etc/passwd',
-      '..%2f..%2fjordan.db',
-      'jordan.db',
-      'jordan-20260910T041233Z.sqlite.partial',
-      'jordan-2026Z.sqlite',
+      '..%2f..%2fcvpn.db',
+      'cvpn.db',
+      'cvpn-20260910T041233Z.sqlite.partial',
+      'cvpn-2026Z.sqlite',
       '',
-      'jordan-20260910T041233Z.sqlite/../../x',
+      'cvpn-20260910T041233Z.sqlite/../../x',
     ]) {
       assert.ok(!isBackupName(bad), bad);
     }
@@ -131,7 +141,7 @@ test('the backup API', async (t) => {
   t.after(() => ctx.close());
   const token = await ctx.login();
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jordan-backup-api-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cvpn-backup-api-'));
   const original = { ...config.backup };
   Object.assign(config.backup, { enabled: true, dir, intervalHours: 6, keep: 3 });
   t.after(() => {
@@ -176,7 +186,7 @@ test('the backup API', async (t) => {
   });
 
   await t.test('refuses a name that is a path', async () => {
-    for (const bad of ['..%2f..%2fetc%2fpasswd', 'jordan.db', 'nonexistent-20260101T000000Z.sqlite']) {
+    for (const bad of ['..%2f..%2fetc%2fpasswd', 'cvpn.db', 'nonexistent-20260101T000000Z.sqlite']) {
       const res = await ctx.request('GET', `/api/v1/backups/${bad}`, { token });
       assert.equal(res.status, 404, bad);
     }

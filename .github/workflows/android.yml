@@ -145,7 +145,7 @@ jobs:
       # signed by a different key: every build would demand that the previous one
       # be uninstalled first, taking its settings with it. So the key is kept in
       # a directory of this workflow's own, cached under a fixed name, and the
-      # build is pointed at it through JORDAN_DEBUG_KEYSTORE.
+      # build is pointed at it through CVPN_DEBUG_KEYSTORE.
       #
       # The toolchain's own default location is not used, because it is not one
       # location: it moves with the platform and the SDK's preference directory,
@@ -154,25 +154,25 @@ jobs:
       #
       # This is the ordinary Android debug key — the published password, never
       # used for a release. Release signing is separate and comes from
-      # keystore.properties or the JORDAN_KEYSTORE* variables, and nothing about
+      # keystore.properties or the CVPN_KEYSTORE* variables, and nothing about
       # it is in this repository.
       - name: Restore the debug signing key
         uses: actions/cache@v4
         with:
-          path: ~/.jordan-debug-key
+          path: ~/.cvpn-debug-key
           key: android-debug-keystore-v2
 
       - name: Create the debug key if there was none to restore
         run: |
-          mkdir -p ~/.jordan-debug-key
-          store=~/.jordan-debug-key/debug.keystore
+          mkdir -p ~/.cvpn-debug-key
+          store=~/.cvpn-debug-key/debug.keystore
           if [ ! -f "$store" ]; then
             keytool -genkeypair -v -keystore "$store" \
               -storepass android -keypass android -alias androiddebugkey \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -dname 'CN=Android Debug,O=Android,C=US'
           fi
-          echo "JORDAN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
+          echo "CVPN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
 
       # Unit tests first: they are the only thing in this pipeline that can fail
       # on a mistake the compiler is happy with — an icon path the renderer
@@ -288,7 +288,7 @@ jobs:
             out="app/build/outputs/apk/release-test/cvpn-$base-release-TEST-SIGNED.apk"
             "$tools/zipalign" -p -f 4 "$apk" "$out.tmp"
             "$tools/apksigner" sign \
-              --ks "$JORDAN_DEBUG_KEYSTORE" --ks-pass pass:android \
+              --ks "$CVPN_DEBUG_KEYSTORE" --ks-pass pass:android \
               --ks-key-alias androiddebugkey --key-pass pass:android \
               --out "$out" "$out.tmp"
             rm -f "$out.tmp" "$out.idsig"
@@ -318,21 +318,21 @@ jobs:
       - name: Attach the universal APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: jordan-vpn-debug-apk-universal
+          name: cvpn-vpn-debug-apk-universal
           path: android/app/build/outputs/apk/debug/*universal*.apk
           if-no-files-found: error
 
       - name: Attach the arm64 APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: jordan-vpn-debug-apk-arm64-v8a
+          name: cvpn-vpn-debug-apk-arm64-v8a
           path: android/app/build/outputs/apk/debug/*arm64-v8a*.apk
           if-no-files-found: error
 
       - name: Attach the armeabi-v7a APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: jordan-vpn-debug-apk-armeabi-v7a
+          name: cvpn-vpn-debug-apk-armeabi-v7a
           path: android/app/build/outputs/apk/debug/*armeabi-v7a*.apk
           if-no-files-found: error
 

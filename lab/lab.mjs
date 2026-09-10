@@ -88,7 +88,7 @@ async function main() {
   await fs.mkdir(STATE, { recursive: true });
   await fs.rm(path.join(STATE, 'client.json'), { force: true });
 
-  log('\n=== Jordan blackout lab ===\n');
+  log('\n=== cVPN blackout lab ===\n');
 
   if (process.env.LAB_SKIP_BUILD === '1') {
     log('· LAB_SKIP_BUILD=1, using existing images');
@@ -168,7 +168,7 @@ async function main() {
     log: { loglevel: 'warning' },
     inbounds: [{ tag: 'socks-in', listen: '127.0.0.1', port: 1080, protocol: 'socks', settings: { auth: 'noauth', udp: false } }],
     outbounds: [{
-      tag: 'jordan',
+      tag: 'cvpn',
       protocol: 'vless',
       settings: { vnext: [{ address: uri.hostname, port: Number(uri.port), users: [{ id: uri.username, encryption: 'none' }] }] },
       streamSettings: {
@@ -190,14 +190,14 @@ async function main() {
   // --- scenario 1: baseline -------------------------------------------------
   const baseline = await waitFor('first successful tunnel request', async () => {
     const r = await throughTunnel();
-    return r.stdout.includes('jordan-origin-ok') ? r : false;
+    return r.stdout.includes('cvpn-origin-ok') ? r : false;
   }, { timeoutMs: 40000 });
   record('S1', 'Baseline: client reaches the origin through the gateway', true, baseline.stdout);
 
   // --- scenario 2: the client has no direct path ---------------------------
   const directResult = await direct();
   record('S2', 'Client has no direct route to the test internet',
-    !directResult.stdout.includes('jordan-origin-ok'),
+    !directResult.stdout.includes('cvpn-origin-ok'),
     `exit ${directResult.code}, output ${JSON.stringify(directResult.stdout.slice(0, 80))}`);
 
   // --- scenario 3: ingress reachability ------------------------------------
@@ -227,11 +227,11 @@ async function main() {
   // --- scenario 7: traffic recovers on the backup --------------------------
   const recovered = await waitFor('client traffic to recover on the backup path', async () => {
     const r = await throughTunnel();
-    return r.stdout.includes('jordan-origin-ok') ? r : false;
+    return r.stdout.includes('cvpn-origin-ok') ? r : false;
   }, { timeoutMs: 60000 });
   const egressBLog = await compose(['logs', '--tail', '20', 'egress-b']);
   record('S7', 'Client traffic recovers over the backup egress',
-    recovered.stdout.includes('jordan-origin-ok') && /socks-in/.test(egressBLog.stdout),
+    recovered.stdout.includes('cvpn-origin-ok') && /socks-in/.test(egressBLog.stdout),
     'egress-b carried the request');
 
   // --- scenario 5: no usable egress at all ---------------------------------
@@ -248,7 +248,7 @@ async function main() {
 
   const blocked = await waitFor('client traffic to stop once no egress is usable', async () => {
     const r = await throughTunnel();
-    return r.stdout.includes('jordan-origin-ok') ? false : r;
+    return r.stdout.includes('cvpn-origin-ok') ? false : r;
   }, { timeoutMs: 60000 });
   record('S5b', 'With no usable egress the gateway fails closed', true,
     `client request no longer completes (exit ${blocked.code})`);
@@ -260,7 +260,7 @@ async function main() {
     const route = await routeFor(gateway.id);
     if (route.egress?.id !== egressA.id) return false;
     const r = await throughTunnel();
-    return r.stdout.includes('jordan-origin-ok') ? route : false;
+    return r.stdout.includes('cvpn-origin-ok') ? route : false;
   }, { timeoutMs: 90000 });
   record('S8', 'Primary egress recovery restores the original route', true,
     `active egress ${restored.egress.name}, state ${restored.state}`);

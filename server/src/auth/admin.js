@@ -21,7 +21,7 @@ export function ensureBootstrapAdmin(db, cfg = config) {
   if (cfg.admin.generatedPassword) {
     // Development only: the operator has no other way to learn this value.
     process.stdout.write(
-      `\n  Jordan control plane bootstrap admin\n    username: ${cfg.admin.username}\n    password: ${cfg.admin.password}\n  (development only — set ADMIN_PASSWORD to pin it)\n\n`,
+      `\n  cVPN control plane bootstrap admin\n    username: ${cfg.admin.username}\n    password: ${cfg.admin.password}\n  (development only — set ADMIN_PASSWORD to pin it)\n\n`,
     );
   }
   logger.info('bootstrap admin created', { username: cfg.admin.username });

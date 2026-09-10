@@ -25,11 +25,31 @@ export function signRequest({ key, method, path, body }) {
 }
 
 export const HEADERS = {
+  gateway: 'x-cvpn-gateway',
+  timestamp: 'x-cvpn-timestamp',
+  nonce: 'x-cvpn-nonce',
+  signature: 'x-cvpn-signature',
+};
+
+/**
+ * What these headers used to be called.
+ *
+ * The control plane is upgraded before the agents on the gateways are — that is
+ * the order deploying anything takes — so for one release it answers to both.
+ * Without this, renaming the headers would take every gateway offline the
+ * moment the control plane restarted, and the fix would have to be applied by
+ * hand on machines that had just stopped being reachable through the console.
+ *
+ * Remove once no gateway is running an agent older than this change.
+ */
+const LEGACY_HEADERS = {
   gateway: 'x-jordan-gateway',
   timestamp: 'x-jordan-timestamp',
   nonce: 'x-jordan-nonce',
   signature: 'x-jordan-signature',
 };
+
+export const agentHeader = (req, name) => req.get(HEADERS[name]) || req.get(LEGACY_HEADERS[name]);
 
 export function issueAgentKey(db, gatewayId) {
   const key = `jga_${randomToken(24)}`;
@@ -45,10 +65,10 @@ function sweepNonces(db, now) {
 /** Express middleware: verifies a signed gateway-agent request. */
 export function requireAgent(db, cfg = config) {
   return (req, _res, next) => {
-    const gatewayId = req.get(HEADERS.gateway);
-    const timestamp = Number(req.get(HEADERS.timestamp));
-    const nonce = req.get(HEADERS.nonce);
-    const signature = req.get(HEADERS.signature);
+    const gatewayId = agentHeader(req, 'gateway');
+    const timestamp = Number(agentHeader(req, 'timestamp'));
+    const nonce = agentHeader(req, 'nonce');
+    const signature = agentHeader(req, 'signature');
     if (!gatewayId || !nonce || !signature || !Number.isFinite(timestamp)) {
       return next(unauthorized('Signed agent request required'));
     }

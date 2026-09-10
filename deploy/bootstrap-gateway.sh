@@ -173,23 +173,27 @@ echo "issued"
 
 # --------------------------------------------------------------------- agent
 say "Building the agent image (it carries the Xray binary)"
-docker build -t jordan-agent "$REPO/agent" >/dev/null || die "agent image build failed"
+docker build -t cvpn-agent "$REPO/agent" >/dev/null || die "agent image build failed"
 
 say "Starting the agent"
-CONTAINER=jordan-agent-$GATEWAY_NAME
+CONTAINER=cvpn-agent-$GATEWAY_NAME
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-ENV_FILE=/etc/jordan-agent-$GATEWAY_NAME.env
+# The container this replaces, from before the rename. It runs on the host
+# network and would still be talking to the control plane beside its
+# replacement, reporting health for the same gateway from two processes.
+docker rm -f "jordan-agent-$GATEWAY_NAME" >/dev/null 2>&1 || true
+ENV_FILE=/etc/cvpn-agent-$GATEWAY_NAME.env
 # The umask is scoped to this file. Left set for the rest of the script it also
 # made the Caddy block root-only, which validate (run as root) accepted and the
 # caddy user could not read — a reload failure that looked like a bad config.
 (umask 077; cat > "$ENV_FILE" <<ENV
-JORDAN_URL=$CONTROL_URL
-JORDAN_GATEWAY_ID=$GW
-JORDAN_AGENT_KEY=$AGENT_KEY
+CVPN_URL=$CONTROL_URL
+CVPN_GATEWAY_ID=$GW
+CVPN_AGENT_KEY=$AGENT_KEY
 ENV
 )
 docker run -d --name "$CONTAINER" --restart unless-stopped --network host \
-  --env-file "$ENV_FILE" -v "jordan-agent-$GATEWAY_NAME:/var/lib/jordan-agent" jordan-agent >/dev/null \
+  --env-file "$ENV_FILE" -v "cvpn-agent-$GATEWAY_NAME:/var/lib/cvpn-agent" cvpn-agent >/dev/null \
   || die "the agent container did not start"
 echo "running — key is in $ENV_FILE (root only)"
 

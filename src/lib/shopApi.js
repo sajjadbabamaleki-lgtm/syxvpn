@@ -1,12 +1,15 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const TOKEN_KEY = 'jordan.customer';
+const TOKEN_KEY = 'cvpn.customer';
+// What it was called. Read once so a rename does not sign every customer out
+// of the account they paid for.
+const LEGACY_TOKEN_KEY = 'jordan.customer';
 
 let session = read();
 const listeners = new Set();
 
 function read() {
   try {
-    const raw = localStorage.getItem(TOKEN_KEY);
+    const raw = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.token || new Date(parsed.expiresAt).getTime() <= Date.now()) return null;
