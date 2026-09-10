@@ -26,8 +26,11 @@ ALIAS=${ALIAS:-cvpn}
 VALIDITY=${VALIDITY:-10000}
 
 command -v keytool >/dev/null 2>&1 || {
-  echo "keytool is missing. It comes with a JDK:" >&2
-  echo "    apt-get install -y default-jdk-headless" >&2
+  # The runtime, not the full JDK: keytool ships with the JRE, and nothing here
+  # compiles anything.
+  echo "keytool is missing. Install a Java runtime:" >&2
+  echo "    apt-get update && apt-get install -y default-jre-headless" >&2
+  echo "(on Fedora/RHEL: dnf install -y java-latest-openjdk-headless)" >&2
   exit 1
 }
 
