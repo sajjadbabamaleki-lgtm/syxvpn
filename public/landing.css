@@ -13,7 +13,7 @@
   --text: #ffffff;
   --dim: #98a3b2;
   --faint: #6c7684;
-  --accent: #5fd97a;
+  --accent: #5cd673;
   --accent-ink: #06210e;
   --bad: #ff6b6b;
   --radius: 20px;
@@ -29,7 +29,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Vazirmatn, Tahoma, sans-serif;
-  line-height: 1.75;
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -44,7 +44,7 @@ a { color: inherit; text-decoration: none; }
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
-.top .wrap { display: flex; align-items: center; gap: 16px; height: 64px; }
+.top .wrap { position: relative; display: flex; align-items: center; gap: 16px; height: 64px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: .5px; }
 .brand svg { display: block; }
 .nav { display: flex; gap: 22px; margin-inline-start: auto; align-items: center; }
@@ -59,7 +59,9 @@ a { color: inherit; text-decoration: none; }
  * depends on a script is a menu that can arrive broken.
  */
 .langsel {
-  position: relative;
+  /* Not the containing block for its own panel: both panels hang off the
+     header's wrap, so they line up with each other and with the page gutter. */
+  position: static;
   /* This page owns its own look: no border, no fill, whatever else is loaded. */
   border: 0; background: none; padding: 0;
 }
@@ -79,26 +81,73 @@ a { color: inherit; text-decoration: none; }
    which is the second box. Keyboard users still get a ring; a tap does not. */
 .langsel > summary:focus { outline: none; }
 .langsel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+/* The menus.
+ *
+ * A <details> panel appears the instant it is opened, which is what made this
+ * read as a box dropped on the page rather than something coming out of the
+ * button. It now grows from the button's corner in under a fifth of a second —
+ * long enough to be seen, short enough that nobody waits for it.
+ *
+ * The rows are tighter than the body text as well. A menu inherits the page's
+ * reading line height otherwise, and a five-item menu set for reading is half
+ * a phone screen tall.
+ */
 .langsel .menu, .menubtn .menu {
-  position: absolute; inset-inline-end: 0; top: calc(100% + 8px);
-  min-width: 168px; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; box-shadow: 0 18px 40px rgba(0, 0, 0, .55);
+  /* 20px, not 0: absolute positioning resolves against the wrap's padding box,
+     so 0 is the viewport edge rather than the gutter every other thing on the
+     page lines up with. */
+  position: absolute; inset-inline-end: 20px; top: calc(100% + 8px);
+  min-width: 190px; padding: 6px;
+  /* Opaque. A translucent panel over a 60px headline does not read as glass,
+     it reads as a rendering fault — the words show through it and the whole
+     thing looks broken. */
+  background: var(--surface-high);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, .05) inset,
+    0 24px 48px -12px rgba(0, 0, 0, .7),
+    0 0 0 1px rgba(0, 0, 0, .3);
   z-index: 30;
+  transform-origin: top var(--menu-origin, right);
 }
+[dir="rtl"] .langsel .menu, [dir="rtl"] .menubtn .menu { --menu-origin: left; }
+
+.langsel[open] .menu, .menubtn[open] .menu {
+  animation: menu-in .17s cubic-bezier(.2, .8, .3, 1);
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-8px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+
 .langsel .menu a, .menubtn .menu a {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 10px; border-radius: 10px;
-  font-size: 14px; color: var(--dim); white-space: nowrap;
+  padding: 10px 12px; border-radius: 11px;
+  font-size: 14px; line-height: 1.3; color: var(--dim); white-space: nowrap;
+  transition: background .12s ease, color .12s ease;
 }
 .langsel .menu a:hover, .menubtn .menu a:hover { background: var(--surface-high); color: var(--text); }
 .langsel .menu a[aria-current="true"] { color: var(--accent); }
 .langsel .menu .tick { width: 14px; text-align: center; opacity: 0; }
 .langsel .menu a[aria-current="true"] .tick { opacity: 1; }
-@media (max-width: 720px) { .nav .hide-sm { display: none; } }
+/* Account leaves the page; the four above it move within it. */
+.menubtn .menu a:last-child {
+  margin-top: 5px; padding-top: 13px;
+  border-top: 1px solid var(--border); border-radius: 0 0 11px 11px;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .nav .hide-sm { display: none; }
+  /* 72px above and below meets as 144px of nothing between two sections, which
+     on a phone is most of a screen of empty page. */
+  section { padding: 48px 0; }
+  .hero { padding: 26px 0 36px; }
+}
 
 /* Hero */
-.hero { padding: 72px 0 56px; text-align: center; }
+.hero { padding: 34px 0 44px; text-align: center; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid var(--border); background: var(--surface);
@@ -106,11 +155,17 @@ a { color: inherit; text-decoration: none; }
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 h1 {
-  font-size: clamp(30px, 6vw, 52px);
-  line-height: 1.25; margin: 22px 0 0; letter-spacing: -0.5px;
+  /* Bigger and much tighter. A headline set at the body's line height reads
+     as a paragraph in bold, which is most of what makes a page look like a
+     template rather than a product. */
+  font-size: clamp(34px, 7.2vw, 62px);
+  line-height: 1.06; margin: 20px 0 0; letter-spacing: -0.03em;
+  text-wrap: balance;
 }
-h1 .on { color: var(--accent); }
-.lede { color: var(--dim); font-size: clamp(15px, 2.4vw, 18px); max-width: 620px; margin: 18px auto 0; }
+/* Kept on one line: left to itself it breaks after "our" and leaves
+   "problem." alone on a third line, which reads as a mistake. */
+h1 .on { color: var(--accent); white-space: nowrap; }
+.lede { color: var(--dim); font-size: clamp(15px, 2.4vw, 18px); line-height: 1.6; max-width: 600px; margin: 20px auto 0; text-wrap: pretty; }
 
 .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
 .btn {
@@ -128,19 +183,32 @@ h1 .on { color: var(--accent); }
 
 /* Sections */
 section {
-  padding: 64px 0; border-top: 1px solid var(--border);
+  padding: 72px 0;
+  /* A hairline all the way across, at full strength, on every section boundary
+     is a table of contents nobody asked for. It fades out at the edges so the
+     structure is felt rather than drawn. */
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--border) 18%, var(--border) 82%, transparent) 1;
   /* The header is sticky, so an anchor link would otherwise land with the
      heading hidden underneath it. */
   scroll-margin-top: 72px;
 }
-h2 { font-size: clamp(22px, 3.6vw, 30px); margin: 0 0 10px; letter-spacing: -0.3px; }
-.sub { color: var(--dim); margin: 0 0 34px; max-width: 640px; }
+h2 { font-size: clamp(24px, 4vw, 34px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.02em; text-wrap: balance; }
+.sub { color: var(--dim); margin: 0 0 38px; max-width: 620px; line-height: 1.6; }
 
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 22px;
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+/* Lit from above rather than filled flat, and with a hairline highlight along
+   the top edge. One flat fill and one uniform border on every surface is what
+   reads as a template; this is the same palette with a light source. */
+.card, .step, .plain, .plan {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .038), rgba(255, 255, 255, 0) 42%),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
 }
+.card { padding: 22px; }
 .card h3 { margin: 14px 0 8px; font-size: 17px; }
 .card p { margin: 0; color: var(--dim); font-size: 14px; }
 .ico {
@@ -150,20 +218,20 @@ h2 { font-size: clamp(22px, 3.6vw, 30px); margin: 0 0 10px; letter-spacing: -0.3
 }
 
 /* Steps */
-.steps { counter-reset: step; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+.steps { counter-reset: step; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.step { padding: 22px; }
 .step::before {
   counter-increment: step; content: counter(step);
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(95, 217, 122, .14); color: var(--accent);
+  background: rgba(92, 214, 115, .14); color: var(--accent);
   font-weight: 700; font-size: 14px; margin-bottom: 14px;
 }
 .step h3 { margin: 0 0 6px; font-size: 16px; }
 .step p { margin: 0; color: var(--dim); font-size: 14px; }
 
 /* Honesty block */
-.plain { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; }
+.plain { padding: 26px; }
 .plain ul { margin: 0; padding-inline-start: 20px; color: var(--dim); }
 .plain li { margin-bottom: 10px; }
 .plain li strong { color: var(--text); font-weight: 600; }
@@ -191,13 +259,9 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 /* Plans. The prices are not written into this page: they are read from the
    control plane at load, because a price typed into HTML is a price that goes
    stale the first time the operator changes one. */
-.plans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.plan {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 22px; display: flex; flex-direction: column; gap: 6px;
-  position: relative;
-}
-.plan.best { border-color: rgba(95, 217, 122, .45); }
+.plans { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.plan { padding: 22px; display: flex; flex-direction: column; gap: 6px; position: relative; }
+.plan.best { border-color: rgba(92, 214, 115, .45); }
 .plan .tag {
   position: absolute; top: -10px; inset-inline-start: 20px;
   background: var(--accent); color: var(--accent-ink);
@@ -231,7 +295,7 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
  * it opens with no JavaScript at all. It appears only where the inline links
  * are hidden, so the header never shows two ways to reach the same four links.
  */
-.menubtn { position: relative; border: 0; background: none; padding: 0; display: none; }
+.menubtn { position: static; border: 0; background: none; padding: 0; display: none; }
 .menubtn > summary {
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border-radius: 11px;
@@ -299,7 +363,7 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(-
 .hero > .wrap { position: relative; z-index: 1; }
 .hero::before {
   content: ""; position: absolute; inset: -55% 0 auto; height: 560px;
-  background: radial-gradient(46% 58% at 50% 0%, rgba(95, 217, 122, .17), transparent 72%);
+  background: radial-gradient(46% 58% at 50% 0%, rgba(92, 214, 115, .17), transparent 72%);
   pointer-events: none; animation: glow 9s ease-in-out infinite;
 }
 @keyframes glow {
