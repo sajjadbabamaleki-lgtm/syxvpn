@@ -1506,17 +1506,6 @@ private fun CountryRow(
 }
 
 /**
- * The configs: every server the subscription offers, and what to do with them.
- *
- * It is a separate tab from the switch because the two are different jobs — one
- * is "give me a connection", the other is "let me see and handle the servers" —
- * but it is not a dead end: selecting a row while the tunnel is up moves the
- * tunnel onto that server there and then, rather than waiting for a trip back.
- */
-// PullToRefreshBox is still experimental in Material3.
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-/**
  * Where a person puts in a config they got somewhere else.
  *
  * It is a text box and nothing more, on purpose: what people hold is a line, or
@@ -1584,6 +1573,18 @@ private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
     )
 }
 
+@Composable
+
+/**
+ * The configs: every server the subscription offers, and what to do with them.
+ *
+ * It is a separate tab from the switch because the two are different jobs — one
+ * is "give me a connection", the other is "let me see and handle the servers" —
+ * but it is not a dead end: selecting a row while the tunnel is up moves the
+ * tunnel onto that server there and then, rather than waiting for a trip back.
+ */
+// PullToRefreshBox is still experimental in Material3.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConfigsScreen(
     app: CvpnApplication,
