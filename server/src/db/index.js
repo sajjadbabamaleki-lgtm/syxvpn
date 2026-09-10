@@ -27,7 +27,20 @@ export function migrate(db) {
       m.up(db, { now: Date.now(), sha256 });
       db.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?,?)').run(m.id, Date.now());
     });
-    run();
+    // Rebuilding a table is the only way SQLite changes a CHECK constraint, and
+    // it needs foreign keys off: DROP TABLE runs the ON DELETE CASCADE of every
+    // child otherwise. The pragma is a no-op inside a transaction, so it has to
+    // be set out here — the migration itself is still all-or-nothing.
+    if (!m.foreignKeysOff) {
+      run();
+    } else {
+      db.pragma('foreign_keys = OFF');
+      try {
+        run();
+      } finally {
+        db.pragma('foreign_keys = ON');
+      }
+    }
     logger.info('migration applied', { migration: m.id });
   }
 }

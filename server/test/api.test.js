@@ -80,6 +80,32 @@ test('API contract and input validation', async (t) => {
     assert.match(JSON.stringify(proxied.body.error.details), /listenPort/);
   });
 
+  await t.test('a patch changes what it names and nothing else', async () => {
+    // Zod's .partial() does not strip a .default(), so a shape written for
+    // creation will fill a PATCH in with defaults the caller never sent. That
+    // is how changing a port used to reset a gateway's TLS mode to "none" and
+    // take the reverse proxy in front of it out of the configuration.
+    const made = await ctx.request('POST', '/api/v1/gateways', {
+      token,
+      body: {
+        name: 'Behind a proxy', region: 'de', host: 'proxied.example.net', port: 443,
+        tlsMode: 'reverse-proxy', listenPort: 10441, wsPath: '/tunnel', priority: 30,
+        blockPrivateRanges: false,
+      },
+    });
+    assert.equal(made.status, 201);
+    const res = await ctx.request('PATCH', `/api/v1/gateways/${made.body.data.id}`, {
+      token, body: { port: 8443 },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.port, 8443);
+    assert.equal(res.body.data.tlsMode, 'reverse-proxy');
+    assert.equal(res.body.data.wsPath, '/tunnel');
+    assert.equal(res.body.data.priority, 30);
+    assert.equal(res.body.data.blockPrivateRanges, false);
+    assert.equal(res.body.data.transport, 'ws');
+  });
+
   await t.test('rejects an egress that is missing its endpoint', async () => {
     const res = await ctx.request('POST', '/api/v1/egresses', {
       token, body: { name: 'Broken', region: 'eu', kind: 'socks' },

@@ -13,6 +13,8 @@
  * secrets never leave the control plane except towards an authenticated agent.
  */
 
+import { splitList } from '../lib/reality.js';
+
 export const API_PORT = 10085;
 // Loopback SOCKS inbounds, one per assigned egress, used by the gateway agent
 // to measure each egress path end to end *through the real data plane*.
@@ -27,15 +29,31 @@ const PRIVATE_RANGES = [
   '172.16.0.0/12', '192.168.0.0/16', '::1/128', 'fc00::/7', 'fe80::/10',
 ];
 
+/**
+ * Does this gateway speak REALITY?
+ *
+ * It changes almost everything about the shape of a profile and an inbound —
+ * TCP rather than WebSocket, a borrowed handshake rather than a certificate,
+ * no reverse proxy in front — so it is asked once, by name, everywhere.
+ */
+export const isReality = (gateway) => gateway.transport === 'reality';
+
 /** Public port a client dials, and the transport security it must use. */
 export function clientEndpoint(gateway) {
   const tls = gateway.tls_mode === 'reverse-proxy' || gateway.tls_mode === 'xray';
-  return { host: gateway.host, port: gateway.port, tls };
+  // REALITY carries its own TLS, which is the point of it: there is no
+  // certificate and no proxy in front, so tls_mode says nothing here.
+  return { host: gateway.host, port: gateway.port, tls: isReality(gateway) ? false : tls };
 }
+
+export const realityServerNames = (gateway) => splitList(gateway.reality_server_names);
+export const realityShortIds = (gateway) => splitList(gateway.reality_short_ids);
 
 /** Address/port the Xray process itself binds on the gateway host. */
 export function listenEndpoint(gateway) {
-  if (gateway.tls_mode === 'reverse-proxy') {
+  // A REALITY gateway is the public listener: nothing can sit in front of it,
+  // because the handshake it forwards has to come from the real socket.
+  if (!isReality(gateway) && gateway.tls_mode === 'reverse-proxy') {
     // TLS is terminated by the reverse proxy; Xray listens on loopback only.
     return { address: gateway.listen_address || '127.0.0.1', port: gateway.listen_port || gateway.port };
   }
@@ -48,6 +66,28 @@ export function listenEndpoint(gateway) {
  * (directly in Xray, or in front of it via a reverse proxy).
  */
 export function clientProfile(gateway, credentialUuid, labelSuffix = '') {
+  const label = `${gateway.name} · ${gateway.region}${labelSuffix}`;
+  if (isReality(gateway)) {
+    const names = realityServerNames(gateway);
+    const shortIds = realityShortIds(gateway);
+    const params = new URLSearchParams({
+      encryption: 'none',
+      security: 'reality',
+      type: 'tcp',
+      // Vision is what makes a REALITY connection's packet sizes look like a
+      // browser's rather than a proxy's; without it the disguise is only skin
+      // deep. Every client that can do REALITY can do Vision.
+      flow: 'xtls-rprx-vision',
+      // The name the client claims in its handshake. It has to be one the
+      // borrowed site actually serves, which is what serverNames lists.
+      sni: names[0] || gateway.sni || gateway.host,
+      fp: gateway.reality_fingerprint || 'chrome',
+      pbk: gateway.reality_public_key || '',
+    });
+    // Optional: an empty short ID means "any client with the public key".
+    if (shortIds[0]) params.set('sid', shortIds[0]);
+    return `vless://${credentialUuid}@${gateway.host}:${gateway.port}?${params.toString()}#${encodeURIComponent(label)}`;
+  }
   const { host, port, tls } = clientEndpoint(gateway);
   const params = new URLSearchParams({
     encryption: 'none',
@@ -60,7 +100,6 @@ export function clientProfile(gateway, credentialUuid, labelSuffix = '') {
     params.set('sni', gateway.sni || gateway.ws_host || host);
     params.set('fp', 'chrome');
   }
-  const label = `${gateway.name} · ${gateway.region}${labelSuffix}`;
   return `vless://${credentialUuid}@${host}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
 }
 
@@ -124,26 +163,50 @@ export const probeTag = (id) => `probe-${id}`;
  */
 export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) {
   const listen = listenEndpoint(gateway);
+  const reality = isReality(gateway);
   const inbound = {
     tag: 'client-in',
     listen: listen.address,
     port: listen.port,
     protocol: 'vless',
     settings: {
-      clients: clients.map((c) => ({ id: c.uuid, email: c.credentialId, level: 0 })),
+      clients: clients.map((c) => ({
+        id: c.uuid,
+        email: c.credentialId,
+        level: 0,
+        // Vision only exists over TCP+REALITY here; a WebSocket inbound would
+        // refuse to start with a flow set on its clients.
+        ...(reality ? { flow: 'xtls-rprx-vision' } : {}),
+      })),
       decryption: 'none',
     },
-    streamSettings: {
-      network: 'ws',
-      wsSettings: {
-        path: gateway.ws_path || '/ws',
-        ...(gateway.ws_host ? { headers: { Host: gateway.ws_host } } : {}),
+    streamSettings: reality
+      ? {
+        network: 'tcp',
+        security: 'reality',
+        realitySettings: {
+          show: false,
+          // The site whose handshake is borrowed. Anyone who is not a
+          // subscriber — a censor's prober included — is forwarded here and
+          // gets that site's genuine TLS, from that site's own certificate.
+          dest: gateway.reality_dest,
+          xver: 0,
+          serverNames: realityServerNames(gateway),
+          privateKey: gateway.reality_private_key,
+          shortIds: realityShortIds(gateway),
+        },
+      }
+      : {
+        network: 'ws',
+        wsSettings: {
+          path: gateway.ws_path || '/ws',
+          ...(gateway.ws_host ? { headers: { Host: gateway.ws_host } } : {}),
+        },
       },
-    },
     sniffing: { enabled: true, destOverride: ['http', 'tls'] },
   };
 
-  if (gateway.tls_mode === 'xray') {
+  if (!reality && gateway.tls_mode === 'xray') {
     // Only emitted when real certificate material has been configured; the
     // control plane rejects tls_mode=xray without cert and key paths.
     inbound.streamSettings.security = 'tls';

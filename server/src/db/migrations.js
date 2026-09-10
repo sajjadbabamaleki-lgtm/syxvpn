@@ -424,4 +424,85 @@ export const migrations = [
       db.exec('CREATE INDEX idx_recovery_admin ON admin_recovery_codes(admin_id)');
     },
   },
+  {
+    id: '005_gateway_reality',
+    // A table rebuild: SQLite has no way to widen a CHECK constraint, and
+    // `transport` was written when WebSocket was the only thing a gateway
+    // could speak. The recipe needs foreign keys off around it — DROP TABLE
+    // fires ON DELETE CASCADE on the children otherwise, and that would take
+    // every egress assignment and route switch with it.
+    foreignKeysOff: true,
+    up(db) {
+      db.exec(`CREATE TABLE gateways_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        region TEXT NOT NULL,
+        host TEXT NOT NULL,
+        port INTEGER NOT NULL,
+        protocol TEXT NOT NULL DEFAULT 'vless' CHECK (protocol IN ('vless')),
+        transport TEXT NOT NULL DEFAULT 'ws' CHECK (transport IN ('ws','reality')),
+        tls_mode TEXT NOT NULL DEFAULT 'none' CHECK (tls_mode IN ('none','reverse-proxy','xray')),
+        sni TEXT,
+        ws_path TEXT NOT NULL DEFAULT '/ws',
+        ws_host TEXT,
+        listen_address TEXT NOT NULL DEFAULT '0.0.0.0',
+        listen_port INTEGER,
+        tls_cert_path TEXT,
+        tls_key_path TEXT,
+        -- REALITY: the site whose handshake the gateway borrows, the names a
+        -- client may claim, the X25519 pair, and the short IDs that separate a
+        -- subscriber from someone who gets forwarded to the borrowed site.
+        reality_dest TEXT,
+        reality_server_names TEXT,
+        reality_private_key TEXT,
+        reality_public_key TEXT,
+        reality_short_ids TEXT,
+        reality_fingerprint TEXT NOT NULL DEFAULT 'chrome',
+        priority INTEGER NOT NULL DEFAULT 100,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        block_private_ranges INTEGER NOT NULL DEFAULT 1,
+        agent_key_enc TEXT,
+        agent_key_hint TEXT,
+        agent_key_created_at INTEGER,
+        ingress_status TEXT NOT NULL DEFAULT 'unknown'
+          CHECK (ingress_status IN ('unknown','online','degraded','offline')),
+        ingress_latency_ms INTEGER,
+        ingress_checked_at INTEGER,
+        ingress_fail_count INTEGER NOT NULL DEFAULT 0,
+        ingress_detail TEXT,
+        agent_status TEXT NOT NULL DEFAULT 'never-seen'
+          CHECK (agent_status IN ('never-seen','online','stale')),
+        agent_version TEXT,
+        xray_version TEXT,
+        agent_last_seen_at INTEGER,
+        config_version INTEGER NOT NULL DEFAULT 1,
+        deployed_config_version INTEGER,
+        deployed_at INTEGER,
+        deploy_error TEXT,
+        active_egress_id TEXT,
+        active_egress_since INTEGER,
+        active_egress_reason TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`);
+      // Named columns on both sides: the new ones sit in the middle, and a
+      // positional INSERT ... SELECT * would put ws_host into reality_dest.
+      const columns = [
+        'id', 'name', 'region', 'host', 'port', 'protocol', 'transport', 'tls_mode', 'sni',
+        'ws_path', 'ws_host', 'listen_address', 'listen_port', 'tls_cert_path', 'tls_key_path',
+        'priority', 'enabled', 'block_private_ranges', 'agent_key_enc', 'agent_key_hint',
+        'agent_key_created_at', 'ingress_status', 'ingress_latency_ms', 'ingress_checked_at',
+        'ingress_fail_count', 'ingress_detail', 'agent_status', 'agent_version', 'xray_version',
+        'agent_last_seen_at', 'config_version', 'deployed_config_version', 'deployed_at',
+        'deploy_error', 'active_egress_id', 'active_egress_since', 'active_egress_reason',
+        'created_at', 'updated_at',
+      ].join(', ');
+      db.exec(`INSERT INTO gateways_new (${columns}) SELECT ${columns} FROM gateways`);
+      db.exec('DROP TABLE gateways');
+      db.exec('ALTER TABLE gateways_new RENAME TO gateways');
+      db.exec('CREATE INDEX idx_gateways_priority ON gateways(priority, name)');
+      const orphans = db.pragma('foreign_key_check');
+      if (orphans.length) throw new Error(`gateway rebuild left ${orphans.length} orphaned rows`);
+    },
+  },
 ];

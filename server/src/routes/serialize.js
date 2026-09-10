@@ -16,6 +16,16 @@ export function gatewayView(g, extra = {}) {
     wsHost: g.ws_host,
     listenAddress: g.listen_address,
     listenPort: g.listen_port,
+    // The private key is deliberately absent: it goes to the gateway agent in
+    // the generated config and nowhere else. Everything here is what a client
+    // already carries in its own profile.
+    reality: g.transport === 'reality' ? {
+      dest: g.reality_dest,
+      serverNames: (g.reality_server_names || '').split(',').filter(Boolean),
+      publicKey: g.reality_public_key,
+      shortIds: (g.reality_short_ids || '').split(',').filter(Boolean),
+      fingerprint: g.reality_fingerprint,
+    } : null,
     priority: g.priority,
     enabled: g.enabled === 1,
     blockPrivateRanges: g.block_private_ranges === 1,

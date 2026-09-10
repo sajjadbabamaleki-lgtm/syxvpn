@@ -2,6 +2,7 @@ import { newId } from '../lib/crypto.js';
 import { EVENT, recordEvent } from './events.js';
 import { gatewayServerConfig, stableStringify, structuralConfig, probePort } from './xray.js';
 import { sha256 } from '../lib/crypto.js';
+import { realityKeyPair, generateShortIds, parseDest } from '../lib/reality.js';
 
 export function listGateways(db) {
   return db.prepare('SELECT * FROM gateways ORDER BY priority, name').all();
@@ -11,20 +12,63 @@ export function getGateway(db, id) {
   return db.prepare('SELECT * FROM gateways WHERE id = ?').get(id) || null;
 }
 
+/**
+ * Fills in the REALITY material an operator should not have to produce by hand.
+ *
+ * A key pair and short IDs are generated here rather than asked for: running
+ * `xray x25519` on the box is a step that gets skipped, mistyped, or done once
+ * and reused across every gateway — and a shared key means one seized gateway
+ * exposes the rest. [current] is the existing row when a gateway is being
+ * changed, so switching a REALITY gateway's port does not silently reissue its
+ * keys and break every profile already handed out.
+ */
+function realityFields(input, current = null) {
+  if (input.transport !== 'reality') {
+    return { realityDest: null, realityServerNames: null, realityPrivateKey: null,
+      realityPublicKey: null, realityShortIds: null, realityFingerprint: 'chrome' };
+  }
+  const dest = parseDest(input.realityDest ?? current?.reality_dest);
+  const keepKey = current?.reality_private_key && input.realityPrivateKey === undefined;
+  const pair = keepKey
+    ? { privateKey: current.reality_private_key, publicKey: current.reality_public_key }
+    : realityKeyPair();
+  const names = input.realityServerNames?.length
+    ? input.realityServerNames
+    : (current?.reality_server_names ? current.reality_server_names.split(',') : [dest?.host].filter(Boolean));
+  const shortIds = input.realityShortIds?.length
+    ? input.realityShortIds
+    : (current?.reality_short_ids ? current.reality_short_ids.split(',') : generateShortIds());
+  return {
+    realityDest: dest?.value ?? null,
+    realityServerNames: names.join(','),
+    realityPrivateKey: pair.privateKey,
+    realityPublicKey: pair.publicKey,
+    realityShortIds: shortIds.join(','),
+    realityFingerprint: input.realityFingerprint ?? current?.reality_fingerprint ?? 'chrome',
+  };
+}
+
 export function createGateway(db, input) {
   const now = Date.now();
   const id = newId('gw');
+  const reality = realityFields(input);
   db.prepare(`INSERT INTO gateways
-      (id,name,region,host,port,tls_mode,sni,ws_path,ws_host,listen_address,listen_port,
-       tls_cert_path,tls_key_path,priority,enabled,block_private_ranges,created_at,updated_at)
-      VALUES (@id,@name,@region,@host,@port,@tlsMode,@sni,@wsPath,@wsHost,@listenAddress,@listenPort,
-              @tlsCertPath,@tlsKeyPath,@priority,@enabled,@blockPrivateRanges,@now,@now)`)
+      (id,name,region,host,port,transport,tls_mode,sni,ws_path,ws_host,listen_address,listen_port,
+       tls_cert_path,tls_key_path,reality_dest,reality_server_names,reality_private_key,
+       reality_public_key,reality_short_ids,reality_fingerprint,
+       priority,enabled,block_private_ranges,created_at,updated_at)
+      VALUES (@id,@name,@region,@host,@port,@transport,@tlsMode,@sni,@wsPath,@wsHost,@listenAddress,@listenPort,
+              @tlsCertPath,@tlsKeyPath,@realityDest,@realityServerNames,@realityPrivateKey,
+              @realityPublicKey,@realityShortIds,@realityFingerprint,
+              @priority,@enabled,@blockPrivateRanges,@now,@now)`)
     .run({
       id,
+      ...reality,
       name: input.name,
       region: input.region,
       host: input.host,
       port: input.port,
+      transport: input.transport ?? 'ws',
       tlsMode: input.tlsMode ?? 'none',
       sni: input.sni ?? null,
       wsPath: input.wsPath ?? '/ws',
@@ -47,19 +91,31 @@ export function createGateway(db, input) {
 
 const PATCH_COLUMNS = {
   name: 'name', region: 'region', host: 'host', port: 'port', tlsMode: 'tls_mode',
+  transport: 'transport',
   sni: 'sni', wsPath: 'ws_path', wsHost: 'ws_host', listenAddress: 'listen_address',
   listenPort: 'listen_port', tlsCertPath: 'tls_cert_path', tlsKeyPath: 'tls_key_path',
+  realityDest: 'reality_dest', realityServerNames: 'reality_server_names',
+  realityPrivateKey: 'reality_private_key', realityPublicKey: 'reality_public_key',
+  realityShortIds: 'reality_short_ids', realityFingerprint: 'reality_fingerprint',
   priority: 'priority', enabled: 'enabled', blockPrivateRanges: 'block_private_ranges',
 };
 
 export function updateGateway(db, id, patch) {
   const current = getGateway(db, id);
   if (!current) return null;
+  // Anything that touches REALITY is recomputed as a set: a transport switched
+  // on needs keys it does not have yet, and one switched off must not leave a
+  // private key sitting in a row that no longer uses it.
+  const touchesReality = ['transport', 'realityDest', 'realityServerNames', 'realityShortIds',
+    'realityFingerprint'].some((key) => patch[key] !== undefined);
+  const effective = touchesReality
+    ? { ...patch, ...realityFields({ transport: current.transport, ...patch }, current) }
+    : patch;
   const fields = [];
   const params = [];
   for (const [key, column] of Object.entries(PATCH_COLUMNS)) {
-    if (patch[key] === undefined) continue;
-    let value = patch[key];
+    if (effective[key] === undefined) continue;
+    let value = effective[key];
     if (typeof value === 'boolean') value = value ? 1 : 0;
     fields.push(`${column} = ?`);
     params.push(value);

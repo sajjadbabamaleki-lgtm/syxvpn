@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { migrate } from '../src/db/index.js';
+import { migrations } from '../src/db/migrations.js';
 import { sha256 } from '../src/lib/crypto.js';
 
 /** Recreates the 0.1 prototype schema exactly as it shipped. */
@@ -90,4 +91,76 @@ test('a fresh database migrates cleanly', () => {
     assert.ok(tables.includes(expected), `missing table ${expected}`);
   }
   db.close();
+});
+
+/**
+ * Rebuilding the gateways table is the only way SQLite widens a CHECK, and it
+ * runs against a database with real rows in it. What is being checked here is
+ * the part that would be silent and unrecoverable: DROP TABLE fires the
+ * children's ON DELETE CASCADE unless foreign keys are off, so getting this
+ * wrong takes every egress assignment on every gateway with it.
+ */
+test('the gateway rebuild keeps the rows that hang off a gateway', async (t) => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+
+  // Everything up to the rebuild, so the rows below are inserted into the old
+  // shape and the migration under test is the only one left to run.
+  const REBUILD = '005_gateway_reality';
+  db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)');
+  for (const m of migrations) {
+    if (m.id === REBUILD) break;
+    db.transaction(() => {
+      m.up(db, { now: Date.now(), sha256 });
+      db.prepare('INSERT INTO schema_migrations (id, applied_at) VALUES (?,?)').run(m.id, Date.now());
+    })();
+  }
+
+  const now = Date.now();
+  db.prepare(`INSERT INTO gateways (id,name,region,host,port,ws_path,tls_mode,priority,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run('gw-keep', 'Frankfurt', 'eu', 'gw1.example.net', 443, '/tunnel', 'reverse-proxy', 40, now, now);
+  db.prepare('INSERT INTO egresses (id,name,region,kind,created_at,updated_at) VALUES (?,?,?,?,?,?)')
+    .run('eg-keep', 'Direct', 'eu', 'direct', now, now);
+  db.prepare('INSERT INTO gateway_egress (gateway_id,egress_id,created_at) VALUES (?,?,?)')
+    .run('gw-keep', 'eg-keep', now);
+
+  migrate(db);
+  t.after(() => db.close());
+
+  await t.test('the assignment survives the rebuild', () => {
+    assert.equal(db.prepare('SELECT count(*) AS n FROM gateway_egress').get().n, 1);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM gateways').get().n, 1);
+  });
+
+  await t.test('every column comes across in its own place', () => {
+    const row = db.prepare('SELECT * FROM gateways WHERE id = ?').get('gw-keep');
+    assert.equal(row.name, 'Frankfurt');
+    assert.equal(row.host, 'gw1.example.net');
+    assert.equal(row.port, 443);
+    assert.equal(row.ws_path, '/tunnel');
+    assert.equal(row.tls_mode, 'reverse-proxy');
+    assert.equal(row.priority, 40);
+    assert.equal(row.transport, 'ws');
+    // The new columns exist and are empty, which is what a WebSocket gateway is.
+    assert.equal(row.reality_private_key, null);
+    assert.equal(row.reality_fingerprint, 'chrome');
+  });
+
+  await t.test('reality is now a transport the constraint allows, and nonsense is not', () => {
+    db.prepare('UPDATE gateways SET transport = ? WHERE id = ?').run('reality', 'gw-keep');
+    assert.throws(
+      () => db.prepare('UPDATE gateways SET transport = ? WHERE id = ?').run('carrier-pigeon', 'gw-keep'),
+      /CHECK constraint/,
+    );
+  });
+
+  await t.test('foreign keys are back on afterwards', () => {
+    assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
+    assert.throws(
+      () => db.prepare('INSERT INTO gateway_egress (gateway_id,egress_id,created_at) VALUES (?,?,?)')
+        .run('gw-missing', 'eg-keep', Date.now()),
+      /FOREIGN KEY/,
+    );
+  });
 });

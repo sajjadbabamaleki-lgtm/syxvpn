@@ -13,6 +13,7 @@ import { issueAgentKey } from '../auth/agent.js';
 import { EVENT, recordEvent } from '../domain/events.js';
 import { gatewayView, egressView, healthCheckView, routeSwitchView } from './serialize.js';
 import { lastSwitch, reevaluateGateway } from '../domain/routing.js';
+import { parseDest, SHORT_ID_SHAPE } from '../lib/reality.js';
 
 const tlsModes = ['none', 'reverse-proxy', 'xray'];
 
@@ -21,23 +22,73 @@ const baseGateway = {
   region: regionField,
   host: hostField,
   port: portField,
-  tlsMode: z.enum(tlsModes).default('none'),
+  transport: z.enum(['ws', 'reality']).optional(),
+  tlsMode: z.enum(tlsModes).optional(),
+  // REALITY. The key pair and short IDs are issued by the control plane when
+  // they are absent, which is the normal case: an operator supplies the
+  // borrowed site and nothing else.
+  realityDest: z.string().trim().max(255).nullish(),
+  realityServerNames: z.array(hostField).max(8).nullish(),
+  realityShortIds: z.array(z.string().trim().toLowerCase()).max(8).nullish(),
+  realityFingerprint: z.enum(['chrome', 'firefox', 'safari', 'edge', 'ios', 'android', 'random']).nullish(),
   sni: hostField.nullish(),
-  wsPath: wsPathField.default('/ws'),
+  wsPath: wsPathField.optional(),
   wsHost: hostField.nullish(),
   listenAddress: z.string().trim().max(64).nullish(),
   listenPort: portField.nullish(),
   tlsCertPath: z.string().trim().max(512).nullish(),
   tlsKeyPath: z.string().trim().max(512).nullish(),
-  priority: z.coerce.number().int().min(1).max(1000).default(100),
-  enabled: z.boolean().default(true),
-  blockPrivateRanges: z.boolean().default(true),
+  priority: z.coerce.number().int().min(1).max(1000).optional(),
+  enabled: z.boolean().optional(),
+  blockPrivateRanges: z.boolean().optional(),
 };
+
+/**
+ * Defaults live in the domain layer, not in this shape, and that is deliberate.
+ * `.partial()` does not strip a `.default()` — a PATCH carrying only a port
+ * arrives with every defaulted field filled in, so changing a gateway's port
+ * would quietly reset its TLS mode to "none" and take its transport with it.
+ */
 
 /**
  * TLS configuration must be operationally real — a gateway may only advertise TLS
  * to clients if something is actually terminating it.
  */
+/**
+ * REALITY has to be operationally real too, and it fails in a way TLS does not:
+ * a misconfigured certificate refuses connections, while a REALITY gateway
+ * pointed at a site that does not fit quietly hands every prober a mismatch and
+ * gets the address burned.
+ */
+function checkRealityConsistency(value, ctx) {
+  if (value.transport !== 'reality') return;
+  if (!parseDest(value.realityDest)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['realityDest'],
+      message: 'transport "reality" requires realityDest as host:port — the site whose TLS handshake is borrowed, e.g. www.microsoft.com:443',
+    });
+  }
+  if (value.tlsMode && value.tlsMode !== 'none') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['tlsMode'],
+      message: 'a REALITY gateway terminates its own connection: nothing may sit in front of it, so tlsMode must be "none"',
+    });
+  }
+  for (const id of value.realityShortIds || []) {
+    // An empty short ID admits any client holding the public key. Xray allows
+    // it; this does not, because it is indistinguishable from a typo.
+    if (!SHORT_ID_SHAPE.test(id)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['realityShortIds'],
+        message: `short ID "${id}" must be 2 to 16 hexadecimal characters`,
+      });
+    }
+  }
+}
+
 function checkTlsConsistency(value, ctx) {
   if (value.tlsMode === 'xray' && (!value.tlsCertPath || !value.tlsKeyPath)) {
     ctx.addIssue({
@@ -55,9 +106,16 @@ function checkTlsConsistency(value, ctx) {
   }
 }
 
-const createSchema = z.object(baseGateway).superRefine(checkTlsConsistency);
+const createSchema = z.object(baseGateway).superRefine((value, ctx) => {
+  checkTlsConsistency(value, ctx);
+  checkRealityConsistency(value, ctx);
+});
 const patchSchema = z.object(baseGateway).partial().superRefine((value, ctx) => {
   if (value.tlsMode) checkTlsConsistency({ ...value }, ctx);
+  // Only when the patch is turning REALITY on: the fields it needs are then in
+  // the patch itself, and a patch that leaves the transport alone is not
+  // changing any of this.
+  if (value.transport === 'reality') checkRealityConsistency(value, ctx);
 });
 
 const assignSchema = z.object({
