@@ -32,6 +32,15 @@ data class Server(
     val routeState: RouteState = RouteState.UNKNOWN,
     val gatewayName: String? = null,
     val region: String? = null,
+    /**
+     * Pasted in by the person rather than issued by this control plane.
+     *
+     * It changes what may be said about it and what may be done to it: no
+     * health is claimed for it beyond what this phone measured, and a refresh
+     * never removes it, because nothing here issued it and nothing here can
+     * take it back.
+     */
+    val imported: Boolean = false,
 ) {
     /** Stable identity of a server across refreshes. */
     val key: String get() = "${profile.host}:${profile.port}"

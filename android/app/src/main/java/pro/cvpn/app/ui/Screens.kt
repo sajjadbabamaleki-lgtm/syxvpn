@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import pro.cvpn.app.BuildConfig
 import pro.cvpn.app.CvpnApp as CvpnApplication
 import pro.cvpn.app.core.ConfigHealth
+import pro.cvpn.app.core.ConfigImport
 import pro.cvpn.app.core.ConnectionMemory
 import pro.cvpn.app.core.CountryGroup
 import pro.cvpn.app.core.countryOf
@@ -536,7 +537,14 @@ private fun ConfigRow(
         }
         RowAction(ICON_COPY, "Copy this config", onCopy)
         RowAction(ICON_SHARE, "Share this config", onShare)
-        RowAction(ICON_TRASH, "Hide this config", onHide)
+        // Hiding a config that came from a subscription is undoable: a refresh
+        // still has it. There is no refresh behind an imported one, so the same
+        // gesture on it is a deletion, and it says so.
+        RowAction(
+            ICON_TRASH,
+            if (server.imported) "Remove this config" else "Hide this config",
+            onHide,
+        )
     }
 }
 
@@ -736,6 +744,32 @@ private class ServerListState(private val session: SessionStore) {
         hidden = hidden + server.key
         session.hiddenConfigs = hidden
         if (chosen?.key == server.key) chosen = visible.firstOrNull()
+    }
+
+    /**
+     * Takes what the person pasted and keeps whatever it turned out to be.
+     *
+     * The list is rebuilt from storage rather than appended to in place, so the
+     * order on screen is the order in storage and a restart does not reshuffle
+     * it.
+     */
+    fun importPasted(pasted: String): ConfigImport.Result {
+        val result = ConfigImport.parse(pasted, session.importedLines)
+        session.addImported(result.added.map { it.uri })
+        if (!result.isEmpty) {
+            val added = result.added.map { Server(profile = it, imported = true) }
+            servers = added + servers
+            if (chosen == null) chosen = added.firstOrNull()
+        }
+        status = result.summary()
+        return result
+    }
+
+    /** Removes a config the person added. Nothing else can be removed. */
+    fun removeImported(server: Server) {
+        session.removeImported(server.profile.uri)
+        servers = servers.filterNot { it.imported && it.profile.uri == server.profile.uri }
+        if (chosen?.profile?.uri == server.profile.uri) chosen = visible.firstOrNull()
     }
 
     fun unhideAll() {
@@ -1482,6 +1516,75 @@ private fun CountryRow(
 // PullToRefreshBox is still experimental in Material3.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+/**
+ * Where a person puts in a config they got somewhere else.
+ *
+ * It is a text box and nothing more, on purpose: what people hold is a line, or
+ * forty lines, or the base64 a subscription URL answered with, and every one of
+ * those goes in the same box. A form with a field per part of a config would be
+ * a form nobody could fill in from a clipboard.
+ */
+@Composable
+private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
+    val clipboard = LocalClipboardManager.current
+    var text by remember { mutableStateOf("") }
+    var outcome by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("Add a config", color = Color.White, fontSize = 17.sp) },
+        text = {
+            Column {
+                Text(
+                    "Paste a vless:// link, a whole list of them, or what a " +
+                        "subscription link gives you. Configs you bought elsewhere " +
+                        "work here and need no plan.",
+                    color = TextDim,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it; outcome = null },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                    placeholder = { Text("vless://…", color = TextFaint, fontSize = 13.sp) },
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = Color.White),
+                    singleLine = false,
+                )
+                TextButton(onClick = {
+                    // The clipboard is where it came from, and reaching it
+                    // through a long-press on a text field is two gestures more
+                    // than it needs to be.
+                    clipboard.getText()?.text?.let { text = it; outcome = null }
+                }) {
+                    Text("Paste from clipboard", color = Accent, fontSize = 13.sp)
+                }
+                outcome?.let {
+                    Text(it, color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = text.isNotBlank(),
+                onClick = {
+                    val summary = onAdd(text)
+                    // The sheet stays open when nothing was taken, with the text
+                    // still in it: closing on a failure would leave somebody
+                    // holding a rejected paste and no idea what happened to it.
+                    if (summary.startsWith("Added")) onDismiss() else outcome = summary
+                },
+            ) { Text("Add", color = Accent, fontSize = 14.sp) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = TextDim, fontSize = 14.sp) }
+        },
+    )
+}
+
+@Composable
 private fun ConfigsScreen(
     app: CvpnApplication,
     state: ServerListState,
@@ -1511,12 +1614,31 @@ private fun ConfigsScreen(
     // looking at has no reason to make it.
     LaunchedEffect(state.visible.map { it.key }) { state.checkHealth() }
 
+    var adding by remember { mutableStateOf(false) }
+    if (adding) {
+        AddConfigSheet(
+            onDismiss = { adding = false },
+            onAdd = { pasted -> state.importPasted(pasted).summary() },
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         TunnelSwitch(state, TunnelService.Source.MANUAL, onConnect, onDisconnect)
         ConnectionCard(state)
         TunnelError()
 
         Spacer(Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Configs", color = TextDim, fontSize = 13.sp)
+            TextButton(onClick = { adding = true }) {
+                Text("+ Add", color = Accent, fontSize = 13.sp)
+            }
+        }
 
         // Three rows, ending on a whole one, and the rest scrolls. Pulling it
         // down refreshes it, which is the gesture people already reach for.
@@ -1544,7 +1666,8 @@ private fun ConfigsScreen(
                                 when {
                                     state.servers.isNotEmpty() -> "Every server is hidden."
                                     else -> state.status
-                                        ?: "No configs yet. Buy a plan on the Premium tab."
+                                        ?: "No configs yet. Add one you already have, " +
+                                            "or buy a plan on the Premium tab."
                                 },
                                 color = TextDim,
                                 fontSize = 13.sp,
@@ -1553,6 +1676,12 @@ private fun ConfigsScreen(
                             if (state.servers.isNotEmpty()) {
                                 TextButton(onClick = { state.unhideAll() }) {
                                     Text("Show them again", color = Accent, fontSize = 13.sp)
+                                }
+                            } else {
+                                // The way out of an empty list that does not
+                                // cost money, offered where the emptiness is.
+                                TextButton(onClick = { adding = true }) {
+                                    Text("Add a config", color = Accent, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -1596,7 +1725,9 @@ private fun ConfigsScreen(
                                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                 )
                             },
-                            onHide = { state.hide(server) },
+                            onHide = {
+                                if (server.imported) state.removeImported(server) else state.hide(server)
+                            },
                         )
                     }
                     if (state.status != null) {

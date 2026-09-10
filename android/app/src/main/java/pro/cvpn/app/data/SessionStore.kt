@@ -44,6 +44,31 @@ class SessionStore(context: Context) {
         set(value) = prefs.edit().putString(KEY_PROFILES, value).apply()
 
     /**
+     * Configs the person pasted in themselves, newline separated.
+     *
+     * These are not a subscription and are nobody's to revoke: a config bought
+     * from another provider belongs to whoever bought it, so it survives
+     * signing out, an expired plan, and never having had one. Only removing it
+     * here removes it.
+     */
+    var importedConfigs: String?
+        get() = prefs.getString(KEY_IMPORTED, null)
+        set(value) = prefs.edit().putString(KEY_IMPORTED, value).apply()
+
+    /** The pasted configs as lines, in the order they were added. */
+    val importedLines: List<String>
+        get() = importedConfigs.orEmpty().split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+
+    fun addImported(uris: List<String>) {
+        if (uris.isEmpty()) return
+        importedConfigs = (importedLines + uris).joinToString("\n")
+    }
+
+    fun removeImported(uri: String) {
+        importedConfigs = importedLines.filterNot { it == uri }.joinToString("\n").ifEmpty { null }
+    }
+
+    /**
      * Servers the person chose to hide, as "host:port" entries.
      *
      * A subscription decides which servers exist, so hiding is local and
@@ -119,7 +144,19 @@ class SessionStore(context: Context) {
             if (value == null) remove(KEY_CONTROL_BASE) else putString(KEY_CONTROL_BASE, value)
         }.apply()
 
-    fun clear() = prefs.edit().clear().apply()
+    /**
+     * Signs the account out.
+     *
+     * Everything the account owns goes; the configs the person pasted in stay.
+     * Those were bought from somebody else, or handed over in a channel, and
+     * signing out of this app is not a reason to lose them — a person who had
+     * to re-paste forty configs to log back in would not log back in.
+     */
+    fun clear() {
+        val keepImported = importedConfigs
+        prefs.edit().clear().apply()
+        importedConfigs = keepImported
+    }
 
     private companion object {
         const val KEY_TOKEN = "token"
@@ -127,6 +164,7 @@ class SessionStore(context: Context) {
         const val KEY_SUB_URL = "subscription_url"
         const val KEY_PROFILES = "profiles"
         const val KEY_HIDDEN = "hidden_configs"
+        const val KEY_IMPORTED = "imported_configs"
         const val KEY_AUTOMATIC = "automatic_server"
         const val KEY_COUNTRY = "country"
         const val KEY_PURPOSE = "purpose"

@@ -21,36 +21,57 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
     data class Servers(val servers: List<Server>, val stale: Boolean, val error: String?)
 
     suspend fun load(session: SessionStore): Servers {
+        // Pasted in by the person, and theirs whatever the account says. They
+        // are added to every answer below rather than being an answer of their
+        // own, because a person with both should see both.
+        val imported = session.importedLines.mapNotNull { line ->
+            VlessProfile.parse(line)?.let { Server(profile = it, imported = true) }
+        }
+
         val url = session.subscriptionUrl
         if (url != null) {
             runCatching { api.refreshProfiles(url) }
-                .onSuccess { fresh -> return Servers(convert(fresh), stale = false, error = null) }
+                .onSuccess { fresh -> return Servers(imported + convert(fresh), stale = false, error = null) }
                 .onFailure { error ->
                     val cached = session.cachedProfiles?.lines().orEmpty()
                         .map { ControlPlaneClient.SubscriptionServer(it, null, null, null) }
                     val servers = convert(cached)
                     if (servers.isNotEmpty()) {
-                        return Servers(servers, stale = true, error = error.message)
+                        return Servers(imported + servers, stale = true, error = error.message)
                     }
                 }
         }
         if (!session.signedIn) {
             // Not signed in is not an error: it is the ordinary state of a fresh
-            // install. Say what would change it, not what went wrong.
-            return Servers(emptyList(), stale = false, error = "Buy a plan on the Premium tab to get servers")
+            // install. Say what would change it, not what went wrong — and say
+            // nothing at all to somebody who pasted their own configs in and is
+            // using the app exactly as intended.
+            return Servers(imported, stale = false, error = noAccount(imported))
         }
         val subscription = api.subscription()
-            ?: return Servers(emptyList(), stale = false, error = "No subscription on this account yet")
+            ?: return Servers(imported, stale = false, error = unlessImported(imported, "No subscription on this account yet"))
         if (!subscription.active) {
-            return Servers(emptyList(), stale = false, error = describe(subscription.state))
+            return Servers(imported, stale = false, error = unlessImported(imported, describe(subscription.state)))
         }
         // The account API hands back plain profile lines, with no route state.
         return Servers(
-            convert(subscription.profiles.map { ControlPlaneClient.SubscriptionServer(it, null, null, null) }),
+            imported + convert(subscription.profiles.map { ControlPlaneClient.SubscriptionServer(it, null, null, null) }),
             stale = false,
             error = null,
         )
     }
+
+    /**
+     * A person using their own configs is not in an error state.
+     *
+     * Telling them to buy a plan on every refresh, while the app is doing the
+     * thing they installed it for, is how a working app reads as a broken one.
+     */
+    private fun noAccount(imported: List<Server>): String? =
+        if (imported.isEmpty()) "Add a config, or buy a plan on the Premium tab" else null
+
+    private fun unlessImported(imported: List<Server>, message: String): String? =
+        if (imported.isEmpty()) message else null
 
     private fun convert(servers: List<ControlPlaneClient.SubscriptionServer>): List<Server> =
         servers.mapNotNull { server ->
