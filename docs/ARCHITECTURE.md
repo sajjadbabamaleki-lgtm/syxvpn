@@ -132,6 +132,33 @@ HTTP on that port — and verifying the borrowed site's certificate is what
 proves Xray is up, the borrowed site is reachable from the gateway, and nothing
 else has moved onto the port.
 
+## Who is told about which gateway
+
+A subscriber is not told about every gateway. Each gets a stable few
+(`SUBSCRIBER_GATEWAYS`, 4 by default; 0 means all), chosen by rendezvous
+hashing over the *enabled* fleet, with health applied afterwards.
+
+The reason is blast radius. Handing every subscriber every address makes one
+leaked configuration a map of the whole fleet — a censor who buys a single
+subscription, or picks up one phone, can block everything in an afternoon. It
+is the cheapest way to lose a fleet and it costs the attacker one customer's
+price. Attribution was never the missing piece: the credential UUID in a leaked
+profile already names the subscriber exactly.
+
+Two details carry the design:
+
+- **Scored over enabled gateways, not healthy ones.** Scoring the healthy pool
+  would hand a subscriber a different gateway every time one flapped, and after
+  enough flapping everybody would have been told about everything.
+- **Rendezvous hashing, not a modulo.** Adding or removing a gateway moves only
+  the subscribers who had it, instead of renumbering the whole fleet and
+  teaching every subscriber a new set of addresses.
+
+A share spans regions before it doubles up, because four gateways in one
+country are one decision away from nothing. If every one of a subscriber's own
+gateways is down, the next best are lent to them rather than leaving them with
+nothing — bounded to the same share, not the whole fleet.
+
 ## Usage accounting
 
 Agents read Xray's cumulative per-user counters and post them with a report id.

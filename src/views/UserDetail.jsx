@@ -108,7 +108,9 @@ export function UserDetail({ id }) {
                   title: 'Subscription link',
                   value: revealed.subscriptionUrl,
                   extra: revealed.profiles.map((p) => p.uri).join('\n'),
-                  note: 'Send this to the subscriber. Rotate it if it leaks.',
+                  // Said here because otherwise it reads as a bug: a fleet of
+                  // twelve, and this subscriber has four configs.
+                  note: `Send this to the subscriber. Rotate it if it leaks — ${revealed.profiles.length === 1 ? 'the gateway' : `the ${revealed.profiles.length} gateways`} below ${revealed.profiles.length === 1 ? 'is' : 'are'} theirs alone, so a leak burns ${revealed.profiles.length === 1 ? 'it' : 'those'} and not the fleet.`,
                 });
               } finally {
                 setBusy(null);

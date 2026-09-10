@@ -9,7 +9,7 @@ import {
   createSubscriberBatch, listBatches, subscribersInBatch, revealToken,
 } from '../domain/subscribers.js';
 import { clientProfile } from '../domain/xray.js';
-import { usableGateways } from './public.js';
+import { usableGateways, gatewaysFor } from './public.js';
 import { recordEvent } from '../domain/events.js';
 import { subscriberView } from './serialize.js';
 import { config } from '../config.js';
@@ -108,7 +108,7 @@ export function adminSubscriberRoutes({ db }) {
    */
   router.post('/batch', validate(batchSchema), (req, res) => {
     const { batchId, created: issued } = createSubscriberBatch(db, req.body);
-    const routes = usableGateways(db);
+    const fleet = usableGateways(db);
     const items = issued.map(({ id, name, token }) => {
       const sub = getSubscriber(db, id);
       const credential = activeCredentials(db, id).find((c) => c.state === 'active');
@@ -117,9 +117,10 @@ export function adminSubscriberRoutes({ db }) {
         name,
         subscriptionUrl: subscriptionUrl(req, token),
         // The raw profile URIs, for handing someone a single config rather than
-        // a subscription link.
+        // a subscription link. Each subscriber's own gateways, not the fleet's:
+        // what is printed here is what that subscriber can leak.
         profiles: credential
-          ? routes.map(({ gateway }) => clientProfile(gateway, credential.uuid))
+          ? gatewaysFor(db, id).map(({ gateway }) => clientProfile(gateway, credential.uuid))
           : [],
         quotaBytes: sub.quota_bytes,
         expiresAt: new Date(sub.expires_at).toISOString(),
@@ -128,7 +129,7 @@ export function adminSubscriberRoutes({ db }) {
     return created(res, {
       batchId,
       count: items.length,
-      usableGateways: routes.length,
+      usableGateways: fleet.length,
       items,
     });
   });
@@ -235,7 +236,9 @@ export function adminSubscriberRoutes({ db }) {
     const token = revealToken(db, sub.id);
     if (!token) return next(notFound('Subscription token'));
     const credential = activeCredentials(db, sub.id).find((c) => c.state === 'active');
-    const routes = usableGateways(db);
+    // What this subscriber is actually served, so an operator reading a link
+    // sees the same list the customer does.
+    const routes = gatewaysFor(db, sub.id);
     recordEvent(db, {
       type: 'subscriber.link_revealed', severity: 'info', targetType: 'subscriber', targetId: sub.id,
       message: `Subscription link for ${sub.name} shown to ${req.admin.username}`,

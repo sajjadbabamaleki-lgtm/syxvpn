@@ -4,6 +4,7 @@ import { createRateLimiter } from '../lib/ratelimit.js';
 import { findByToken, activeCredentials, entitlement } from '../domain/subscribers.js';
 import { clientProfile } from '../domain/xray.js';
 import { candidatesFor, routeState } from '../domain/routing.js';
+import { routesForSubscriber } from '../domain/fleet.js';
 import { logger } from '../logger.js';
 import { tokenHint } from '../lib/crypto.js';
 
@@ -16,14 +17,26 @@ import { tokenHint } from '../lib/crypto.js';
  * exposed in the JSON form) because refusing to hand out any profile is worse
  * for the subscriber than handing out one that may be degraded.
  */
+export const enabledGateways = (db) => db
+  .prepare('SELECT * FROM gateways WHERE enabled = 1 ORDER BY priority, name').all();
+
 export function usableGateways(db) {
-  return db.prepare('SELECT * FROM gateways WHERE enabled = 1 ORDER BY priority, name').all()
+  return enabledGateways(db)
     .filter((g) => g.ingress_status === 'online' || g.ingress_status === 'degraded')
     .map((g) => {
       const active = candidatesFor(db, g.id).find((c) => c.id === g.active_egress_id) || null;
       return { gateway: g, active, state: routeState(g, active) };
     })
     .filter((r) => r.state === 'healthy' || r.state === 'degraded' || r.state === 'unverified');
+}
+
+/**
+ * The gateways one subscriber is told about — a stable handful rather than the
+ * whole fleet, so a leaked configuration does not hand a censor every address.
+ * See domain/fleet.js.
+ */
+export function gatewaysFor(db, subscriberId) {
+  return routesForSubscriber(enabledGateways(db), usableGateways(db), subscriberId);
 }
 
 export function publicRoutes({ db }) {
@@ -44,7 +57,7 @@ export function publicRoutes({ db }) {
     }
 
     const credentials = activeCredentials(db, subscriber.id);
-    const routes = usableGateways(db);
+    const routes = gatewaysFor(db, subscriber.id);
     const profiles = [];
     for (const { gateway, state: routeStateValue } of routes) {
       for (const credential of credentials) {

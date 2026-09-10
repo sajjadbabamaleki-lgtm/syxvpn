@@ -15,7 +15,7 @@ import {
 } from '../domain/subscribers.js';
 import { describePaymentConfig } from '../services/tron.js';
 import { clientProfile } from '../domain/xray.js';
-import { usableGateways } from './public.js';
+import { gatewaysFor } from './public.js';
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(160),
@@ -84,7 +84,7 @@ function subscriptionView(db, req, customerId) {
   const base = config.publicBaseUrl || `${req.protocol}://${req.get('host')}`;
   const credentials = activeCredentials(db, subscriber.id).filter((c) => c.state === 'active');
   const profiles = token
-    ? usableGateways(db).flatMap(({ gateway, state: routeState }) => credentials.map((credential) => ({
+    ? gatewaysFor(db, subscriber.id).flatMap(({ gateway, state: routeState }) => credentials.map((credential) => ({
       gatewayId: gateway.id,
       gatewayName: gateway.name,
       region: gateway.region,

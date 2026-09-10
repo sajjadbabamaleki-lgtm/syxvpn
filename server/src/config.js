@@ -49,6 +49,16 @@ export function loadConfig(env = process.env) {
       keep: Math.max(1, int(env.BACKUP_KEEP, 28)),
     },
 
+    /**
+     * How many gateways one subscriber is told about. 0 means all of them,
+     * which is what this was before there was a setting: one leaked
+     * configuration mapped the whole fleet. Below this many usable gateways it
+     * makes no difference — it starts to matter once there are more.
+     */
+    fleet: {
+      gatewaysPerSubscriber: Math.max(0, int(env.SUBSCRIBER_GATEWAYS, 4)),
+    },
+
     admin: {
       username: env.ADMIN_USERNAME || 'admin',
       // Either a plain bootstrap password or a pre-computed scrypt hash.
