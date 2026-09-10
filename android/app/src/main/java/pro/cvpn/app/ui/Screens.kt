@@ -206,7 +206,9 @@ fun cVPNRoot(
  *     thumb    92 x 48,  radius 24 (half its height)
  *
  * The inset equals the difference between the two radii (36 - 24), which is
- * what makes the curves concentric rather than merely close.
+ * what makes the curves concentric rather than merely close. Nothing drawn
+ * around the thumb may be measured with it, or the inset stops being the same
+ * on all four sides — see the orbit light below.
  *
  * Both labels stay visible, as on a segmented control; the thumb slides over
  * the active one. A switch also represents a state that is held, which is what
@@ -252,12 +254,17 @@ private fun ConnectSwitch(
             .clickable(enabled = enabled, onClick = onToggle),
         contentAlignment = Alignment.CenterStart,
     ) {
+        // This box is the thumb itself, so the offset lands the thumb on its
+        // inset. The orbit light is drawn 4dp proud of it on every side without
+        // taking part in layout: measured in, it would have made this box 8dp
+        // wider than the thumb and pushed the thumb 4dp off centre, leaving
+        // 8dp beside the thumb where there is 12dp above and below it.
         Box(
-            modifier = Modifier.offset(x = inset + thumbWidth * thumbFraction),
+            modifier = Modifier
+                .offset(x = inset + thumbWidth * thumbFraction)
+                .size(thumbWidth, thumbHeight),
             contentAlignment = Alignment.Center,
         ) {
-            // Sits inside the pill with 2dp to spare, so the light never
-            // touches the outer edge.
             OrbitLight(
                 width = thumbWidth + 8.dp,
                 height = thumbHeight + 8.dp,
@@ -265,7 +272,7 @@ private fun ConnectSwitch(
             )
             Box(
                 modifier = Modifier
-                    .size(thumbWidth, thumbHeight)
+                    .fillMaxSize()
                     .clip(RoundedCornerShape(percent = 50))
                     // Grey while connecting; green only once the tunnel is up.
                     .background(if (connected) Ok else Color(0xFF2A323D)),
@@ -344,7 +351,9 @@ private fun OrbitLight(
         label = "orbit-angle",
     )
 
-    Canvas(Modifier.size(width, height)) {
+    // requiredSize, not size: the light is bigger than the thumb it rings and
+    // must overflow it evenly rather than stretch the layout around it.
+    Canvas(Modifier.requiredSize(width, height)) {
         if (!spinning) return@Canvas
         val radius = size.height / 2
         val stroke = Stroke(width = 2.5f.dp.toPx())
