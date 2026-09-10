@@ -246,6 +246,75 @@ jobs:
             echo
           done
 
+      # The build that actually ships, built on every push rather than for the
+      # first time on release day.
+      #
+      # Debug builds are not minified, so everything R8 gets wrong is invisible
+      # until the one build nobody can afford to have broken. The two failure
+      # modes are different and both matter: R8 refusing to build at all, which
+      # this catches outright, and R8 quietly removing something reached only by
+      # name — a JNI callback, a reflected class — which produces an APK that
+      # installs, starts, and does not work. Building it here at least makes the
+      # first kind impossible to discover late, and puts the real size in the
+      # log.
+      #
+      # It is signed with the debug key, deliberately. An unsigned APK cannot be
+      # installed, so it could not be tested at all; a release key does not
+      # belong in CI. Every artifact from here says so in its name: this is a
+      # build to test, never one to publish.
+      - name: Build the release APK, minified as it will really ship
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee /tmp/gradle-release.log || {
+            grep -E '^e: ' /tmp/gradle-release.log | head -30 | while read -r line; do
+              echo "::error::$line"
+            done
+            grep -E '^(e|w): ' /tmp/gradle-release.log | head -60
+            # R8 reports missing classes and broken keep rules here rather than
+            # as compiler lines, and they are the whole reason this step exists.
+            grep -iE 'R8|Missing class|proguard|shrink' /tmp/gradle-release.log | head -40
+            exit 1
+          }
+
+      - name: Sign the release APKs with the debug key, for testing only
+        working-directory: android
+        run: |
+          set -eu
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p app/build/outputs/apk/release-test
+          for apk in app/build/outputs/apk/release/*.apk; do
+            base=$(basename "$apk" .apk | sed 's/-unsigned$//' | sed 's/-release$//')
+            out="app/build/outputs/apk/release-test/cvpn-$base-release-TEST-SIGNED.apk"
+            "$tools/zipalign" -p -f 4 "$apk" "$out.tmp"
+            "$tools/apksigner" sign \
+              --ks "$JORDAN_DEBUG_KEYSTORE" --ks-pass pass:android \
+              --ks-key-alias androiddebugkey --key-pass pass:android \
+              --out "$out" "$out.tmp"
+            rm -f "$out.tmp" "$out.idsig"
+          done
+
+      # The number that matters. A debug APK is not the size anyone downloads,
+      # and until now it was the only one ever measured.
+      - name: Say how much smaller the real build is
+        working-directory: android
+        run: |
+          echo "== debug (not minified)"
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            echo "   $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+          done
+          echo "== release (R8, resources shrunk) — what a customer downloads"
+          for apk in app/build/outputs/apk/release-test/*.apk; do
+            echo "   $(basename "$apk")  $(du -h "$apk" | cut -f1)"
+          done
+
+      - name: Attach the release arm64 APK, for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: cvpn-release-TEST-SIGNED-arm64-v8a
+          path: android/app/build/outputs/apk/release-test/*arm64-v8a*.apk
+          if-no-files-found: error
+
       - name: Attach the universal APK to this run
         uses: actions/upload-artifact@v4
         with:
