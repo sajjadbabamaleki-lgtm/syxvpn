@@ -52,8 +52,24 @@ NEW_VOL=cvpn_cvpn-data
 if docker volume inspect "$OLD_VOL" >/dev/null 2>&1 && ! docker volume inspect "$NEW_VOL" >/dev/null 2>&1; then
   echo "== moving $OLD_VOL to $NEW_VOL"
   # The old containers are still running under the old project name and still
-  # hold port 8787. Stopping by project leaves the volumes alone.
-  docker compose -p jordan -f deploy/docker-compose.yml down 2>/dev/null || true
+  # hold port 8787, so the new stack cannot bind it.
+  #
+  # By name, not by `docker compose -p jordan down`: that reads this compose
+  # file, which requires PUBLIC_BASE_URL and SECRET_KEY, and without --env-file
+  # it fails before stopping anything. It did exactly that once — the failure
+  # was swallowed, the old containers kept the port, and the deploy got as far
+  # as "port is already allocated" with everything else already done.
+  #
+  # The gateway agent on this host is deliberately not in the list: it keeps
+  # running and keeps its gateway online across the whole of this.
+  for c in jordan-api-1 jordan-web-1; do
+    docker rm -f "$c" >/dev/null 2>&1 || true
+  done
+  # Whatever is holding it now, the next step cannot work until it lets go.
+  if command -v ss >/dev/null 2>&1 && ss -ltn '( sport = :8787 )' | grep -q LISTEN; then
+    echo "FAILED: something still holds port 8787. \`docker ps\` will say what." >&2
+    exit 1
+  fi
 
   docker volume create "$NEW_VOL" >/dev/null
   docker run --rm -v "$OLD_VOL":/from -v "$NEW_VOL":/to alpine sh -c '
