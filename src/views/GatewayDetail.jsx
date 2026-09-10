@@ -126,10 +126,23 @@ export function GatewayDetail({ id }) {
         <Card>
           <Row label="Host" value={`${data.host}:${data.port}`} mono />
           <Row label="Protocol" value={`${data.protocol.toUpperCase()} over ${data.transport.toUpperCase()}`} />
-          <Row label="TLS" value={data.tlsMode === 'none' ? 'none (plaintext)' : data.tlsMode} />
-          {data.sni && <Row label="SNI" value={data.sni} mono />}
-          <Row label="WebSocket path" value={data.wsPath} mono />
-          {data.wsHost && <Row label="WebSocket host header" value={data.wsHost} mono />}
+          {data.reality ? (
+            <>
+              {/* The borrowed handshake, not a certificate of this gateway's own. */}
+              <Row label="Borrowed site" value={data.reality.dest} mono />
+              <Row label="Server names" value={data.reality.serverNames.join(', ') || '—'} mono />
+              <Row label="Public key" value={data.reality.publicKey} mono />
+              <Row label="Short IDs" value={data.reality.shortIds.join(', ') || 'any'} mono />
+              <Row label="Fingerprint" value={data.reality.fingerprint} />
+            </>
+          ) : (
+            <>
+              <Row label="TLS" value={data.tlsMode === 'none' ? 'none (plaintext)' : data.tlsMode} />
+              {data.sni && <Row label="SNI" value={data.sni} mono />}
+              <Row label="WebSocket path" value={data.wsPath} mono />
+              {data.wsHost && <Row label="WebSocket host header" value={data.wsHost} mono />}
+            </>
+          )}
           <Row label="Xray binds" value={`${data.listenAddress}:${data.listenPort || data.port}`} mono />
           <Row label="Priority" value={data.priority} />
           <Row label="Latency" value={latency(data.ingress.latencyMs)} />

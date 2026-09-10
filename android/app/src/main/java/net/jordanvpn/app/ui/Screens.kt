@@ -1139,8 +1139,12 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
             selected?.let { profile ->
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    listOfNotNull("vless", "ws", if (profile.tls) "tls" else null)
-                        .joinToString("  ·  "),
+                    if (profile.reality != null) {
+                        listOf("vless", "tcp", "reality").joinToString("  ·  ")
+                    } else {
+                        listOfNotNull("vless", "ws", if (profile.tls) "tls" else null)
+                            .joinToString("  ·  ")
+                    },
                     color = TextFaint,
                     fontSize = 11.sp,
                     maxLines = 1,

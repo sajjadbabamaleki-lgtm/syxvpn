@@ -22,7 +22,7 @@ function GatewayCard({ gateway }) {
         <div className="list-meta">
           <span>{gateway.region}</span>
           <span className="mono">{gateway.host}:{gateway.port}</span>
-          <span>{gateway.tls ? gateway.tlsMode : 'no TLS'}</span>
+          <span>{gateway.transport === 'reality' ? 'reality' : (gateway.tls ? gateway.tlsMode : 'no TLS')}</span>
         </div>
         <div className="list-meta">
           <span>{latency(gateway.ingress.latencyMs)}</span>
@@ -45,9 +45,11 @@ function GatewayCard({ gateway }) {
 
 function AddGatewaySheet({ open, onClose, onCreated }) {
   const [form, setForm] = useState({
-    name: '', region: '', host: '', port: 443, tlsMode: 'reverse-proxy',
+    name: '', region: '', host: '', port: 443, transport: 'reality', tlsMode: 'reverse-proxy',
     listenPort: 10001, wsPath: '/ws', sni: '', priority: 100,
+    realityDest: 'www.microsoft.com:443',
   });
+  const reality = form.transport === 'reality';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [created, setCreated] = useState(null);
@@ -66,11 +68,22 @@ function AddGatewaySheet({ open, onClose, onCreated }) {
         region: form.region.trim(),
         host: form.host.trim(),
         port: Number(form.port),
-        tlsMode: form.tlsMode,
-        wsPath: form.wsPath.trim() || '/ws',
+        transport: form.transport,
         priority: Number(form.priority),
-        ...(form.sni.trim() ? { sni: form.sni.trim() } : {}),
-        ...(form.tlsMode === 'reverse-proxy' ? { listenPort: Number(form.listenPort), listenAddress: '127.0.0.1' } : {}),
+        // A REALITY gateway is the public listener and carries its own TLS, so
+        // none of the reverse-proxy fields apply to it. The key pair and short
+        // IDs come back from the control plane; there is nothing to type.
+        ...(reality ? {
+          tlsMode: 'none',
+          realityDest: form.realityDest.trim(),
+        } : {
+          tlsMode: form.tlsMode,
+          wsPath: form.wsPath.trim() || '/ws',
+          ...(form.sni.trim() ? { sni: form.sni.trim() } : {}),
+          ...(form.tlsMode === 'reverse-proxy'
+            ? { listenPort: Number(form.listenPort), listenAddress: '127.0.0.1' }
+            : {}),
+        }),
       };
       const gateway = await api.createGateway(body);
       setCreated(gateway);
@@ -113,28 +126,62 @@ function AddGatewaySheet({ open, onClose, onCreated }) {
               <input type="number" inputMode="numeric" min="1" max="65535" value={form.port} onChange={set('port')} required />
             </Field>
           </div>
-          <Field label="TLS" hint="Jordan will not advertise TLS a gateway cannot actually serve">
-            <select value={form.tlsMode} onChange={set('tlsMode')}>
-              <option value="reverse-proxy">Terminated by a reverse proxy (recommended)</option>
-              <option value="none">None — plaintext WebSocket</option>
+          <Field label="How clients reach it">
+            <select value={form.transport} onChange={set('transport')}>
+              <option value="reality">REALITY — borrows a real site&apos;s TLS (recommended)</option>
+              <option value="ws">WebSocket behind a reverse proxy</option>
             </select>
           </Field>
-          {form.tlsMode === 'reverse-proxy' && (
-            <div className="form-grid">
-              <Field label="Xray loopback port" hint="what the proxy forwards to">
-                <input type="number" inputMode="numeric" value={form.listenPort} onChange={set('listenPort')} required />
+          {reality ? (
+            <>
+              <Field
+                label="Borrowed site"
+                hint="host:port. Its handshake is what a censor sees, and anyone who is not a subscriber is forwarded there."
+              >
+                <input
+                  value={form.realityDest}
+                  onChange={set('realityDest')}
+                  required
+                  autoCapitalize="none"
+                  spellCheck="false"
+                  placeholder="www.microsoft.com:443"
+                />
               </Field>
-              <Field label="SNI / TLS host">
-                <input value={form.sni} onChange={set('sni')} autoCapitalize="none" spellCheck="false" />
+              <p className="hint">
+                Pick a site that speaks TLS 1.3 and HTTP/2, is not blocked where your
+                subscribers are, and is not yours. The key pair and short IDs are
+                issued here — nothing to run on the box.
+              </p>
+              <Field label="Priority" hint="lower wins">
+                <input type="number" inputMode="numeric" min="1" max="1000" value={form.priority} onChange={set('priority')} />
               </Field>
-            </div>
+            </>
+          ) : (
+            <>
+              <Field label="TLS" hint="Jordan will not advertise TLS a gateway cannot actually serve">
+                <select value={form.tlsMode} onChange={set('tlsMode')}>
+                  <option value="reverse-proxy">Terminated by a reverse proxy (recommended)</option>
+                  <option value="none">None — plaintext WebSocket</option>
+                </select>
+              </Field>
+              {form.tlsMode === 'reverse-proxy' && (
+                <div className="form-grid">
+                  <Field label="Xray loopback port" hint="what the proxy forwards to">
+                    <input type="number" inputMode="numeric" value={form.listenPort} onChange={set('listenPort')} required />
+                  </Field>
+                  <Field label="SNI / TLS host">
+                    <input value={form.sni} onChange={set('sni')} autoCapitalize="none" spellCheck="false" />
+                  </Field>
+                </div>
+              )}
+              <div className="form-grid">
+                <Field label="WebSocket path"><input value={form.wsPath} onChange={set('wsPath')} /></Field>
+                <Field label="Priority" hint="lower wins">
+                  <input type="number" inputMode="numeric" min="1" max="1000" value={form.priority} onChange={set('priority')} />
+                </Field>
+              </div>
+            </>
           )}
-          <div className="form-grid">
-            <Field label="WebSocket path"><input value={form.wsPath} onChange={set('wsPath')} /></Field>
-            <Field label="Priority" hint="lower wins">
-              <input type="number" inputMode="numeric" min="1" max="1000" value={form.priority} onChange={set('priority')} />
-            </Field>
-          </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <Button type="submit" loading={busy} icon="plus">Register gateway</Button>
         </form>

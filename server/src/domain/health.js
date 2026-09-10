@@ -1,11 +1,12 @@
 import net from 'node:net';
+import tls from 'node:tls';
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { EVENT, recordEvent } from './events.js';
 import { reevaluateGateway } from './routing.js';
-import { clientEndpoint } from './xray.js';
+import { clientEndpoint, isReality, realityServerNames } from './xray.js';
 
 /**
  * Health is measured at two independent layers, because they fail
@@ -82,6 +83,58 @@ export function wsProbe(gateway, timeoutMs = config.health.probeTimeoutMs) {
   });
 }
 
+/**
+ * Probes a REALITY gateway by being exactly what a censor's prober is.
+ *
+ * A plain TLS client has none of the REALITY authentication in its ClientHello,
+ * so the gateway forwards the whole connection to the site it borrows and the
+ * certificate that comes back is that site's real one. Verifying it against the
+ * name the gateway advertises therefore checks the three things that matter and
+ * cannot be checked apart: Xray is listening, the borrowed site is reachable
+ * *from the gateway*, and what answers on this port is the gateway rather than
+ * something else that moved in.
+ *
+ * A WebSocket upgrade probe would tell us none of that — there is no HTTP here
+ * at all — and a subscriber's own handshake cannot be imitated from outside,
+ * because it needs a credential this check has no business holding.
+ */
+export function realityProbe(gateway, timeoutMs = config.health.probeTimeoutMs) {
+  const serverName = realityServerNames(gateway)[0] || gateway.sni || gateway.host;
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const socket = tls.connect({
+      host: gateway.host,
+      port: gateway.port,
+      servername: serverName,
+      // The borrowed site's certificate has to be valid for the name the
+      // gateway tells clients to claim. If it is not, the disguise is broken
+      // and every prober can see it.
+      rejectUnauthorized: true,
+      timeout: timeoutMs,
+    });
+    let settled = false;
+    const finish = (status, detail) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({ status, latencyMs: Date.now() - started, detail });
+    };
+    socket.once('secureConnect', () => {
+      const issuer = socket.getPeerCertificate()?.issuer?.O || 'unknown issuer';
+      finish('online', `reality: ${serverName} handshake forwarded and verified (${issuer})`);
+    });
+    socket.once('timeout', () => finish('offline', `reality probe timeout after ${timeoutMs}ms`));
+    socket.once('error', (err) => {
+      const code = err.code || err.message;
+      // A handshake that completes but does not verify means something is
+      // listening that is not the borrowed site: the port is open and the
+      // cover is wrong, which is worse than being down.
+      const broken = typeof code === 'string' && (code.includes('CERT') || code.includes('ALT_NAME'));
+      finish(broken ? 'degraded' : 'offline', `reality probe: ${code}`);
+    });
+  });
+}
+
 function recordCheck(db, row) {
   db.prepare(`INSERT INTO health_checks
       (target_type,target_id,gateway_id,check_kind,status,latency_ms,detail,source,created_at)
@@ -96,12 +149,12 @@ export async function checkGatewayIngress(db, gateway) {
   let result = tcp;
   let kind = 'tcp';
   if (tcp.status === 'online') {
-    const ws = await wsProbe(gateway);
-    // TCP succeeded, so the host is reachable; the ws result refines the state.
-    result = ws.status === 'offline'
-      ? { status: 'degraded', latencyMs: tcp.latencyMs, detail: `tcp ok, ${ws.detail}` }
-      : ws;
-    kind = 'http';
+    const deeper = isReality(gateway) ? await realityProbe(gateway) : await wsProbe(gateway);
+    // TCP succeeded, so the host is reachable; the deeper result refines it.
+    result = deeper.status === 'offline'
+      ? { status: 'degraded', latencyMs: tcp.latencyMs, detail: `tcp ok, ${deeper.detail}` }
+      : deeper;
+    kind = isReality(gateway) ? 'tls' : 'http';
   }
   return applyIngressResult(db, gateway, { ...result, checkKind: kind });
 }

@@ -501,6 +501,29 @@ export const migrations = [
       db.exec('DROP TABLE gateways');
       db.exec('ALTER TABLE gateways_new RENAME TO gateways');
       db.exec('CREATE INDEX idx_gateways_priority ON gateways(priority, name)');
+      // A REALITY gateway is checked with a TLS handshake rather than a
+      // WebSocket upgrade — there is no HTTP on that port at all — and the
+      // kinds a health check may have were fixed when there was.
+      db.exec(`CREATE TABLE health_checks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_type TEXT NOT NULL CHECK (target_type IN ('gateway','egress')),
+        target_id TEXT NOT NULL,
+        gateway_id TEXT,
+        check_kind TEXT NOT NULL CHECK (check_kind IN ('tcp','http','tls','e2e')),
+        status TEXT NOT NULL,
+        latency_ms INTEGER,
+        detail TEXT,
+        source TEXT NOT NULL CHECK (source IN ('control-plane','agent')),
+        created_at INTEGER NOT NULL
+      )`);
+      db.exec(`INSERT INTO health_checks_new
+        (id,target_type,target_id,gateway_id,check_kind,status,latency_ms,detail,source,created_at)
+        SELECT id,target_type,target_id,gateway_id,check_kind,status,latency_ms,detail,source,created_at
+        FROM health_checks`);
+      db.exec('DROP TABLE health_checks');
+      db.exec('ALTER TABLE health_checks_new RENAME TO health_checks');
+      db.exec('CREATE INDEX idx_health_target ON health_checks(target_type, target_id, created_at DESC)');
+
       const orphans = db.pragma('foreign_key_check');
       if (orphans.length) throw new Error(`gateway rebuild left ${orphans.length} orphaned rows`);
     },

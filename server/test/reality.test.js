@@ -5,6 +5,10 @@ import {
   realityKeyPair, realityPublicKey, generateShortIds, parseDest, SHORT_ID_SHAPE,
 } from '../src/lib/reality.js';
 import { startTestServer } from './helpers.js';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const realityGateway = (overrides = {}) => ({
   id: 'gw_reality', name: 'Edge R', region: 'de', host: '203.0.113.9', port: 443,
@@ -229,3 +233,80 @@ test('registering a REALITY gateway', async (t) => {
     assert.deepEqual(res.body.data.reality.serverNames, ['www.cloudflare.com']);
   });
 });
+
+test('checking a REALITY gateway from outside', async (t) => {
+  const tls = await import('node:tls');
+  const net = await import('node:net');
+  const { realityProbe, checkGatewayIngress } = await import('../src/domain/health.js');
+
+  const listen = (server) => new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+  });
+
+  await t.test('nothing listening is offline, not degraded', async () => {
+    // A port that was open long enough to be handed back.
+    const idle = net.createServer();
+    const port = await listen(idle);
+    await new Promise((resolve) => idle.close(resolve));
+    const result = await realityProbe(realityGateway({ host: '127.0.0.1', port }), 2000);
+    assert.equal(result.status, 'offline');
+  });
+
+  await t.test('a port that opens but never speaks TLS is offline', async () => {
+    const silent = net.createServer(() => { /* accept and say nothing */ });
+    const port = await listen(silent);
+    t.after(() => silent.close());
+    const result = await realityProbe(realityGateway({ host: '127.0.0.1', port }), 1000);
+    assert.equal(result.status, 'offline');
+    assert.match(result.detail, /timeout|probe/);
+  });
+
+  await t.test("a certificate that is not the borrowed site's is degraded, not offline", async () => {
+    // Something is listening and completing a handshake, but what comes back
+    // is not what the gateway tells clients to expect. The port being open is
+    // exactly why this is worse than being down: the cover is blown and the
+    // address still looks alive.
+    const cert = selfSigned();
+    const server = tls.createServer({ key: cert.key, cert: cert.cert }, (socket) => socket.end());
+    const port = await listen(server);
+    t.after(() => server.close());
+    const result = await realityProbe(realityGateway({ host: '127.0.0.1', port }), 3000);
+    assert.equal(result.status, 'degraded');
+    assert.match(result.detail, /reality probe/);
+  });
+
+  await t.test('a REALITY gateway is never probed for a WebSocket upgrade', async () => {
+    // There is no HTTP on that port at all, so a ws probe would report
+    // "no websocket upgrade" on a perfectly healthy gateway — and the route
+    // selector drops a degraded gateway.
+    const ctx = await startTestServer();
+    t.after(() => ctx.close());
+    const idle = net.createServer();
+    const port = await listen(idle);
+    await new Promise((resolve) => idle.close(resolve));
+    const gateway = { ...realityGateway({ host: '127.0.0.1', port }), enabled: 1, ingress_fail_count: 0 };
+    ctx.db.prepare(`INSERT INTO gateways (id,name,region,host,port,transport,tls_mode,reality_dest,
+        reality_server_names,reality_private_key,reality_public_key,reality_short_ids,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(gateway.id, gateway.name, gateway.region, gateway.host, gateway.port, 'reality', 'none',
+        gateway.reality_dest, gateway.reality_server_names, gateway.reality_private_key,
+        gateway.reality_public_key, gateway.reality_short_ids, Date.now(), Date.now());
+
+    await checkGatewayIngress(ctx.db, ctx.db.prepare('SELECT * FROM gateways WHERE id=?').get(gateway.id));
+    const check = ctx.db.prepare('SELECT * FROM health_checks WHERE target_id=? ORDER BY id DESC').get(gateway.id);
+    assert.ok(!/websocket/i.test(check.detail || ''), check.detail);
+  });
+});
+
+/** A throwaway certificate, which is exactly what must NOT verify. */
+function selfSigned() {
+  const dir = mkdtempSync(join(tmpdir(), 'jordan-tls-'));
+  const keyPath = join(dir, 'key.pem');
+  const certPath = join(dir, 'cert.pem');
+  execFileSync('openssl', [
+    'req', '-new', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+    '-keyout', keyPath, '-out', certPath,
+    '-subj', '/CN=not-the-borrowed-site.invalid',
+  ], { stdio: 'ignore' });
+  return { key: readFileSync(keyPath), cert: readFileSync(certPath) };
+}

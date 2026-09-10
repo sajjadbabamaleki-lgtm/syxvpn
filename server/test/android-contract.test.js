@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer } from './helpers.js';
+import { clientProfile } from '../src/domain/xray.js';
 
 /**
  * The Android client reads these responses by hand (HttpURLConnection plus
@@ -110,4 +111,30 @@ test('the Android client reads fields the storefront actually returns', async (t
     assert.equal(res.status, 200);
     has(res.body.data.subscription, SUBSCRIPTION, 'subscription');
   });
+});
+
+/**
+ * `VlessProfile.parse` reads these parameter names out of a `vless://` line,
+ * and it cannot be unit-tested where it lives: it is built on android.net.Uri,
+ * which is a stub on a JVM test runner. So the contract is pinned from this
+ * side, where the profiles are generated.
+ */
+test('a REALITY profile carries the parameters the Android parser reads', () => {
+  const gateway = {
+    id: 'gw_r', name: 'Edge R', region: 'de', host: '203.0.113.9', port: 443,
+    transport: 'reality', tls_mode: 'none',
+    reality_dest: 'www.microsoft.com:443',
+    reality_server_names: 'www.microsoft.com',
+    reality_public_key: 'uNm292XHIOI0wHLfn5fiOOquk47pn6kjiYhqwermDjA',
+    reality_short_ids: 'a1b2c3d4',
+    reality_fingerprint: 'chrome',
+  };
+  const params = new URL(clientProfile(gateway, '11111111-2222-3333-4444-555555555555')).searchParams;
+  // Reject the profile outright if any of these is missing: the app does.
+  for (const key of ['security', 'type', 'flow', 'sni', 'fp', 'pbk', 'sid']) {
+    assert.ok(params.get(key), `a REALITY profile must carry "${key}"`);
+  }
+  // The two the parser refuses to guess at.
+  assert.equal(params.get('security'), 'reality');
+  assert.equal(params.get('type'), 'tcp');
 });

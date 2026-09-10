@@ -84,18 +84,37 @@ object XrayConfigBuilder {
         .toString()
 
     private fun proxyOutbound(profile: VlessProfile): JSONObject {
-        val stream = JSONObject()
-            .put("network", "ws")
-            .put(
-                "wsSettings",
-                JSONObject()
-                    .put("path", profile.wsPath)
-                    // The independent "host" field, not headers.Host: Xray
-                    // deprecated the header form and warns about it on every
-                    // start.
-                    .put("host", profile.wsHost ?: profile.host),
-            )
-        if (profile.tls) {
+        val reality = profile.reality
+        val stream = if (reality != null) {
+            // TCP, and the TLS is the borrowed site's. The fingerprint makes
+            // the ClientHello look like that browser's, which is the half of
+            // the disguise the client is responsible for.
+            JSONObject()
+                .put("network", "tcp")
+                .put("security", "reality")
+                .put(
+                    "realitySettings",
+                    JSONObject()
+                        .put("serverName", reality.serverName)
+                        .put("publicKey", reality.publicKey)
+                        .put("shortId", reality.shortId)
+                        .put("fingerprint", reality.fingerprint)
+                        .put("show", false),
+                )
+        } else {
+            JSONObject()
+                .put("network", "ws")
+                .put(
+                    "wsSettings",
+                    JSONObject()
+                        .put("path", profile.wsPath)
+                        // The independent "host" field, not headers.Host: Xray
+                        // deprecated the header form and warns about it on every
+                        // start.
+                        .put("host", profile.wsHost ?: profile.host),
+                )
+        }
+        if (reality == null && profile.tls) {
             stream.put("security", "tls")
             stream.put(
                 "tlsSettings",
@@ -121,7 +140,11 @@ object XrayConfigBuilder {
                                     JSONObject()
                                         .put("id", profile.uuid)
                                         .put("encryption", "none")
-                                        .put("level", 0),
+                                        .put("level", 0)
+                                        // Vision, and only over REALITY: Xray
+                                        // refuses to start with a flow set on
+                                        // a WebSocket outbound.
+                                        .apply { profile.reality?.let { put("flow", it.flow) } },
                                 ),
                             ),
                     ),
