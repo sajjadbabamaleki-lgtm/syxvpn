@@ -51,6 +51,21 @@ export function Overview() {
         <p className="state-body">{copy.body}</p>
       </Card>
 
+      {/* Things no single gateway can notice about the shape of the fleet.
+          They sit here because every one of them describes a fleet that is
+          green today and arranged so one decision elsewhere takes all of it —
+          which is not something anybody goes looking for. */}
+      {data.advisories?.length > 0 && (
+        <div className="advisories">
+          {data.advisories.map((advisory) => (
+            <Card key={advisory.code + advisory.gatewayIds.join()} className={`advisory advisory-${advisory.severity}`}>
+              <Icon name={advisory.severity === 'critical' ? 'alert' : 'shield'} size={17} />
+              <p>{advisory.message}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
       <div className="metric-grid">
         <Metric
           label="Gateways online"

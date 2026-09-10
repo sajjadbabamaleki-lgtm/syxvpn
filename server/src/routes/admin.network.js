@@ -4,6 +4,7 @@ import { listGateways } from '../domain/gateways.js';
 import { candidatesFor, routeState, lastSwitch, reevaluateAll } from '../domain/routing.js';
 import { entitlement } from '../domain/subscribers.js';
 import { listEvents } from '../domain/events.js';
+import { fleetAdvisories } from '../domain/advisories.js';
 import { totalUsage } from '../domain/usage.js';
 import { egressView, routeSwitchView, iso } from './serialize.js';
 import { VERSION } from './meta.js';
@@ -92,6 +93,8 @@ export function adminNetworkRoutes({ db, startedAt }) {
         time: new Date(now).toISOString(),
       },
       state: networkState(routes),
+      // Things no single gateway can notice about the shape of the fleet.
+      advisories: fleetAdvisories(db),
       gateways: {
         total: gateways.length,
         enabled: count(gateways, (g) => g.enabled === 1),

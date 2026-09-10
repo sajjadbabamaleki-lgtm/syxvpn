@@ -633,3 +633,19 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   text-align: center;
   user-select: all;
 }
+
+/* Fleet advisories. Deliberately quieter than an outage banner: nothing here
+   is broken today, which is exactly why it needs to be readable rather than
+   alarming — an advisory that looks like an error gets dismissed like one. */
+.advisories { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.advisory {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-bg);
+}
+.advisory p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+.advisory svg { flex: none; margin-top: 1px; color: var(--warn); }
+.advisory-critical { border-left-color: var(--bad); background: var(--bad-bg); }
+.advisory-critical svg { color: var(--bad); }
