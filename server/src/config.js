@@ -96,6 +96,15 @@ export function loadConfig(env = process.env) {
 
     shop: {
       enabled: bool(env.SHOP_ENABLED, true),
+      /**
+       * Whether the by-the-gigabyte plans are on sale.
+       *
+       * They are settled by hand, so there are stretches where nobody is there
+       * to settle one — and a plan that cannot be fulfilled should not be on
+       * the shelf. Off by default: selling something nobody is watching is
+       * worse than not selling it.
+       */
+      volumeSales: bool(env.SHOP_VOLUME_SALES, false),
       sessionTtlSeconds: int(env.SHOP_SESSION_TTL_SECONDS, 30 * 24 * 3600),
       // TRC-20 USDT address that receives customer payments. Without it the
       // storefront still lists plans but refuses to open an order.

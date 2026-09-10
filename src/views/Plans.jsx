@@ -15,6 +15,8 @@ function PlanSheet({ open, plan, onClose, onSaved }) {
     quotaGb: plan ? Math.round((plan.quotaBytes / 1024 ** 3) * 100) / 100 : 50,
     durationDays: plan?.durationDays || 30,
     priceUsdt: plan?.priceUsdt || 5,
+    product: plan?.product || 'vpn',
+    billing: plan?.billing || 'duration',
     sortOrder: plan?.sortOrder ?? 100,
   }));
   const [busy, setBusy] = useState(false);
@@ -32,6 +34,8 @@ function PlanSheet({ open, plan, onClose, onSaved }) {
         quotaGb: Number(form.quotaGb),
         durationDays: Number(form.durationDays),
         priceUsdt: Number(form.priceUsdt),
+        product: form.product,
+        billing: form.billing,
         sortOrder: Number(form.sortOrder),
       };
       if (plan) await api.updatePlan(plan.id, body);
@@ -50,6 +54,27 @@ function PlanSheet({ open, plan, onClose, onSaved }) {
     <Sheet open={open} title={plan ? 'Edit plan' : 'New plan'} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <Field label="Name"><input value={form.name} onChange={set('name')} required maxLength={64} /></Field>
+        <div className="form-grid">
+          <Field label="Sells" hint="which tab this unlocks">
+            <select value={form.product} onChange={set('product')}>
+              <option value="vpn">VPN — managed servers, one button</option>
+              <option value="configs">Configs — the config list</option>
+            </select>
+          </Field>
+          <Field label="Priced by">
+            <select value={form.billing} onChange={set('billing')}>
+              <option value="duration">Time — a month, three, six, twelve</option>
+              <option value="volume">Data — settled by hand</option>
+            </select>
+          </Field>
+        </div>
+        {form.billing === 'volume' && (
+          <p className="hint">
+            By-the-gigabyte plans are only on sale while SHOP_VOLUME_SALES is on,
+            because somebody has to be there to settle one. Off the shelf they
+            cannot be ordered either, not merely hidden.
+          </p>
+        )}
         <Field label="Description" hint="one line shown on the plan card">
           <input value={form.description} onChange={set('description')} maxLength={300} />
         </Field>
@@ -113,6 +138,8 @@ export function Plans() {
               <span>{plan.priceUsdt} USDT</span>
               <span>{plan.quotaBytes > 0 ? bytes(plan.quotaBytes) : 'unmetered'}</span>
               <span>{plan.durationDays} days</span>
+              <span>{plan.product === 'configs' ? 'Configs' : 'VPN'}</span>
+              {plan.billing === 'volume' && <span>by the GB · manual</span>}
             </div>
             {plan.description && <p className="detail-note">{plan.description}</p>}
           </div>

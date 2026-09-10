@@ -528,4 +528,33 @@ export const migrations = [
       if (orphans.length) throw new Error(`gateway rebuild left ${orphans.length} orphaned rows`);
     },
   },
+  {
+    id: '006_two_products',
+    up(db) {
+      // The VPN tab and the Configs tab are two products sold separately, and
+      // until now a customer had one subscription that both read. Buying a
+      // Configs plan topped up the quota the VPN tab was spending.
+      //
+      // 'all' is not a product anybody sells. It is what every existing
+      // subscription becomes, because those were sold before the split and
+      // taking half of one away from somebody who paid for it is not a
+      // migration. An operator can also grant it deliberately.
+      db.exec(`ALTER TABLE subscribers ADD COLUMN product TEXT NOT NULL DEFAULT 'all'`);
+      db.exec('CREATE INDEX idx_subscribers_customer_product ON subscribers(customer_id, product)');
+
+      // What a plan sells, and how it is priced.
+      //   vpn      — the managed servers, one button, pick a country
+      //   configs  — the config list, to use here or carry to another client
+      db.exec(`ALTER TABLE plans ADD COLUMN product TEXT NOT NULL DEFAULT 'vpn'`);
+      // duration — 1, 3, 6 or 12 months
+      // volume   — a gigabyte at a time, settled by hand, and often not on sale
+      db.exec(`ALTER TABLE plans ADD COLUMN billing TEXT NOT NULL DEFAULT 'duration'`);
+
+      // Which product an order was for. The plan carries it, but a plan can be
+      // edited or deleted after the sale, and an order is a record of what was
+      // actually bought.
+      db.exec(`ALTER TABLE orders ADD COLUMN product TEXT NOT NULL DEFAULT 'vpn'`);
+      db.exec(`UPDATE orders SET product = 'all'`);
+    },
+  },
 ];

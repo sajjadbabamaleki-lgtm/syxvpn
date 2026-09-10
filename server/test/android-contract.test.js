@@ -13,11 +13,16 @@ import { clientProfile } from '../src/domain/xray.js';
  * looks up. Renaming a field on either side should break this test.
  */
 const SHOP_CONFIG_PAYMENT = ['configured', 'chain', 'asset', 'address', 'contract', 'confirmations', 'windowMinutes'];
-const PLAN = ['id', 'name', 'description', 'quotaBytes', 'durationDays', 'priceMicro'];
+// product and billing are new: a plan card that does not say which of the two
+// things it buys, and whether it is by time or by the gigabyte, is a refund
+// request.
+const PLAN = ['id', 'name', 'description', 'quotaBytes', 'durationDays', 'priceMicro', 'product', 'billing'];
 const ORDER = [
   'id', 'planName', 'status', 'quotaBytes', 'durationDays',
   'payAmountMicro', 'payAddress', 'chain', 'asset', 'confirmations', 'txHash', 'expiresAt',
 ];
+// The installed app reads `subscription`; the next one reads `subscriptions`,
+// one per product. Both are served until every phone has been replaced.
 const SUBSCRIPTION = ['active', 'state', 'usedBytes', 'quotaBytes', 'expiresAt', 'subscriptionUrl', 'profiles'];
 
 const has = (object, keys, what) => keys.forEach((key) => {

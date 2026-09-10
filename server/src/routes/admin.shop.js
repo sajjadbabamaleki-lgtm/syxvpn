@@ -15,6 +15,14 @@ const GB = 1024 ** 3;
 const planBody = {
   name: nameField,
   description: z.string().trim().max(300).nullish(),
+  // Which of the two things this sells. The VPN tab is managed servers behind
+  // one button; the Configs tab is a config list, to use here or carry to
+  // another client.
+  product: z.enum(['vpn', 'configs']).optional(),
+  // duration — a month, three, six or twelve.
+  // volume   — a gigabyte at a time, settled by hand, and often not on sale
+  //            at all. See config.shop.volumeSales.
+  billing: z.enum(['duration', 'volume']).optional(),
   quotaGb: z.coerce.number().min(0).max(102400).optional(),
   quotaBytes: z.coerce.number().int().min(0).optional(),
   durationDays: z.coerce.number().int().min(1).max(3650),

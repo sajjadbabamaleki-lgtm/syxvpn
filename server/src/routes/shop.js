@@ -50,6 +50,11 @@ const planView = (plan) => ({
   durationDays: plan.duration_days,
   priceUsdt: fromMicro(plan.price_micro),
   priceMicro: plan.price_micro,
+  // Which tab this unlocks, and whether it is sold by time or by the gigabyte.
+  // The app reads both: a plan card that does not say which of the two things
+  // it buys is a refund request.
+  product: plan.product,
+  billing: plan.billing,
 });
 
 const orderView = (order) => ({
@@ -76,8 +81,8 @@ const orderView = (order) => ({
 });
 
 /** Everything the "my config" screen needs, or a clear reason there is nothing. */
-function subscriptionView(db, req, customerId) {
-  const subscriber = subscriberForCustomer(db, customerId);
+function subscriptionView(db, req, customerId, product = null) {
+  const subscriber = subscriberForCustomer(db, customerId, product);
   if (!subscriber) return null;
   const state = entitlement(subscriber);
   const token = revealToken(db, subscriber.id);
@@ -171,6 +176,15 @@ export function shopRoutes({ db }) {
   // The single screen a customer lives on: their subscription and its state.
   router.get('/me', requireCustomer(db), (req, res) => ok(res, {
     customer: req.customer,
+    // One per product, because they are bought separately. A subscription sold
+    // before the split has product 'all' and answers for both.
+    subscriptions: {
+      vpn: subscriptionView(db, req, req.customer.id, 'vpn'),
+      configs: subscriptionView(db, req, req.customer.id, 'configs'),
+    },
+    // What every installed app reads today. It stays until they have all been
+    // replaced: changing the shape of this would leave a paying customer's
+    // phone showing them no subscription at all.
     subscription: subscriptionView(db, req, req.customer.id),
     orders: listOrders(db, req.customer.id, 10).map(orderView),
   }));
@@ -192,7 +206,8 @@ export function shopRoutes({ db }) {
     if (!order || order.customer_id !== req.customer.id) return next(notFound('Order'));
     return ok(res, {
       ...orderView(order),
-      subscription: order.status === 'fulfilled' ? subscriptionView(db, req, req.customer.id) : null,
+      subscription: order.status === 'fulfilled'
+        ? subscriptionView(db, req, req.customer.id, order.product) : null,
     });
   });
 

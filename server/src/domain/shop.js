@@ -73,7 +73,24 @@ export function customerForSession(db, token) {
 
 // -------------------------------------------------------------------- plans
 
-export function listPlans(db, { includeDisabled = false } = {}) {
+/**
+ * Plans on sale.
+ *
+ * Volume plans come and go as a group: they are settled by hand, so there are
+ * stretches where nobody is there to settle one, and a plan that cannot be
+ * fulfilled should not be on the shelf. One switch turns the whole shelf off
+ * rather than an operator remembering to disable each plan and re-enable it.
+ */
+export function listPlans(db, { includeDisabled = false, volumeSales = config.shop.volumeSales } = {}) {
+  if (!includeDisabled && !volumeSales) {
+    return db.prepare(
+      "SELECT * FROM plans WHERE enabled = 1 AND billing != 'volume' ORDER BY sort_order, price_micro",
+    ).all();
+  }
+  return listPlansRaw(db, { includeDisabled });
+}
+
+function listPlansRaw(db, { includeDisabled = false } = {}) {
   const where = includeDisabled ? '' : 'WHERE enabled = 1';
   return db.prepare(`SELECT * FROM plans ${where} ORDER BY sort_order, price_micro`).all();
 }
@@ -85,10 +102,11 @@ export function getPlan(db, id) {
 export function createPlan(db, input) {
   const now = Date.now();
   const id = newId('plan');
-  db.prepare(`INSERT INTO plans (id,name,description,quota_bytes,duration_days,price_micro,enabled,sort_order,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+  db.prepare(`INSERT INTO plans (id,name,description,quota_bytes,duration_days,price_micro,enabled,sort_order,product,billing,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(id, input.name, input.description ?? null, input.quotaBytes, input.durationDays,
-      input.priceMicro, input.enabled === false ? 0 : 1, input.sortOrder ?? 100, now, now);
+      input.priceMicro, input.enabled === false ? 0 : 1, input.sortOrder ?? 100,
+      input.product ?? 'vpn', input.billing ?? 'duration', now, now);
   return getPlan(db, id);
 }
 
@@ -146,7 +164,12 @@ export function createOrder(db, customerId, planId) {
     throw badRequest('Payments are not configured on this deployment');
   }
   const plan = getPlan(db, planId);
+  // Not merely enabled: on sale. A by-the-gigabyte plan is settled by hand, and
+  // while nobody is there to settle one it is off the shelf — which has to mean
+  // it cannot be ordered, not just that it is not listed. A plan id is not a
+  // secret; it was in the response the last time the shelf was up.
   if (!plan || plan.enabled !== 1) throw notFound('Plan');
+  if (plan.billing === 'volume' && !config.shop.volumeSales) throw notFound('Plan');
 
   const now = Date.now();
   expireStaleOrders(db, now);
@@ -162,11 +185,13 @@ export function createOrder(db, customerId, planId) {
   const payAmount = uniqueAmount(db, plan.price_micro, now);
   db.prepare(`INSERT INTO orders
       (id,customer_id,plan_id,plan_name,quota_bytes,duration_days,status,price_micro,pay_amount_micro,
-       pay_address,chain,asset,created_at,expires_at)
-      VALUES (?,?,?,?,?,?, 'pending', ?,?,?,?,?,?,?)`)
+       pay_address,chain,asset,created_at,expires_at,product)
+      VALUES (?,?,?,?,?,?, 'pending', ?,?,?,?,?,?,?,?)`)
     .run(id, customerId, plan.id, plan.name, plan.quota_bytes, plan.duration_days,
       plan.price_micro, payAmount, config.shop.payAddress, 'tron', 'USDT-TRC20',
-      now, now + config.shop.paymentWindowMinutes * 60000);
+      // The plan carries the product, but a plan can be edited or deleted after
+      // the sale, and an order is the record of what was actually bought.
+      now, now + config.shop.paymentWindowMinutes * 60000, plan.product);
 
   recordEvent(db, {
     type: 'order.created', targetType: 'order', targetId: id,
@@ -222,7 +247,10 @@ export function settleOrder(db, orderId, { txHash, fromAddress, confirmations, s
   let subscriberId = null;
 
   const run = db.transaction(() => {
-    const existing = subscriberForCustomer(db, order.customer_id);
+    // The subscription for the product this order was for. Buying Configs must
+    // not top up the quota the VPN tab is spending, which is what one shared
+    // subscription per customer meant.
+    const existing = subscriberForCustomer(db, order.customer_id, order.product);
     if (existing) {
       topUpSubscriber(db, existing.id, {
         quotaBytes: order.quota_bytes,
@@ -237,6 +265,7 @@ export function settleOrder(db, orderId, { txHash, fromAddress, confirmations, s
         expiresAt: now + order.duration_days * 86400000,
         note: `created by order ${order.id}`,
         customerId: order.customer_id,
+        product: order.product,
       });
       subscriberId = created.id;
     }

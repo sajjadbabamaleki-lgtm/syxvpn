@@ -19,6 +19,7 @@ export function entitlement(subscriber, now = Date.now()) {
 
 export function createSubscriber(db, {
   name, quotaBytes, expiresAt, note = null, customerId = null, batchId = null, silent = false,
+  product = 'all',
 }) {
   const now = Date.now();
   const id = newId('sub');
@@ -26,10 +27,10 @@ export function createSubscriber(db, {
   const credentialId = newId('cr');
   const insert = db.transaction(() => {
     db.prepare(`INSERT INTO subscribers
-        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at,customer_id,batch_id)
-        VALUES (?,?,?,?,?,?,0,?, 'active', ?,?,?,?,?)`)
+        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,note,created_at,updated_at,customer_id,batch_id,product)
+        VALUES (?,?,?,?,?,?,0,?, 'active', ?,?,?,?,?,?)`)
       .run(id, name, sha256(token), token.slice(0, 6), seal(token), quotaBytes, expiresAt, note,
-        now, now, customerId, batchId);
+        now, now, customerId, batchId, product);
     db.prepare('INSERT INTO credentials (id,subscriber_id,uuid,state,created_at) VALUES (?,?,?,\'active\',?)')
       .run(credentialId, id, crypto.randomUUID(), now);
     // A bulk run records one event for the batch rather than a hundred.
@@ -257,10 +258,30 @@ export function revealToken(db, subscriberId) {
   return openSecret(row.token_enc);
 }
 
-export function subscriberForCustomer(db, customerId) {
+/**
+ * The subscription a customer holds for one product.
+ *
+ * `all` is what every subscription sold before the two products were split
+ * became, so it answers for either — otherwise the split would have taken half
+ * of what somebody paid for away from them.
+ */
+export function subscriberForCustomer(db, customerId, product = null) {
+  if (!product) {
+    return db.prepare(
+      'SELECT * FROM subscribers WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1',
+    ).get(customerId) || null;
+  }
   return db.prepare(
-    'SELECT * FROM subscribers WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1',
-  ).get(customerId) || null;
+    `SELECT * FROM subscribers WHERE customer_id = ? AND product IN (?, 'all')
+     ORDER BY CASE product WHEN ? THEN 0 ELSE 1 END, created_at DESC LIMIT 1`,
+  ).get(customerId, product, product) || null;
+}
+
+/** Every subscription a customer holds, one per product at most. */
+export function subscriptionsForCustomer(db, customerId) {
+  return db.prepare(
+    'SELECT * FROM subscribers WHERE customer_id = ? ORDER BY created_at DESC',
+  ).all(customerId);
 }
 
 /**
