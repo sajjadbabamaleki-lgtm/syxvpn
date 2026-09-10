@@ -399,4 +399,29 @@ export const migrations = [
       db.exec('CREATE INDEX idx_subscribers_batch ON subscribers(batch_id, created_at)');
     },
   },
+  {
+    id: '004_admin_two_factor',
+    up(db) {
+      // The admin password is the only thing between the internet and every
+      // gateway, subscriber and credential in the fleet. A second factor is
+      // opt-in per admin: requiring it of an account with no enrolled device
+      // would lock the fleet out of itself.
+      db.exec('ALTER TABLE admins ADD COLUMN totp_secret TEXT');
+      db.exec('ALTER TABLE admins ADD COLUMN totp_confirmed_at INTEGER');
+      // The counter of the last code accepted. A code is valid for its whole
+      // step, so without this, one read over a shoulder works again seconds
+      // later.
+      db.exec('ALTER TABLE admins ADD COLUMN totp_last_counter INTEGER');
+      // Recovery codes are hashed like any other credential: shown once when
+      // two-factor is switched on, each usable once, and the reason losing a
+      // phone is not losing the fleet.
+      db.exec(`CREATE TABLE admin_recovery_codes (
+        code_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        used_at INTEGER
+      )`);
+      db.exec('CREATE INDEX idx_recovery_admin ON admin_recovery_codes(admin_id)');
+    },
+  },
 ];

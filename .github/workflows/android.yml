@@ -177,13 +177,33 @@ jobs:
       # Unit tests first: they are the only thing in this pipeline that can fail
       # on a mistake the compiler is happy with — an icon path the renderer
       # cannot read whole, say.
+      # The compiler's own words, repeated at the end.
+      #
+      # Gradle prints "e: file://…" lines and then, on failure, a stack trace of
+      # its own internals hundreds of lines long. Reading a failed build from a
+      # phone — or through an API that returns the tail — means reading that
+      # trace and not the error, so the errors are echoed last, where the tail
+      # is.
       - name: Run the unit tests
         working-directory: android
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee /tmp/gradle-test.log || {
+            echo "::error::compilation or tests failed — the compiler's lines follow"
+            grep -E '^(e|w): ' /tmp/gradle-test.log | head -60
+            grep -E '^(FAILED|.*Test.*FAILED)' /tmp/gradle-test.log | head -20
+            exit 1
+          }
 
       - name: Build the debug APK
         working-directory: android
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleDebug 2>&1 | tee /tmp/gradle-build.log || {
+            echo "::error::the APK build failed — the compiler's lines follow"
+            grep -E '^(e|w): ' /tmp/gradle-build.log | head -60
+            exit 1
+          }
 
       # Printed so the key can be checked rather than assumed: two builds that
       # show the same certificate digest will install over each other, and two
