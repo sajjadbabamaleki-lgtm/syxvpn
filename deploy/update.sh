@@ -10,6 +10,14 @@ REPO=${REPO:-/opt/cvpn}
 # not get renamed along with everything else.
 BRANCH=${BRANCH:-claude/jordan-vpn-control-plane-pq17ik}
 
+# The repository was renamed. GitHub redirects the old URL, so a clone made
+# before the rename keeps working — until somebody creates a repository under
+# the freed-up old name, at which point the redirect stops and this host starts
+# deploying a stranger's code. Correct it once, quietly.
+case "$(git -C "$REPO" remote get-url origin)" in
+  *jordan-vpn*) git -C "$REPO" remote set-url origin https://github.com/sajjadbabamaleki-lgtm/cvpn ;;
+esac
+
 git -C "$REPO" fetch origin "$BRANCH"
 git -C "$REPO" reset --hard "origin/$BRANCH"
 
