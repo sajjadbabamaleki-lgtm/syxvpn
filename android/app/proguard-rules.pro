@@ -16,6 +16,17 @@
 -dontwarn com.google.crypto.tink.integration.**
 -dontwarn org.joda.time.**
 
+# Annotations that exist only while something is being compiled. Tink is
+# covered in them and does not ship them, so R8 sees 90-odd references to
+# classes that are not there and refuses to build — which is a real failure
+# with a misleading cause: nothing is missing at runtime, because an annotation
+# with source retention was never going to be there. Only annotation packages
+# are listed; a blanket -dontwarn would hide the kind of missing class that
+# does matter.
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn org.checkerframework.**
+
 # The VpnService is started by the system from the manifest.
 -keep class net.jordanvpn.app.vpn.JordanVpnService { *; }
 
