@@ -262,6 +262,61 @@ jobs:
       # installed, so it could not be tested at all; a release key does not
       # belong in CI. Every artifact from here says so in its name: this is a
       # build to test, never one to publish.
+      # The key that signs what people actually install.
+      #
+      # It is not in this repository and never will be: it arrives from four
+      # repository secrets, written by android/tools/make-release-key.sh. When
+      # they are absent — a fork, or before the key was made — the build still
+      # runs and the APKs are signed with the debug key and labelled TEST-SIGNED,
+      # because an unsigned APK cannot be installed and so cannot be tested.
+      - name: Take the release signing key, if this repository has one
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "No release key configured — this run produces test builds only."
+            echo "have_key=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Half a key is worse than none: it would fail deep inside Gradle with
+          # a message about a keystore, hours of confusion away from the cause.
+          for name in KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            eval "value=\${$name:-}"
+            [ -n "$value" ] || {
+              echo "::error::ANDROID_KEYSTORE_BASE64 is set but ANDROID_$name is not." >&2
+              exit 1
+            }
+          done
+
+          store="$RUNNER_TEMP/cvpn-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$store" || {
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 — paste the whole of keystore.base64" >&2
+            exit 1
+          }
+          # A truncated or mangled paste decodes into something, and that
+          # something is not a keystore. Find out here, not at signing time.
+          keytool -list -keystore "$store" -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null || {
+            echo "::error::the decoded keystore could not be opened — check ANDROID_KEYSTORE_BASE64 and the passwords" >&2
+            exit 1
+          }
+          chmod 600 "$store"
+
+          # Gradle's release signingConfig reads these four.
+          {
+            echo "CVPN_KEYSTORE=$store"
+            echo "CVPN_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "CVPN_KEY_ALIAS=$KEY_ALIAS"
+            echo "CVPN_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "have_key=true" >> "$GITHUB_OUTPUT"
+          echo "Release key loaded. This run produces installable releases."
+
       - name: Build the release APK, minified as it will really ship
         working-directory: android
         run: |
@@ -277,25 +332,85 @@ jobs:
             exit 1
           }
 
-      - name: Sign the release APKs with the debug key, for testing only
+      # One directory, whichever key was used, so everything after this reads
+      # from one place and the file's own name says what signed it.
+      - name: Package the release APKs
+        working-directory: android
+        env:
+          HAVE_KEY: ${{ steps.signing.outputs.have_key }}
+        run: |
+          set -eu
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          rm -rf app/build/outputs/apk/dist
+          mkdir -p app/build/outputs/apk/dist
+          for apk in app/build/outputs/apk/release/*.apk; do
+            base=$(basename "$apk" .apk | sed 's/-unsigned$//; s/-release$//; s/^app-//')
+            if [ "$HAVE_KEY" = true ]; then
+              # Gradle signed and aligned it already, with the real key.
+              cp "$apk" "app/build/outputs/apk/dist/cvpn-$base.apk"
+            else
+              # Signed with the debug key so it can be installed and tested at
+              # all, and named so nobody can mistake it for something to publish.
+              out="app/build/outputs/apk/dist/cvpn-$base-TEST-SIGNED.apk"
+              "$tools/zipalign" -p -f 4 "$apk" "$out.tmp"
+              "$tools/apksigner" sign \
+                --ks "$CVPN_DEBUG_KEYSTORE" --ks-pass pass:android \
+                --ks-key-alias androiddebugkey --key-pass pass:android \
+                --out "$out" "$out.tmp"
+              rm -f "$out.tmp" "$out.idsig"
+            fi
+          done
+          ls -l app/build/outputs/apk/dist/
+
+      # The check that protects everyone who has already installed the app.
+      #
+      # Android identifies an app by its signature. An APK signed with a
+      # different key is not an update — the installer refuses it, and the only
+      # way forward for the person holding the old version is to uninstall,
+      # losing their account and their subscription. Nothing about that failure
+      # is visible here: a build signed by the wrong key is green, uploads
+      # cleanly, and looks exactly like a good one until it reaches a phone that
+      # already has the app.
+      #
+      # So the fingerprint of the real certificate is written down in the
+      # repository — it is not a secret, it is in every APK this key signs — and
+      # a build that does not match it fails instead of shipping.
+      - name: Refuse an APK signed by the wrong key
+        if: steps.signing.outputs.have_key == 'true'
         working-directory: android
         run: |
           set -eu
           tools="$ANDROID_HOME/build-tools/35.0.0"
-          mkdir -p app/build/outputs/apk/release-test
-          for apk in app/build/outputs/apk/release/*.apk; do
-            base=$(basename "$apk" .apk | sed 's/-unsigned$//' | sed 's/-release$//')
-            out="app/build/outputs/apk/release-test/cvpn-$base-release-TEST-SIGNED.apk"
-            "$tools/zipalign" -p -f 4 "$apk" "$out.tmp"
-            "$tools/apksigner" sign \
-              --ks "$CVPN_DEBUG_KEYSTORE" --ks-pass pass:android \
-              --ks-key-alias androiddebugkey --key-pass pass:android \
-              --out "$out" "$out.tmp"
-            rm -f "$out.tmp" "$out.idsig"
+          pin_file=release-certificate.sha256
+          # keytool writes AB:CD:..., apksigner writes abcd...; compare the
+          # thing itself rather than the two spellings of it.
+          normalise() { tr -d ' :\r\n' | tr 'A-Z' 'a-z'; }
+
+          for apk in app/build/outputs/apk/dist/*.apk; do
+            got=$("$tools/apksigner" verify --print-certs "$apk" \
+              | awk -F': ' '/SHA-256 digest/ {print $2; exit}' | normalise)
+            [ -n "$got" ] || { echo "::error::$(basename "$apk") is not signed at all" >&2; exit 1; }
+
+            if [ ! -f "$pin_file" ]; then
+              echo "::warning::No $pin_file yet. This build is signed by:"
+              echo "::warning::  $got"
+              echo "::warning::Commit that to android/$pin_file and every later build is checked against it."
+              continue
+            fi
+
+            want=$(normalise < "$pin_file")
+            if [ "$got" != "$want" ]; then
+              echo "::error::$(basename "$apk") is signed by the wrong key." >&2
+              echo "::error::  expected $want" >&2
+              echo "::error::  got      $got" >&2
+              echo "::error::Publishing this would strand every phone that already has the app." >&2
+              exit 1
+            fi
           done
+          [ -f "$pin_file" ] && echo "All APKs are signed by the expected key." || true
 
       # The number that matters. A debug APK is not the size anyone downloads,
-      # and until now it was the only one ever measured.
+      # and until this was built it was the only one ever measured.
       - name: Say how much smaller the real build is
         working-directory: android
         run: |
@@ -304,15 +419,34 @@ jobs:
             echo "   $(basename "$apk")  $(du -h "$apk" | cut -f1)"
           done
           echo "== release (R8, resources shrunk) — what a customer downloads"
-          for apk in app/build/outputs/apk/release-test/*.apk; do
+          for apk in app/build/outputs/apk/dist/*.apk; do
             echo "   $(basename "$apk")  $(du -h "$apk" | cut -f1)"
           done
 
-      - name: Attach the release arm64 APK, for testing
+      # The builds that ship. Their names carry whether they are signed for real
+      # or only for testing, because that difference cannot be seen in the file
+      # and getting it wrong means publishing something nobody can update from.
+      - name: Attach the release arm64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: cvpn-release-TEST-SIGNED-arm64-v8a
-          path: android/app/build/outputs/apk/release-test/*arm64-v8a*.apk
+          name: cvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-arm64-v8a
+          path: android/app/build/outputs/apk/dist/*arm64-v8a*.apk
+          if-no-files-found: error
+
+      - name: Attach the release armeabi-v7a APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-armeabi-v7a
+          path: android/app/build/outputs/apk/dist/*armeabi-v7a*.apk
+          if-no-files-found: error
+
+      # The one to hand somebody whose installer refuses a per-architecture
+      # APK. Bigger, and it installs anywhere.
+      - name: Attach the release universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-universal
+          path: android/app/build/outputs/apk/dist/*universal*.apk
           if-no-files-found: error
 
       - name: Attach the universal APK to this run

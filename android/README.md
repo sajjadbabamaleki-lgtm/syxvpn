@@ -413,7 +413,29 @@ release build on the same phone.
 
 ### Signing a release
 
-The keystore never enters the repository. Either write
+Android identifies an app by its signature, not by its name or its package.
+An update signed with a different key is not an update: the installer refuses
+it, and the only way forward for the person holding the old version is to
+uninstall — losing their account, their configs and their subscription with it.
+There is no recovery and no override. So there is one key, it is made once, and
+it is kept.
+
+**Making it.** Run this on a machine you own, not in CI and not in anything
+else's process — a signing key that has passed through somebody else's system
+is a key somebody else may have:
+
+```sh
+sh android/tools/make-release-key.sh
+```
+
+It writes `~/cvpn-release/cvpn-release.jks`, generates a password rather than
+asking for one, prints the four values CI needs, and refuses to run a second
+time over an existing key. Then, before anything else, **copy the `.jks`
+somewhere off that machine.** If it is lost, every installed copy of the app is
+stranded on the version it already has, permanently — a new key means a new
+app, and no path from one to the other.
+
+**Building with it.** The keystore never enters the repository. Locally, write
 `android/keystore.properties` (git-ignored):
 
     storeFile=/absolute/path/cvpn-release.jks
@@ -421,10 +443,29 @@ The keystore never enters the repository. Either write
     keyAlias=cvpn
     keyPassword=...
 
-or set `CVPN_KEYSTORE`, `CVPN_KEYSTORE_PASSWORD`, `CVPN_KEY_ALIAS` and
-`CVPN_KEY_PASSWORD` for a CI build. With neither present the release build
-still runs and is simply left unsigned, so a debug build never fails over a
-missing key.
+In CI it comes from four repository secrets, which the script above will upload
+for you if the GitHub CLI is signed in:
+
+| secret | what it holds |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | the `.jks` file, base64, on one line |
+| `ANDROID_KEYSTORE_PASSWORD` | the store password |
+| `ANDROID_KEY_ALIAS` | `cvpn` |
+| `ANDROID_KEY_PASSWORD` | the key password (the same one — PKCS12 has only one) |
+
+With none of them set the build still runs: the release APKs are signed with
+the debug key and every artifact is named `TEST-SIGNED`, because an unsigned
+APK cannot be installed and so cannot be tested at all. Setting some but not
+all fails immediately and names the one that is missing, rather than failing
+later inside Gradle with a message about a keystore.
+
+**The check that matters.** `android/release-certificate.sha256` holds the
+fingerprint of the real certificate. It is not a secret — it is in every APK
+this key signs, and anyone can read it out of one. CI compares every release
+APK against it and fails if they differ, because a build signed by the wrong
+key is otherwise indistinguishable from a good one: it is green, it uploads,
+and the damage only appears on a phone that already has the app. Until that
+file exists, CI prints the fingerprint it saw and asks for it to be committed.
 
 ## What can be checked without the SDK
 
