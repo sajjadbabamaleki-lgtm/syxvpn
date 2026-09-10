@@ -1982,8 +1982,9 @@ private fun SupportScreen(app: JordanApplication) {
         loading = false
     }
 
-    val host = runCatching { java.net.URL(BuildConfig.CONTROL_PLANE_URL).host }.getOrNull()
-        ?: BuildConfig.CONTROL_PLANE_URL
+    // The address in use, which after a failover is not the first one built in.
+    val base = app.endpoints.current()
+    val host = runCatching { java.net.URL(base).host }.getOrNull() ?: base
 
     val diagnostics = buildString {
         appendLine("Jordan VPN ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")

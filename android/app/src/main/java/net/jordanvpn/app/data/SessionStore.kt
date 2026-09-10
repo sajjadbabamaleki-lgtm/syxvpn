@@ -106,6 +106,19 @@ class SessionStore(context: Context) {
             if (value == null) remove(KEY_MEMORY) else putString(KEY_MEMORY, value)
         }.apply()
 
+    /**
+     * The control-plane address that last answered.
+     *
+     * Kept so a first entry that has gone dark costs one failed connection at
+     * launch rather than one on every request. It is a hint, not a setting:
+     * the build's list decides what may be used, and this only reorders it.
+     */
+    var controlPlaneBase: String?
+        get() = prefs.getString(KEY_CONTROL_BASE, null)
+        set(value) = prefs.edit().apply {
+            if (value == null) remove(KEY_CONTROL_BASE) else putString(KEY_CONTROL_BASE, value)
+        }.apply()
+
     fun clear() = prefs.edit().clear().apply()
 
     private companion object {
@@ -118,5 +131,6 @@ class SessionStore(context: Context) {
         const val KEY_COUNTRY = "country"
         const val KEY_PURPOSE = "purpose"
         const val KEY_MEMORY = "connection_memory"
+        const val KEY_CONTROL_BASE = "control_plane_base"
     }
 }

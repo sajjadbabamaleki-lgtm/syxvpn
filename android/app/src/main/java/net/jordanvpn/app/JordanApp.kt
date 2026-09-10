@@ -1,6 +1,7 @@
 package net.jordanvpn.app
 
 import android.app.Application
+import net.jordanvpn.app.core.ControlPlaneEndpoints
 import net.jordanvpn.app.data.ControlPlaneClient
 import net.jordanvpn.app.data.SessionStore
 import net.jordanvpn.app.data.SubscriptionRepository
@@ -25,10 +26,19 @@ class JordanApp : Application() {
     lateinit var subscriptions: SubscriptionRepository
         private set
 
+    /** The control-plane addresses, in the order to try them. */
+    lateinit var endpoints: ControlPlaneEndpoints
+        private set
+
     override fun onCreate() {
         super.onCreate()
         session = SessionStore(this)
-        api = ControlPlaneClient(BuildConfig.CONTROL_PLANE_URL, session)
+        endpoints = ControlPlaneEndpoints(
+            configured = ControlPlaneEndpoints.parse(BuildConfig.CONTROL_PLANE_URLS),
+            remembered = { session.controlPlaneBase },
+            remember = { session.controlPlaneBase = it },
+        )
+        api = ControlPlaneClient(endpoints, session)
         subscriptions = SubscriptionRepository(api)
     }
 }

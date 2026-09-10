@@ -51,8 +51,26 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Where the app talks to the control plane. Override per build.
-        buildConfigField("String", "CONTROL_PLANE_URL", "\"https://control.cvpn.pro\"")
+        /**
+         * Where the app talks to the control plane, in the order to try.
+         *
+         * A list rather than one name, because one name is a single point of
+         * failure for every phone that already has the app: the day it is
+         * filtered, no installation can sign in, refresh a subscription or
+         * learn about a new gateway — and the fix cannot be delivered either,
+         * since delivering it needs the same name. Extra entries cost a domain
+         * registration a year and nothing at runtime; they are only reached
+         * when the one before them cannot be connected to at all.
+         *
+         * Buy the spares before they are needed: a domain cannot be registered
+         * from inside the situation that makes it necessary.
+         */
+        buildConfigField(
+            "String",
+            "CONTROL_PLANE_URLS",
+            "\"" + (System.getenv("JORDAN_CONTROL_PLANE_URLS")
+                ?: "https://control.cvpn.pro") + "\"",
+        )
 
         // Whether the Premium tab may open a USDT order inside the app.
         //

@@ -23,7 +23,7 @@ import java.io.IOException
  * DNS-over-HTTPS when the phone cannot resolve the host at all.
  */
 class ControlPlaneClient(
-    private val baseUrl: String,
+    private val endpoints: ControlPlaneEndpoints,
     private val session: SessionStore,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -245,7 +245,12 @@ class ControlPlaneClient(
         if ('?' in url) "$url&format=json" else "$url?format=json"
 
     private fun fetchSubscription(url: String): String {
-        val reply = transport.exchange("GET", url, mapOf("User-Agent" to USER_AGENT), null)
+        // The link is absolute and carries whichever address issued it. Every
+        // address serves the same path, so a link made when one was reachable
+        // is still good through another.
+        val reply = overAnyAddress(headers = mapOf("User-Agent" to USER_AGENT)) { base ->
+            endpoints.rebase(url, base)
+        }
         if (reply.status !in 200..299) {
             throw ApiException(reply.status, "SUBSCRIPTION", "Subscription unavailable")
         }
@@ -316,7 +321,7 @@ class ControlPlaneClient(
             put("User-Agent", USER_AGENT)
             if (authenticated) session.token?.let { put("Authorization", "Bearer $it") }
         }
-        val reply = transport.exchange(method, baseUrl + path, headers, body)
+        val reply = overAnyAddress(method, headers, body) { base -> base + path }
         val payload = runCatching { json.parseToJsonElement(reply.body).objectOrNull }.getOrNull()
         if (reply.status == 401 && authenticated) {
             session.token = null
@@ -350,6 +355,34 @@ class ControlPlaneClient(
      */
     private val transport: Transport =
         ResilientTransport(SystemTransport(), DohTransport(systemDohResolver()))
+
+    /**
+     * The same request against each address until one answers.
+     *
+     * Only a network failure moves to the next: an HTTP status is an answer,
+     * and a 401 from the first address must not be retried as a 401 from all
+     * of them. The address that answered is remembered, so a dead first entry
+     * costs one failed connection rather than one on every request after it.
+     */
+    private fun overAnyAddress(
+        method: String = "GET",
+        headers: Map<String, String> = emptyMap(),
+        body: String? = null,
+        url: (base: String) -> String,
+    ): HttpReply {
+        var last: IOException? = null
+        for (base in endpoints.ordered()) {
+            try {
+                val reply = transport.exchange(method, url(base), headers, body)
+                endpoints.worked(base)
+                return reply
+            } catch (unreachable: IOException) {
+                endpoints.failed(base)
+                last = unreachable
+            }
+        }
+        throw last ?: IOException("no control plane address configured")
+    }
 
     private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content

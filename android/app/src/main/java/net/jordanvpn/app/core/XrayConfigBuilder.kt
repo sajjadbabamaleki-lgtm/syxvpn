@@ -50,7 +50,7 @@ object XrayConfigBuilder {
 
     fun build(
         profile: VlessProfile,
-        controlPlaneHost: String?,
+        controlPlaneHosts: List<String>,
         tunFd: Int,
         metricsPort: Int,
         mtu: Int = MTU,
@@ -67,7 +67,7 @@ object XrayConfigBuilder {
                 .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
                 .put(JSONObject().put("tag", "block").put("protocol", "blackhole")),
         )
-        .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", routingRules(profile, controlPlaneHost)))
+        .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", routingRules(profile, controlPlaneHosts)))
         // Counters for the connect screen, read over loopback from the metrics
         // server rather than estimated anywhere in the app.
         .put("metrics", JSONObject().put("listen", "127.0.0.1:$metricsPort"))
@@ -131,12 +131,17 @@ object XrayConfigBuilder {
         return proxy
     }
 
-    private fun routingRules(profile: VlessProfile, controlPlaneHost: String?): JSONArray {
+    private fun routingRules(profile: VlessProfile, controlPlaneHosts: List<String>): JSONArray {
         val rules = JSONArray()
         // The gateway and the control plane stay off the tunnel: if the tunnel
         // breaks, the app must still be able to fetch a new subscription.
+        //
+        // Every address the app may fall back to, not only the one in use. The
+        // fallback exists for the moment the first address stops answering, and
+        // if that moment finds the spare routed into a broken tunnel, the app
+        // cannot reach the control plane by any road at all.
         val direct = JSONArray().put(profile.host)
-        if (controlPlaneHost != null) direct.put(controlPlaneHost)
+        controlPlaneHosts.filter { it.isNotBlank() }.forEach { direct.put(it) }
         rules.put(
             JSONObject()
                 .put("type", "field")

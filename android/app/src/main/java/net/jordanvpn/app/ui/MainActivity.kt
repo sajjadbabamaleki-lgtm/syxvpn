@@ -90,15 +90,18 @@ class MainActivity : ComponentActivity() {
     private fun startTunnel(request: Pair<String, Boolean>?) {
         if (request == null) return
         val (serversJson, automatic) = request
-        val controlHost = runCatching {
-            java.net.URL(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL).host
-        }.getOrNull()
+        // Every address, not only the one in use: the routing rule that keeps
+        // the control plane off the tunnel has to cover the spare too, or the
+        // fallback is routed into the tunnel it exists to survive.
+        val controlHosts = (application as JordanApp).endpoints.ordered()
+            .mapNotNull { runCatching { java.net.URL(it).host }.getOrNull() }
+            .toTypedArray()
         startService(
             Intent(this, JordanVpnService::class.java)
                 .setAction(JordanVpnService.ACTION_CONNECT)
                 .putExtra(JordanVpnService.EXTRA_SERVERS, serversJson)
                 .putExtra(JordanVpnService.EXTRA_AUTOMATIC, automatic)
-                .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHost)
+                .putExtra(JordanVpnService.EXTRA_CONTROL_HOST, controlHosts)
                 // What the VPN tab is set to. The tunnel weighs its candidates
                 // by it; the Configs tab never sends one, because a config the
                 // person imported is not chosen by anything but them.
@@ -115,7 +118,9 @@ class MainActivity : ComponentActivity() {
      * itself.
      */
     private fun openStore() {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(net.jordanvpn.app.BuildConfig.CONTROL_PLANE_URL)))
+        startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse((application as JordanApp).endpoints.current())),
+        )
     }
 
     private fun stopTunnel() {

@@ -85,7 +85,7 @@ class JordanVpnService : VpnService() {
      */
     private var candidates: List<Server> = emptyList()
     private var automaticMode: Boolean = false
-    private var controlHost: String? = null
+    private var controlHosts: List<String> = emptyList()
     private var purpose: Purpose = Purpose.AUTO
     private val recovery = RecoveryPolicy()
 
@@ -98,7 +98,7 @@ class JordanVpnService : VpnService() {
             else -> connect(
                 intent?.getStringExtra(EXTRA_SERVERS),
                 intent?.getBooleanExtra(EXTRA_AUTOMATIC, false) ?: false,
-                intent?.getStringExtra(EXTRA_CONTROL_HOST),
+                intent?.getStringArrayExtra(EXTRA_CONTROL_HOST)?.toList().orEmpty(),
                 Purpose.of(intent?.getStringExtra(EXTRA_PURPOSE)),
             )
         }
@@ -115,7 +115,7 @@ class JordanVpnService : VpnService() {
     private fun connect(
         serversJson: String?,
         automatic: Boolean,
-        controlPlaneHost: String?,
+        controlPlaneHosts: List<String>,
         wanted: Purpose,
     ) {
         val servers = parseServers(serversJson)
@@ -128,7 +128,7 @@ class JordanVpnService : VpnService() {
         // Set here rather than at CONNECTED, so a screen watching this knows
         // whose connection attempt is in flight and not only whose succeeded.
         source.value = if (automatic) Source.AUTOMATIC else Source.MANUAL
-        controlHost = controlPlaneHost
+        controlHosts = controlPlaneHosts
         purpose = wanted
         // A fresh request from the app is not a recovery attempt: someone is
         // holding the phone, so the budget for automatic retries starts again.
@@ -146,7 +146,7 @@ class JordanVpnService : VpnService() {
     private fun attempt() {
         val servers = candidates
         val automatic = automaticMode
-        val controlPlaneHost = controlHost
+        val controlPlaneHosts = controlHosts
 
         state.value = State.CONNECTING
         startForeground(NOTIFICATION_ID, notification("Connecting…"))
@@ -181,7 +181,7 @@ class JordanVpnService : VpnService() {
                         runtime.start(
                             XrayConfigBuilder.build(
                                 profile = server.profile,
-                                controlPlaneHost = controlPlaneHost,
+                                controlPlaneHosts = controlPlaneHosts,
                                 tunFd = descriptor.fd,
                                 metricsPort = metricsPort,
                             ),
