@@ -1573,8 +1573,6 @@ private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
     )
 }
 
-@Composable
-
 /**
  * The configs: every server the subscription offers, and what to do with them.
  *
