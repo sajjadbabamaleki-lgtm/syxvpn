@@ -155,8 +155,9 @@
   /* Only this scrolls. */
   /* No header and no refresh button: the list speaks for itself, and pulling
      it down refreshes it in the app. */
-  /* Exactly four whole rows: 4 x 62 + 3 x 13. A half-visible fifth row reads as
-     a rendering accident rather than as "there is more below". */
+  /* Exactly two whole rows: 2 x 62 + 13. A half-visible third row reads as a
+     rendering accident rather than as "there is more below", and the height the
+     third row used to take belongs to the banner slot at the top. */
   /* A gateway the control plane is not sure about says so, in neutral grey. */
   .cfg .who span.warn { color: #98a3b2; }
 
@@ -167,7 +168,7 @@
   .listwrap { flex: 1 1 0; min-height: 0; display: flex; align-items: flex-end; }
   .configs {
     width: 100%;
-    max-height: 287px; overflow-y: auto;
+    max-height: 137px; overflow-y: auto;
     display: flex; flex-direction: column; gap: 13px;
     scrollbar-width: none;
   }
@@ -309,7 +310,8 @@
   .cfg .dot.warn { background: #98a3b2; }
   .cfg .dot.bad { background: #ff6b6b; }
 
-  .countries { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; flex: none; height: 200px; }
+  /* Two whole rows: 2 x 60 + 10. */
+  .countries { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; flex: none; height: 130px; }
   .countries::-webkit-scrollbar { display: none; }
   .country {
     display: flex; align-items: center; gap: 12px; flex: none;
@@ -328,7 +330,7 @@
   .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #98a3b2; flex: none; }
   .country.sel.live .pip { background: #5fd97a; }
   .listwrap.tall { flex: none; align-items: stretch; margin-top: 14px; }
-  .configs.tall { max-height: 212px; height: 212px; }
+  .configs.tall { max-height: 137px; height: 137px; }
   .card .proto .mode { color: #5fd97a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
   .card .proto .mode.manual { color: #6c7684; }
   .card .proto .chev { color: #6c7684; }

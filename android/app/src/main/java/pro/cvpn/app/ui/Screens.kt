@@ -440,10 +440,16 @@ private val CountryRowHeight = 60.dp
 private val CountryRowGap = 10.dp
 
 /**
- * Both lists end on the third row, and everything left over goes to the banner
+ * Both lists end on the second row, and everything left over goes to the banner
  * slot above. A list that filled the screen would leave nowhere to put one.
+ *
+ * Two rows rather than three: the third one bought a third of a screen's height
+ * for a list that scrolls anyway, and spent it on the one part of the screen
+ * that cannot scroll. What it cost was the banner — 70dp of it on the VPN tab,
+ * 75dp on Configs — and the banner is a fixed slot: it is either tall enough
+ * for the unit that goes in it or it is not.
  */
-private const val VISIBLE_ROWS = 3
+private const val VISIBLE_ROWS = 2
 private val ConfigListHeight =
     ConfigRowHeight * VISIBLE_ROWS + ConfigRowGap * (VISIBLE_ROWS - 1)
 private val CountryListHeight =
@@ -1673,7 +1679,7 @@ private fun ConfigsScreen(
             }
         }
 
-        // Three rows, ending on a whole one, and the rest scrolls. Pulling it
+        // Two rows, ending on a whole one, and the rest scrolls. Pulling it
         // down refreshes it, which is the gesture people already reach for.
         PullToRefreshBox(
             isRefreshing = state.busy || state.checking,
