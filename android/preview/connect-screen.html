@@ -206,7 +206,10 @@
   .nav div {
     height: 54px; border-radius: 20px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 4px; font-size: 10px; color: #6c7684;
+    /* The label's line box is 12, not the body's 1.45: a taller box would hang
+       empty space under the baseline and leave the icon closer to the bar's top
+       edge than the label is to its bottom one. 20 + 4 + 12 centres in 54. */
+    gap: 4px; font-size: 10px; line-height: 12px; color: #6c7684;
   }
   .nav div.active { color: #fff; background: rgba(95,217,122,0.14); font-weight: 600; }
   .nav div.active svg { color: #5fd97a; }

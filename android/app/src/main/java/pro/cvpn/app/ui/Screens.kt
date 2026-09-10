@@ -593,6 +593,23 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
+/**
+ * One tab: icon over label, centred in the bar.
+ *
+ * The label carries its own line height. Left to the theme it would inherit
+ * bodyLarge's 24sp, which is more than twice the ink of a 10sp label and puts
+ * all of that slack inside the item — the icon then sat 11dp under the bar's
+ * top edge while the label's baseline sat 17dp above the bottom one, and the
+ * whole tab read as pushed up.
+ *
+ * At 12sp, trimmed and centred, the box holds the ink and the descender of
+ * "Configs" and nothing else, so the column measures 20 + 4 + 12 = 36dp and
+ * centres in the 54dp item with 9dp to spare above and below, 14dp from the
+ * bar's inner edge. 12sp is also what squares the two gaps the eye actually
+ * compares: the baseline lands 2.6dp above the box's bottom, which is what the
+ * icon outlines leave empty at the top of their own 20dp box, so ink to edge
+ * comes out the same above the icon as below the label.
+ */
 @Composable
 private fun BottomBarItem(
     pathData: String,
@@ -618,8 +635,16 @@ private fun BottomBarItem(
             label,
             color = if (selected) Color.White else TextFaint,
             fontSize = 10.sp,
+            lineHeight = 12.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
+            style = LocalTextStyle.current.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both,
+                ),
+            ),
         )
     }
 }
