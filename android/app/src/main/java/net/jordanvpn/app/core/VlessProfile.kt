@@ -1,7 +1,5 @@
 package net.jordanvpn.app.core
 
-import android.net.Uri
-
 /**
  * A parsed `vless://` profile.
  *
@@ -47,19 +45,19 @@ data class VlessProfile(
     companion object {
         fun parse(uri: String): VlessProfile? {
             if (!uri.startsWith("vless://")) return null
-            val parsed = Uri.parse(uri)
+            val parsed = UriParts.parse(uri) ?: return null
             val uuid = parsed.userInfo ?: return null
-            val host = parsed.host ?: return null
-            val port = parsed.port.takeIf { it > 0 } ?: return null
-            val security = parsed.getQueryParameter("security") ?: "none"
-            val type = parsed.getQueryParameter("type") ?: "ws"
+            val host = parsed.host?.takeIf { it.isNotEmpty() } ?: return null
+            val port = parsed.port?.takeIf { it in 1..65535 } ?: return null
+            val security = parsed.param("security") ?: "none"
+            val type = parsed.param("type") ?: "ws"
 
             if (security == "reality") {
                 // REALITY runs over plain TCP here, and its public key is the
                 // one thing that cannot be defaulted: without it there is
                 // nothing to encrypt to.
                 if (type != "tcp") return null
-                val publicKey = parsed.getQueryParameter("pbk")?.takeIf { it.isNotBlank() } ?: return null
+                val publicKey = parsed.param("pbk")?.takeIf { it.isNotBlank() } ?: return null
                 return VlessProfile(
                     uri = uri,
                     uuid = uuid,
@@ -67,17 +65,17 @@ data class VlessProfile(
                     port = port,
                     label = parsed.fragment ?: host,
                     tls = true,
-                    sni = parsed.getQueryParameter("sni"),
+                    sni = parsed.param("sni"),
                     wsPath = "/",
                     wsHost = null,
                     reality = Reality(
                         publicKey = publicKey,
-                        shortId = parsed.getQueryParameter("sid") ?: "",
+                        shortId = parsed.param("sid") ?: "",
                         // The name claimed in the handshake: the borrowed
                         // site's, never the gateway's own address.
-                        serverName = parsed.getQueryParameter("sni") ?: host,
-                        fingerprint = parsed.getQueryParameter("fp") ?: "chrome",
-                        flow = parsed.getQueryParameter("flow") ?: "xtls-rprx-vision",
+                        serverName = parsed.param("sni") ?: host,
+                        fingerprint = parsed.param("fp") ?: "chrome",
+                        flow = parsed.param("flow") ?: "xtls-rprx-vision",
                     ),
                 )
             }
@@ -92,9 +90,9 @@ data class VlessProfile(
                 port = port,
                 label = parsed.fragment ?: host,
                 tls = security == "tls",
-                sni = parsed.getQueryParameter("sni"),
-                wsPath = parsed.getQueryParameter("path") ?: "/ws",
-                wsHost = parsed.getQueryParameter("host"),
+                sni = parsed.param("sni"),
+                wsPath = parsed.param("path") ?: "/ws",
+                wsHost = parsed.param("host"),
             )
         }
     }
