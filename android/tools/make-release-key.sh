@@ -34,14 +34,85 @@ command -v keytool >/dev/null 2>&1 || {
   exit 1
 }
 
-# Never silently. Overwriting this file is the same as losing it.
+PASSFILE="$OUT/keystore-password.txt"
+
+# Everything the four secrets and the fingerprint are read out of. Printing it
+# once at the end is not enough: the last time this ran, the output scrolled off
+# a phone terminal within minutes, and a keystore whose password is gone is a
+# keystore that cannot sign anything.
+report() {
+  DIGEST=$(keytool -list -v -keystore "$STORE" -storepass "$PASS" -alias "$ALIAS" \
+    | awk -F': ' '/SHA256:/ {print $2; exit}' | tr -d ' \r')
+  [ -n "$DIGEST" ] || { echo "could not read the certificate out of $STORE" >&2; exit 1; }
+
+  cat <<INFO
+
+  ---------------------------------------------------------------- back it up
+  The key is at:
+
+      $STORE
+
+  and its password is beside it, in:
+
+      $PASSFILE
+
+  Copy BOTH somewhere off this machine, now. The key without the password
+  signs nothing. If this machine dies and they die with it, every installed
+  copy of the app is stranded on the version it already has, permanently.
+
+  --------------------------------------------------------- the four secrets
+  These go into the repository at:
+    Settings -> Secrets and variables -> Actions -> New repository secret
+
+    ANDROID_KEY_ALIAS          $ALIAS
+    ANDROID_KEYSTORE_PASSWORD  $PASS
+    ANDROID_KEY_PASSWORD       $PASS
+    ANDROID_KEYSTORE_BASE64    the contents of
+                               $OUT/keystore.base64
+                               (long; paste it whole, with no line breaks)
+
+  ----------------------------------------------------------- the fingerprint
+  Not a secret: it is in every APK this key signs. It goes in the repository
+  as android/release-certificate.sha256, so a build signed with any other key
+  fails instead of shipping.
+
+    $DIGEST
+
+INFO
+}
+
+# Never a second key, and never silently. Overwriting this file is the same as
+# losing it: an app signed by a different key cannot update the one people have.
 if [ -e "$STORE" ]; then
-  echo "REFUSING: $STORE already exists." >&2
-  echo "" >&2
-  echo "If that is the real signing key, it is the one to keep — do not make" >&2
-  echo "another. If you are certain it is not, move it aside by hand first." >&2
-  exit 1
+  if [ -r "$PASSFILE" ]; then
+    # Not an error — somebody re-running this wants the numbers again, which is
+    # the whole reason they are kept.
+    echo "The key already exists. Nothing was changed; here it is again."
+    PASS=$(cat "$PASSFILE")
+    [ -f "$OUT/keystore.base64" ] || base64 < "$STORE" | tr -d '\n' > "$OUT/keystore.base64"
+    chmod 600 "$OUT/keystore.base64"
+    report
+    # Falls through to the upload offer below: re-running this is usually
+    # somebody who has just installed the GitHub CLI in order to use it.
+    HAVE_KEY_ALREADY=yes
+  else
+    echo "REFUSING: $STORE already exists, and $PASSFILE does not." >&2
+    echo "" >&2
+    echo "Its password was printed when it was made — scroll back and find it." >&2
+    echo "Without it the key cannot sign anything and cannot be read." >&2
+    echo "" >&2
+    echo "If it is truly gone AND no release has been published with this key" >&2
+    echo "yet, then nothing depends on it and it is safe to start over:" >&2
+    echo "" >&2
+    echo "    rm -rf $OUT && sh \$0" >&2
+    echo "" >&2
+  echo "Once one person has installed an APK signed by it, that is no longer" >&2
+    echo "true, and the key must be recovered rather than replaced." >&2
+    exit 1
+  fi
 fi
+
+if [ "${HAVE_KEY_ALREADY:-}" != yes ]; then
 
 mkdir -p "$OUT"
 chmod 700 "$OUT"
@@ -70,42 +141,20 @@ chmod 600 "$STORE"
 base64 < "$STORE" | tr -d '\n' > "$OUT/keystore.base64"
 chmod 600 "$OUT/keystore.base64"
 
-# The fingerprint of the certificate inside. This is not a secret — it is in
-# every APK this key signs, and anyone can read it out of one. It is written
-# down so that CI can refuse to publish an APK signed by anything else.
-DIGEST=$(keytool -list -v -keystore "$STORE" -storepass "$PASS" -alias "$ALIAS" \
-  | awk -F': ' '/SHA256:/ {print $2; exit}' | tr -d ' \r')
+# The password, kept beside the key rather than only on the screen.
+#
+# It is one more secret on a machine that already holds the key itself, which
+# is the thing worth stealing — so this gives away almost nothing. What it buys
+# is the case that actually happens: a backup of the .jks alone is worthless
+# without the password, and a password that exists only in terminal scrollback
+# is a password that is already half lost.
+printf '%s\n' "$PASS" > "$PASSFILE"
+chmod 600 "$PASSFILE"
 
-cat <<INFO
+echo "  Key created."
+report
 
-  The key is made. It is at:
-
-      $STORE
-
-  ---------------------------------------------------------------- back it up
-  Copy that file somewhere off this machine, right now, before anything else.
-  A password manager, an encrypted drive, anywhere that is not this server. If
-  this machine dies and the key dies with it, every installed copy of the app
-  is stranded on the version it already has, permanently.
-
-  --------------------------------------------------------- the four secrets
-  These go into the repository at:
-    Settings -> Secrets and variables -> Actions -> New repository secret
-
-    ANDROID_KEY_ALIAS          $ALIAS
-    ANDROID_KEYSTORE_PASSWORD  $PASS
-    ANDROID_KEY_PASSWORD       $PASS
-    ANDROID_KEYSTORE_BASE64    the contents of
-                               $OUT/keystore.base64
-                               (long; paste it whole, with no line breaks)
-
-  ----------------------------------------------------------- the fingerprint
-  Put this in the repository as android/release-certificate.sha256, so a build
-  signed with any other key fails instead of shipping:
-
-    $DIGEST
-
-INFO
+fi
 
 # The base64 is several kilobytes. Pasting it by hand is miserable and easy to
 # get subtly wrong, so hand it to the CLI if the CLI is here.
@@ -135,8 +184,7 @@ https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cl
       apt-get update && apt-get install -y gh
       gh auth login
 
-  Then run this script again — it will refuse to make a second key, so move
-  the one it just made aside first, or set the secrets by hand from the values
-  printed above.
+  Then run this script again. It will not make a second key — it prints these
+  same values back and offers to upload them.
 HINT
 fi
