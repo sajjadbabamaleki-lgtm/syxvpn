@@ -13,24 +13,45 @@
 # and pass the two things that host cannot know:
 #
 #   CONTROL_URL=https://control.cvpn.pro \
-#   GATEWAY_HOST=gw2.cvpn.pro GATEWAY_REGION=nl \
+#   GATEWAY_HOST=203.0.113.9 GATEWAY_REGION=nl \
 #   ADMIN_PASSWORD=… sh deploy/bootstrap-gateway.sh
+#
+# There are two kinds of gateway, and the difference decides most of what
+# follows:
+#
+#   reality (default)  Xray owns port 443 and borrows a real site's TLS
+#                      handshake. No domain, no certificate, no Caddy, nothing
+#                      to point at this machine — a bare IP address is enough,
+#                      and a censor probing it is answered by www.microsoft.com.
+#   ws                 VLESS over WebSocket behind Caddy, which needs a name
+#                      pointed here and a certificate issued for it.
 #
 # Environment (all optional):
 #   CONTROL_URL   control plane base URL         (default https://control.cvpn.pro)
-#   GATEWAY_HOST  the name clients connect to    (default gw1.cvpn.pro)
+#   GATEWAY_HOST  the address clients dial       (default gw1.cvpn.pro)
 #   GATEWAY_REGION  free-text region label       (default de)
-#   LISTEN_PORT   loopback port Xray binds       (default 10001)
-#   CADDYFILE     main Caddy config              (default /etc/caddy/Caddyfile)
+#   TRANSPORT     reality | ws                   (default reality)
+#   REALITY_DEST  the site whose TLS is borrowed (default www.microsoft.com:443)
+#   PUBLIC_PORT   port clients dial              (default 443)
+#   LISTEN_PORT   ws only: loopback port Xray binds  (default 10001)
+#   CADDYFILE     ws only: main Caddy config     (default /etc/caddy/Caddyfile)
 #   ADMIN_USERNAME / ADMIN_PASSWORD              (default: read from ./.env)
 set -eu
 
 CONTROL_URL=${CONTROL_URL:-https://control.cvpn.pro}
 GATEWAY_HOST=${GATEWAY_HOST:-gw1.cvpn.pro}
 GATEWAY_REGION=${GATEWAY_REGION:-de}
+TRANSPORT=${TRANSPORT:-reality}
+REALITY_DEST=${REALITY_DEST:-www.microsoft.com:443}
+PUBLIC_PORT=${PUBLIC_PORT:-443}
 LISTEN_PORT=${LISTEN_PORT:-10001}
 CADDYFILE=${CADDYFILE:-/etc/caddy/Caddyfile}
 REPO=$(cd "$(dirname "$0")/.." && pwd)
+
+case "$TRANSPORT" in
+  reality|ws) ;;
+  *) printf 'TRANSPORT must be reality or ws, not %s\n' "$TRANSPORT" >&2; exit 1 ;;
+esac
 
 # Everything this run owns is named after the host's first label — gw2.cvpn.pro
 # gives gw2 — so a second gateway, on a second machine or behind the same
@@ -52,7 +73,18 @@ print(d)' "$1"; }
 have docker || die "docker is not installed on this host"
 have python3 || die "python3 is not installed on this host"
 have curl || die "curl is not installed on this host"
-have caddy || say "WARNING: no caddy on this host — the block will be written but not loaded"
+if [ "$TRANSPORT" = ws ]; then
+  have caddy || say "WARNING: no caddy on this host — the block will be written but not loaded"
+else
+  # REALITY needs the public port itself, and something already holding it is
+  # the one failure that looks like a broken gateway rather than a busy port.
+  if have ss && ss -ltn "( sport = :$PUBLIC_PORT )" 2>/dev/null | grep -q LISTEN; then
+    die "something is already listening on port $PUBLIC_PORT.
+A REALITY gateway is the public listener — nothing may sit in front of it.
+Stop what is on $PUBLIC_PORT (often caddy or nginx), or pass PUBLIC_PORT=… to
+use another port, and run this again."
+  fi
+fi
 
 # ---------------------------------------------------------------- credentials
 if [ -z "${ADMIN_PASSWORD:-}" ] && [ -f "$REPO/.env" ]; then
@@ -82,14 +114,27 @@ GW=$(curl -sS "$CONTROL_URL/api/v1/gateways" -H "$AUTH" \
 rows=json.load(sys.stdin).get("data") or []
 print(next((g["id"] for g in rows if g.get("host")==host), ""))' "$GATEWAY_HOST")
 
+WS_PATH=""
 if [ -n "$GW" ]; then
-  WS_PATH=$(curl -sS "$CONTROL_URL/api/v1/gateways/$GW" -H "$AUTH" | jget data.wsPath)
-  echo "reusing $GW (wsPath $WS_PATH)"
+  # The registration decides the transport, not this run's default: re-running
+  # on an existing WebSocket gateway must not silently take Caddy out from
+  # under it, or the other way round.
+  TRANSPORT=$(curl -sS "$CONTROL_URL/api/v1/gateways/$GW" -H "$AUTH" | jget data.transport)
+  [ "$TRANSPORT" = reality ] || WS_PATH=$(curl -sS "$CONTROL_URL/api/v1/gateways/$GW" -H "$AUTH" | jget data.wsPath)
+  echo "reusing $GW ($TRANSPORT${WS_PATH:+, wsPath $WS_PATH})"
+elif [ "$TRANSPORT" = reality ]; then
+  say "Registering $GATEWAY_HOST as a REALITY gateway borrowing $REALITY_DEST"
+  RESP=$(printf '{"name":"%s","region":"%s","host":"%s","port":%s,"transport":"reality","tlsMode":"none","realityDest":"%s"}' \
+    "$GATEWAY_NAME" "$GATEWAY_REGION" "$GATEWAY_HOST" "$PUBLIC_PORT" "$REALITY_DEST" \
+    | curl -sS -X POST "$CONTROL_URL/api/v1/gateways" -H "$AUTH" -H 'Content-Type: application/json' -d @-)
+  GW=$(printf '%s' "$RESP" | jget data.id)
+  [ -n "$GW" ] || die "registration failed: $RESP"
+  echo "registered $GW — the key pair and short IDs were issued by the control plane"
 else
   WS_PATH="/$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   say "Registering $GATEWAY_HOST with wsPath $WS_PATH"
-  RESP=$(printf '{"name":"%s","region":"%s","host":"%s","port":443,"tlsMode":"reverse-proxy","sni":"%s","wsPath":"%s","listenAddress":"127.0.0.1","listenPort":%s}' \
-    "$GATEWAY_NAME" "$GATEWAY_REGION" "$GATEWAY_HOST" "$GATEWAY_HOST" "$WS_PATH" "$LISTEN_PORT" \
+  RESP=$(printf '{"name":"%s","region":"%s","host":"%s","port":%s,"transport":"ws","tlsMode":"reverse-proxy","sni":"%s","wsPath":"%s","listenAddress":"127.0.0.1","listenPort":%s}' \
+    "$GATEWAY_NAME" "$GATEWAY_REGION" "$GATEWAY_HOST" "$PUBLIC_PORT" "$GATEWAY_HOST" "$WS_PATH" "$LISTEN_PORT" \
     | curl -sS -X POST "$CONTROL_URL/api/v1/gateways" -H "$AUTH" -H 'Content-Type: application/json' -d @-)
   GW=$(printf '%s' "$RESP" | jget data.id)
   [ -n "$GW" ] || die "registration failed: $RESP"
@@ -149,6 +194,11 @@ docker run -d --name "$CONTAINER" --restart unless-stopped --network host \
 echo "running — key is in $ENV_FILE (root only)"
 
 # --------------------------------------------------------------------- caddy
+# Only a WebSocket gateway has anything in front of it. A REALITY gateway is
+# the public listener itself: the handshake it forwards to the borrowed site
+# has to come from the real socket, so a proxy in the path would break the one
+# thing REALITY is for.
+configure_reverse_proxy() {
 BLOCK=/etc/caddy/cvpn-$GATEWAY_NAME.caddy
 say "Writing the gateway's Caddy block to $BLOCK"
 cat > "$BLOCK" <<CADDY
@@ -208,17 +258,31 @@ Read why with: journalctl -xeu caddy.service --no-pager | tail -30"
 else
   echo "no caddy here — put $BLOCK in front of $LISTEN_PORT yourself, then re-run"
 fi
+}
+
+if [ "$TRANSPORT" = reality ]; then
+  say "No reverse proxy: a REALITY gateway is the public listener"
+  echo "nothing to write — Xray owns $GATEWAY_HOST:$PUBLIC_PORT"
+else
+  configure_reverse_proxy
+fi
 
 # -------------------------------------------------------------------- verdict
 say "Waiting for the agent to deploy its configuration"
 sleep 20
+if [ "$TRANSPORT" = reality ]; then
+  REALITY_LINE="
+Borrowed:   $REALITY_DEST — this is the certificate a prober gets back"
+fi
+
 say "Health check"
 curl -sS -X POST "$CONTROL_URL/api/v1/gateways/$GW/check" -H "$AUTH"; echo
 
 cat <<NEXT
 
 Gateway id: $GW
-wsPath:     $WS_PATH
+Transport:  $TRANSPORT${WS_PATH:+
+wsPath:     $WS_PATH}${REALITY_LINE:-}
 
 If the check above says "online", the gateway is live. In the app: Premium ->
 pick the plan -> then settle the order:

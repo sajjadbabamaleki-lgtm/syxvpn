@@ -43,20 +43,65 @@ readable copy of subscription tokens.
 
 ## 2. A gateway
 
-Each gateway needs a public hostname, a TLS certificate, and Xray. The
-recommended topology terminates TLS in a reverse proxy and keeps Xray on
-loopback:
+There are two kinds, and the choice decides everything else about the host.
+
+### REALITY (recommended)
+
+Xray owns the public port and borrows a real site's TLS handshake. A client
+that holds the public key and a short ID gets the tunnel; anyone else — a
+censor's active prober included — is forwarded to the borrowed site and gets
+that site's genuine certificate back.
+
+```
+client ──REALITY/TCP──▶ Xray :443 ──▶ egress
+                          └─not a subscriber──▶ www.microsoft.com:443
+```
+
+Nothing else is needed on the machine: no domain pointed at it, no certificate,
+no reverse proxy. **A bare IP address is enough**, which is what makes a spare
+gateway cheap enough to keep spares.
+
+```sh
+CONTROL_URL=https://control.cvpn.pro \
+GATEWAY_HOST=203.0.113.9 GATEWAY_REGION=nl \
+ADMIN_PASSWORD=… sh deploy/bootstrap-gateway.sh
+```
+
+Choosing the borrowed site is the one judgement call. It must speak TLS 1.3 and
+HTTP/2, be reachable *from the gateway*, not be blocked where the subscribers
+are, and not be yours — the whole disguise is that the handshake belongs to
+somebody real. Pass a different one with `REALITY_DEST=www.cloudflare.com:443`.
+Use different sites on different gateways: one dest across the fleet is itself
+a fingerprint.
+
+The X25519 pair and the short IDs are issued by the control plane. Do not run
+`xray x25519` by hand — a key copied between gateways means one seized machine
+exposes the rest.
+
+### WebSocket behind a reverse proxy
+
+The older topology. It needs a public hostname, a TLS certificate, and Caddy:
 
 ```
 client ──TLS──▶ Caddy :443 ──ws──▶ Xray 127.0.0.1:10001 ──▶ egress
 ```
 
-Register the gateway in the operator console (`/admin/gateways`) with:
+```sh
+TRANSPORT=ws GATEWAY_HOST=gw2.cvpn.pro … sh deploy/bootstrap-gateway.sh
+```
+
+Or register it in the operator console (`/admin/gateways`) with:
 
 - **Public host/port** — what clients dial (443)
 - **TLS** — "terminated by a reverse proxy"
 - **Xray loopback port** — 10001
 - **WebSocket path** — something non-obvious
+
+It is worth keeping some of these: a certificate on a name you own is a
+liability under scrutiny, but WebSocket-over-TLS survives places where plain
+TCP on 443 to an unknown IP is what gets throttled. Run both.
+
+### The agent
 
 Registration returns an agent key **once**. Then on the gateway host:
 
@@ -74,7 +119,8 @@ The agent fetches its configuration, tests it with `xray -test`, deploys it
 atomically and starts reporting. Within a minute the console should show the
 gateway online with its agent reporting.
 
-`deploy/Caddyfile.example` contains the matching reverse-proxy block.
+`deploy/Caddyfile.example` contains the matching reverse-proxy block — for a
+WebSocket gateway only; a REALITY gateway must have nothing in front of it.
 
 ## 3. Egress paths
 

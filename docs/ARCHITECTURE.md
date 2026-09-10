@@ -111,7 +111,8 @@ own recovery.
 
 Per gateway the control plane generates:
 
-- a `vless` + `ws` inbound (loopback when a reverse proxy terminates TLS)
+- a `vless` inbound: either `tcp` + REALITY (public, with XTLS-Vision on each
+  client), or `ws` (loopback when a reverse proxy terminates TLS)
 - one outbound per assigned egress, the active one first
 - one loopback SOCKS inbound per egress, pinned by a routing rule to that egress
   alone — this is what makes end-to-end egress probing possible
@@ -120,6 +121,16 @@ Per gateway the control plane generates:
 
 Client profiles advertise `security=tls` only when something actually terminates
 TLS, and `tlsMode: "xray"` is rejected without certificate paths.
+
+A REALITY gateway's X25519 pair is issued by the control plane, not on the box:
+`xray x25519` run by hand is a step that gets skipped or copied between
+gateways, and a shared key means one seized machine exposes the fleet. The
+private half reaches only that gateway's agent, inside its configuration; the
+public half travels in the client profile, as it must. Health checking such a
+gateway is a plain TLS handshake rather than a WebSocket upgrade — there is no
+HTTP on that port — and verifying the borrowed site's certificate is what
+proves Xray is up, the borrowed site is reachable from the gateway, and nothing
+else has moved onto the port.
 
 ## Usage accounting
 
