@@ -721,8 +721,36 @@ footer { border-top: 1px solid var(--border); padding: 64px 0 52px; color: var(-
 a.soc:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
 .soc[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 
-.foot-top { display: grid; gap: 34px; grid-template-columns: 1fr; margin: 52px 0 0; text-align: center; }
-@media (min-width: 620px) { .foot-top { grid-template-columns: repeat(3, 1fr); } }
+/* The lead sits in the page's own material — the card surface and the light
+   across its top — so the footer reads as part of the page rather than a
+   different document stapled to the end of it. */
+.foot-panel {
+  position: relative; overflow: hidden;
+  display: grid; justify-items: center; gap: 20px;
+  width: 100%; padding: 34px 22px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: linear-gradient(180deg, #191919, #111 70%);
+}
+.foot-panel::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 96px;
+  /* Rounded for the same reason the cards' light is: WebKit will not apply the
+     rounded part of the parent's clip to a masked child. */
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 32%, transparent 94%);
+  mask-image: linear-gradient(180deg, #000 0, #000 32%, transparent 94%);
+  background: radial-gradient(38% 120% at 50% 6px, rgba(236, 212, 14, .5), transparent 72%);
+  filter: blur(14px); pointer-events: none;
+}
+.foot-panel > * { position: relative; z-index: 1; }
+
+/* Three across at every width, including a phone's. A column is about 100px
+   there, so the longer labels take two lines — which is what a footer column
+   does, and it beats three narrow lists stacked down the screen. */
+.foot-top {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 22px 10px; margin: 44px 0 0; text-align: center;
+}
+@media (min-width: 620px) { .foot-top { gap: 34px 24px; margin-top: 52px; } }
 .foot-col h4 {
   margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--accent);
   letter-spacing: .2em; text-transform: uppercase; direction: ltr;
@@ -730,7 +758,8 @@ a.soc:hover { color: var(--accent); border-color: var(--accent); transform: tran
 /* `direction: ltr` above gives the Latin heading its tracking; on the RTL page
    it would also drag the heading to the wrong edge, so it comes back here. */
 [dir="rtl"] .foot-col h4 { direction: rtl; letter-spacing: normal; text-transform: none; font-size: 13px; }
-.foot-col a { display: block; color: var(--dim); padding: 6px 0; }
+.foot-col a { display: block; color: var(--dim); padding: 6px 2px; font-size: 12.5px; line-height: 1.5; }
+@media (min-width: 620px) { .foot-col a { font-size: 13px; } }
 .foot-col a:hover { color: var(--text); }
 
 .foot {
