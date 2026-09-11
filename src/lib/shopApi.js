@@ -1,15 +1,26 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const TOKEN_KEY = 'cvpn.customer';
-// What it was called. Read once so a rename does not sign every customer out
-// of the account they paid for.
-const LEGACY_TOKEN_KEY = 'jordan.customer';
+const TOKEN_KEY = 'sixvpn.customer';
+// What it was called. Read so a rename does not sign every customer out of the
+// account they paid for.
+const LEGACY_TOKEN_KEYS = ['cvpn.customer', 'jordan.customer'];
 
 let session = read();
 const listeners = new Set();
 
 function read() {
   try {
-    const raw = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+    let raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) {
+      // Move it across on the first read under the new name. Leaving it where
+      // it was would sign the customer back in after they signed out, since
+      // signing out only clears the key this build writes.
+      const key = LEGACY_TOKEN_KEYS.find((name) => localStorage.getItem(name));
+      if (key) {
+        raw = localStorage.getItem(key);
+        localStorage.setItem(TOKEN_KEY, raw);
+        LEGACY_TOKEN_KEYS.forEach((name) => localStorage.removeItem(name));
+      }
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.token || new Date(parsed.expiresAt).getTime() <= Date.now()) return null;

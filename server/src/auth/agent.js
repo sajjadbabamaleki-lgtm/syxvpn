@@ -24,6 +24,14 @@ export function signRequest({ key, method, path, body }) {
   return { timestamp, nonce, signature };
 }
 
+/**
+ * Not renamed with the product, on purpose.
+ *
+ * These names are a wire protocol between the control plane and every agent in
+ * the fleet, not a brand. Renaming them costs a release where both are accepted
+ * and an agent rollout across every gateway, buys nothing a customer can see,
+ * and has already been paid for once (see LEGACY_HEADERS below).
+ */
 export const HEADERS = {
   gateway: 'x-cvpn-gateway',
   timestamp: 'x-cvpn-timestamp',

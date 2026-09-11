@@ -208,7 +208,7 @@ async function safely(name, fn) {
 }
 
 async function main() {
-  log.info('cvpn gateway agent starting', {
+  log.info('sixvpn gateway agent starting', {
     gatewayId: cfg.gatewayId,
     controlPlane: cfg.controlPlaneUrl,
     reloadMode: cfg.reloadMode,

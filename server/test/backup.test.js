@@ -120,8 +120,11 @@ test('database snapshots', async (t) => {
   });
 
   await t.test('names this service did not write are not names it will serve', () => {
-    assert.ok(isBackupName('cvpn-20260910T041233Z.sqlite'));
-    assert.ok(isBackupName('jordan-20260910T041233Z.sqlite'), 'taken before the rename');
+    assert.ok(isBackupName('sixvpn-20260910T041233Z.sqlite'));
+    // Every prefix this service has written stays restorable: the snapshots
+    // from before a rename are exactly the ones worth keeping.
+    assert.ok(isBackupName('cvpn-20260910T041233Z.sqlite'), 'taken before the rename');
+    assert.ok(isBackupName('jordan-20260910T041233Z.sqlite'), 'taken before the rename before that');
     for (const bad of [
       '../../etc/passwd',
       '..%2f..%2fcvpn.db',

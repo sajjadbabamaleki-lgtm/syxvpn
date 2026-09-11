@@ -1,14 +1,24 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const TOKEN_KEY = 'cvpn.session';
-// What it was called. Read once so a rename does not sign every operator out.
-const LEGACY_TOKEN_KEY = 'jordan.session';
+const TOKEN_KEY = 'sixvpn.session';
+// What it was called. Read so a rename does not sign every operator out.
+const LEGACY_TOKEN_KEYS = ['cvpn.session', 'jordan.session'];
 
 let session = readSession();
 const listeners = new Set();
 
 function readSession() {
   try {
-    const raw = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+    let raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) {
+      // Moved across on first read, so that signing out — which clears only the
+      // key this build writes — does not leave one behind to sign them back in.
+      const key = LEGACY_TOKEN_KEYS.find((name) => localStorage.getItem(name));
+      if (key) {
+        raw = localStorage.getItem(key);
+        localStorage.setItem(TOKEN_KEY, raw);
+        LEGACY_TOKEN_KEYS.forEach((name) => localStorage.removeItem(name));
+      }
+    }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.token || new Date(parsed.expiresAt).getTime() <= Date.now()) return null;

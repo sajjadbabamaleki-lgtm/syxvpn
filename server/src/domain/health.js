@@ -64,7 +64,7 @@ export function wsProbe(gateway, timeoutMs = config.health.probeTimeoutMs) {
         Upgrade: 'websocket',
         'Sec-WebSocket-Version': '13',
         'Sec-WebSocket-Key': crypto.randomBytes(16).toString('base64'),
-        'User-Agent': 'cvpn-control-plane/health',
+        'User-Agent': 'sixvpn-control-plane/health',
       },
       timeout: timeoutMs,
     });

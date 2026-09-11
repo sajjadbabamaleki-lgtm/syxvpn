@@ -4,17 +4,18 @@ const int = (v, d) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : d);
 const bool = (v, d) => (v === undefined || v === '' ? d : ['1', 'true', 'yes', 'on'].includes(String(v).toLowerCase()));
 
 /**
- * CVPN_* is what these are called. CVPN_* is what they were called, and a
- * gateway that is already running has the old names in its env file — read by
- * a container that is restarted by an upgrade, not by somebody at a keyboard.
- * Falling back keeps that gateway working until its file is rewritten.
+ * SIXVPN_* is what these are called. The earlier names are still read, because
+ * a gateway that is already running has them in its env file — read by a
+ * container an upgrade restarts, not by somebody at a keyboard. Falling back
+ * keeps that gateway working until its file is rewritten.
  */
-const read = (env, name) => env[`CVPN_${name}`] || env[`JORDAN_${name}`];
+const NAMES = ['SIXVPN', 'CVPN', 'JORDAN'];
+const read = (env, name) => NAMES.map((prefix) => env[`${prefix}_${name}`]).find(Boolean);
 
 export function loadAgentConfig(env = process.env) {
   const missing = ['URL', 'GATEWAY_ID', 'AGENT_KEY'].filter((k) => !read(env, k));
   if (missing.length) {
-    throw new Error(`missing required environment: ${missing.map((k) => `CVPN_${k}`).join(', ')}`);
+    throw new Error(`missing required environment: ${missing.map((k) => `SIXVPN_${k}`).join(', ')}`);
   }
   const stateDir = env.STATE_DIR || '/var/lib/cvpn-agent';
   return {

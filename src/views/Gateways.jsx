@@ -104,11 +104,11 @@ function AddGatewaySheet({ open, onClose, onCreated }) {
           <p className="result-name">{created.name}</p>
           <p className="warn-note">
             The agent key is shown once. Put it in the gateway agent&apos;s
-            <code> CVPN_AGENT_KEY</code> and keep it out of shell history.
+            <code> SIXVPN_AGENT_KEY</code> and keep it out of shell history.
           </p>
           <code className="token-box">{created.agentKey}</code>
           <CopyButton value={created.agentKey} label="Copy agent key" />
-          <code className="token-box">CVPN_GATEWAY_ID={created.id}</code>
+          <code className="token-box">SIXVPN_GATEWAY_ID={created.id}</code>
           <div className="action-row">
             <CopyButton value={created.id} label="Copy gateway id" />
             <Button variant="ghost" onClick={close}>Done</Button>
@@ -158,7 +158,7 @@ function AddGatewaySheet({ open, onClose, onCreated }) {
             </>
           ) : (
             <>
-              <Field label="TLS" hint="cVPN will not advertise TLS a gateway cannot actually serve">
+              <Field label="TLS" hint="SixVPN will not advertise TLS a gateway cannot actually serve">
                 <select value={form.tlsMode} onChange={set('tlsMode')}>
                   <option value="reverse-proxy">Terminated by a reverse proxy (recommended)</option>
                   <option value="none">None — plaintext WebSocket</option>

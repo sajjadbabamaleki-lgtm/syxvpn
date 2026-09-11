@@ -64,7 +64,7 @@ Adding a user to Xray normally means rewriting the config and restarting it,
 which drops every connection on that gateway. Issuing a hundred configs a day
 that way would mean a hundred interruptions.
 
-cVPN splits a gateway's configuration into its structure (inbound, outbounds,
+SixVPN splits a gateway's configuration into its structure (inbound, outbounds,
 routing) and its client list. When only the client list changed, the agent
 applies it through Xray's API — `xray api adu` / `rmu` — and rewrites the config
 file without restarting. A batch of a hundred is one API call and zero dropped
@@ -77,16 +77,16 @@ goes through the full validate → `xray -test` → atomic replace → reload pa
 
 ```sh
 # issue 100
-curl -X POST https://control.cvpn.pro/api/v1/subscribers/batch \
+curl -X POST https://control.sixvpn.pro/api/v1/subscribers/batch \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"count":100,"namePrefix":"tg-2026-09-08","quotaGb":20,"days":30}'
 
 # re-export later
-curl "https://control.cvpn.pro/api/v1/subscribers/batches/$BATCH_ID?format=csv" \
+curl "https://control.sixvpn.pro/api/v1/subscribers/batches/$BATCH_ID?format=csv" \
   -H "authorization: Bearer $ADMIN_TOKEN"
 
 # one subscriber's link and raw config
-curl "https://control.cvpn.pro/api/v1/subscribers/$ID/subscription" \
+curl "https://control.sixvpn.pro/api/v1/subscribers/$ID/subscription" \
   -H "authorization: Bearer $ADMIN_TOKEN"
 ```
 

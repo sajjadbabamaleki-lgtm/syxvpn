@@ -21,23 +21,24 @@ function resolveKeyMaterial() {
     });
   }
   const dir = config.dbPath === ':memory:' ? null : path.dirname(path.resolve(config.dbPath));
-  const file = dir && path.join(dir, '.cvpn-secret-key');
+  const file = dir && path.join(dir, '.sixvpn-secret-key');
   if (!file) return crypto.randomBytes(32).toString('base64');
   try {
     return fs.readFileSync(file, 'utf8').trim();
   } catch { /* not there yet, or it is still under its old name */ }
-  try {
-    // Development only, and only until this file is renamed: generating a new
-    // key instead of finding the old one would make every sealed token in that
-    // database unreadable.
-    return fs.readFileSync(path.join(dir, '.jordan-secret-key'), 'utf8').trim();
-  } catch {
-    const generated = crypto.randomBytes(32).toString('base64');
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, generated, { mode: 0o600 });
-    logger.warn('generated development SECRET_KEY', { file });
-    return generated;
+  // Development only: generating a new key instead of finding the one an
+  // earlier name left behind would make every sealed token in that database
+  // unreadable.
+  for (const legacy of ['.cvpn-secret-key', '.jordan-secret-key']) {
+    try {
+      return fs.readFileSync(path.join(dir, legacy), 'utf8').trim();
+    } catch { /* try the next one */ }
   }
+  const generated = crypto.randomBytes(32).toString('base64');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, generated, { mode: 0o600 });
+  logger.warn('generated development SECRET_KEY', { file });
+  return generated;
 }
 
 let cachedKey = null;

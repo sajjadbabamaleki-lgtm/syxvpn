@@ -1,6 +1,6 @@
-# cVPN
+# SixVPN
 
-cVPN sells and operates managed access to authorized proxy infrastructure.
+SixVPN sells and operates managed access to authorized proxy infrastructure.
 
 There are two halves to it. Customers see a storefront: pick a plan, pay in
 USDT, get a subscription link that works in any Xray-compatible client. An
@@ -23,7 +23,7 @@ gateway (Xray, deployed by the agent) ──▶ selected egress ──▶ intern
 
 A `vless://` profile describes the **first hop only**. It tells a client how to
 reach a gateway; it says nothing about how that gateway reaches the internet,
-and it cannot create a path that does not exist. cVPN is built around that
+and it cannot create a path that does not exist. SixVPN is built around that
 distinction:
 
 - **Ingress health** — can a client still reach the gateway? Measured by the
@@ -38,7 +38,7 @@ collapses them into one status. When no egress is usable, the generated
 configuration fails closed rather than quietly leaking traffic out of the
 gateway's own default route.
 
-cVPN routes only through connectivity the operator already has and is
+SixVPN routes only through connectivity the operator already has and is
 authorized to use. It does not obtain access, and nothing here should be read
 as a promise that a gateway stays reachable during a network disruption.
 

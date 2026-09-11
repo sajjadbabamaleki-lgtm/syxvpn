@@ -117,7 +117,7 @@ function AdminApp({ path }) {
         <div className="brand">
           <Logo size={22} className="mark-logo" />
           <div>
-            <strong>cVPN</strong>
+            <strong>SixVPN</strong>
             <span className="screen-title">{screen.title}</span>
           </div>
         </div>
@@ -156,7 +156,7 @@ function CustomerApp({ path }) {
         <div className="brand">
           <Logo size={22} className="mark-logo" />
           <div>
-            <strong>cVPN</strong>
+            <strong>SixVPN</strong>
             <span className="screen-title">{screen.title}</span>
           </div>
         </div>

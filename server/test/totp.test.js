@@ -110,14 +110,14 @@ test('one-time passwords', async (t) => {
 
   await t.test('the provisioning URI carries what an authenticator needs', () => {
     const secret = generateSecret();
-    const uri = provisioningUri({ secret, account: 'admin', issuer: 'cVPN' });
+    const uri = provisioningUri({ secret, account: 'admin', issuer: 'SixVPN' });
     const parsed = new URL(uri);
     assert.equal(parsed.protocol, 'otpauth:');
     // The type sits where a host would, so the label is the whole path.
     assert.equal(parsed.host, 'totp');
-    assert.equal(decodeURIComponent(parsed.pathname), '/cVPN:admin');
+    assert.equal(decodeURIComponent(parsed.pathname), '/SixVPN:admin');
     assert.equal(parsed.searchParams.get('secret'), secret);
-    assert.equal(parsed.searchParams.get('issuer'), 'cVPN');
+    assert.equal(parsed.searchParams.get('issuer'), 'SixVPN');
     assert.equal(parsed.searchParams.get('digits'), '6');
     assert.equal(parsed.searchParams.get('period'), '30');
   });

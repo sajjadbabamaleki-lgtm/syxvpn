@@ -1,8 +1,8 @@
 import org.json.JSONObject
-import pro.cvpn.app.core.PrivateDns
-import pro.cvpn.app.core.TunnelProfile
-import pro.cvpn.app.core.VlessProfile
-import pro.cvpn.app.core.XrayConfigBuilder
+import pro.sixvpn.app.core.PrivateDns
+import pro.sixvpn.app.core.TunnelProfile
+import pro.sixvpn.app.core.VlessProfile
+import pro.sixvpn.app.core.XrayConfigBuilder
 
 /**
  * Prints the Xray config the app would build, so real Xray-core can judge it.
@@ -15,10 +15,10 @@ import pro.cvpn.app.core.XrayConfigBuilder
  *     curl -sSLo /tmp/json.jar \
  *       https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
  *     kotlinc -cp /tmp/json.jar \
- *       android/app/src/main/java/pro/cvpn/app/core/UriParts.kt \
- *       android/app/src/main/java/pro/cvpn/app/core/PrivateDns.kt \
- *       android/app/src/main/java/pro/cvpn/app/core/VlessProfile.kt \
- *       android/app/src/main/java/pro/cvpn/app/core/XrayConfigBuilder.kt \
+ *       android/app/src/main/java/pro/sixvpn/app/core/UriParts.kt \
+ *       android/app/src/main/java/pro/sixvpn/app/core/PrivateDns.kt \
+ *       android/app/src/main/java/pro/sixvpn/app/core/VlessProfile.kt \
+ *       android/app/src/main/java/pro/sixvpn/app/core/XrayConfigBuilder.kt \
  *       android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
  *     java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
  *     xray -test -config /tmp/xray.json

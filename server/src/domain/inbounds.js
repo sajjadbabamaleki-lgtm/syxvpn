@@ -83,6 +83,9 @@ export function inCohort(subscriberId, percent = config.adaptiveInbounds.rollout
  * inbounds never share a key, and no key outlives the credential it came from.
  */
 export function derivedKey(credentialUuid, inboundId, bytes = 32) {
+  // The context string is deliberately not renamed with the product. It is an
+  // input to every subscriber's key on every additional door: changing it
+  // rotates all of them at once and drops whoever is connected through one.
   const key = crypto.hkdfSync('sha256', Buffer.from(credentialUuid), Buffer.from(inboundId), Buffer.from('cvpn-inbound'), bytes);
   return Buffer.from(key);
 }

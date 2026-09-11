@@ -88,7 +88,7 @@ async function main() {
   await fs.mkdir(STATE, { recursive: true });
   await fs.rm(path.join(STATE, 'client.json'), { force: true });
 
-  log('\n=== cVPN blackout lab ===\n');
+  log('\n=== SixVPN blackout lab ===\n');
 
   if (process.env.LAB_SKIP_BUILD === '1') {
     log('· LAB_SKIP_BUILD=1, using existing images');

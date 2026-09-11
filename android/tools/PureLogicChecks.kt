@@ -1,21 +1,21 @@
-package pro.cvpn.app.tools
+package pro.sixvpn.app.tools
 
-import pro.cvpn.app.core.CountryGroup
-import pro.cvpn.app.core.countryOf
-import pro.cvpn.app.core.countryOfRegion
-import pro.cvpn.app.core.flagEmoji
-import pro.cvpn.app.core.groupByCountry
-import pro.cvpn.app.core.Probe
-import pro.cvpn.app.core.RouteState
-import pro.cvpn.app.core.Server
-import pro.cvpn.app.core.ServerPicker
-import pro.cvpn.app.core.VlessProfile
-import pro.cvpn.app.core.supportLink
-import pro.cvpn.app.ui.formatBytes
-import pro.cvpn.app.ui.formatDaysLeft
-import pro.cvpn.app.ui.formatRemaining
-import pro.cvpn.app.ui.formatUsdt
-import pro.cvpn.app.ui.parseIsoMillis
+import pro.sixvpn.app.core.CountryGroup
+import pro.sixvpn.app.core.countryOf
+import pro.sixvpn.app.core.countryOfRegion
+import pro.sixvpn.app.core.flagEmoji
+import pro.sixvpn.app.core.groupByCountry
+import pro.sixvpn.app.core.Probe
+import pro.sixvpn.app.core.RouteState
+import pro.sixvpn.app.core.Server
+import pro.sixvpn.app.core.ServerPicker
+import pro.sixvpn.app.core.VlessProfile
+import pro.sixvpn.app.core.supportLink
+import pro.sixvpn.app.ui.formatBytes
+import pro.sixvpn.app.ui.formatDaysLeft
+import pro.sixvpn.app.ui.formatRemaining
+import pro.sixvpn.app.ui.formatUsdt
+import pro.sixvpn.app.ui.parseIsoMillis
 
 /**
  * Checks for the parts of the app that need no Android SDK.
@@ -25,8 +25,8 @@ import pro.cvpn.app.ui.parseIsoMillis
  * quiet mistake would be expensive — a wrong amount does not settle an order.
  * Run them with nothing but a Kotlin compiler:
  *
- *     kotlinc android/app/src/main/java/pro/cvpn/app/core/SupportContact.kt \
- *             android/app/src/main/java/pro/cvpn/app/ui/Format.kt \
+ *     kotlinc android/app/src/main/java/pro/sixvpn/app/core/SupportContact.kt \
+ *             android/app/src/main/java/pro/sixvpn/app/ui/Format.kt \
  *             android/tools/PureLogicChecks.kt -include-runtime -d /tmp/checks.jar
  *     java -jar /tmp/checks.jar
  */
@@ -70,8 +70,8 @@ fun main() {
     check("formatDaysLeft(past)", formatDaysLeft("2026-09-08T16:00:00.000Z", at + 1000), "expired")
     check("formatDaysLeft(garbage)", formatDaysLeft("soon"), null)
 
-    check("supportLink(handle)", supportLink("@cvpnhelp"), "https://t.me/cvpnhelp")
-    check("supportLink(t.me)", supportLink("t.me/cvpnhelp"), "https://t.me/cvpnhelp")
+    check("supportLink(handle)", supportLink("@sixvpnhelp"), "https://t.me/sixvpnhelp")
+    check("supportLink(t.me)", supportLink("t.me/sixvpnhelp"), "https://t.me/sixvpnhelp")
     check("supportLink(https)", supportLink("https://help.example.net"), "https://help.example.net")
     check("supportLink(email)", supportLink("help@example.net"), "mailto:help@example.net")
     check("supportLink(prose)", supportLink("call us on the phone"), null)

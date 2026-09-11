@@ -24,7 +24,7 @@ export function createClient({ controlPlaneUrl, gatewayId, agentKey }) {
         'x-cvpn-timestamp': String(timestamp),
         'x-cvpn-nonce': nonce,
         'x-cvpn-signature': signature,
-        'user-agent': 'cvpn-gateway-agent/0.2.0',
+        'user-agent': 'sixvpn-gateway-agent/0.2.0',
       },
       ...(payload ? { body: payload } : {}),
     });

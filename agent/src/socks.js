@@ -89,7 +89,7 @@ export async function probeThroughSocks({ proxyPort, url, timeoutMs = 8000, veri
     });
     socket.write(
       `HEAD ${target.pathname}${target.search} HTTP/1.1\r\nHost: ${target.hostname}\r\n` +
-      'User-Agent: cvpn-gateway-agent/0.2.0\r\nConnection: close\r\nAccept: */*\r\n\r\n',
+      'User-Agent: sixvpn-gateway-agent/0.2.0\r\nConnection: close\r\nAccept: */*\r\n\r\n',
     );
   });
 }

@@ -1,3 +1,7 @@
+# The compose project name, the volume and the database file keep the name they
+# were created under. They are not brand: renaming them detaches a running
+# deployment from its own data — new empty containers, an orphaned volume, and a
+# control plane that comes up as if nothing had ever been sold.
 name: cvpn
 
 # Control plane and web app. Put a TLS reverse proxy in front of both; see
@@ -68,9 +72,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-}
         # The public address, as the landing pages advertise it to search
         # engines. Wrong here means canonical tags pointing at somewhere else.
-        VITE_SITE_URL: ${SITE_URL:-https://cvpn.pro}
+        VITE_SITE_URL: ${SITE_URL:-https://sixvpn.pro}
         # Where the Android build is published.
-        VITE_APK_URL: ${APK_URL:-/download/cvpn.apk}
+        VITE_APK_URL: ${APK_URL:-/download/sixvpn.apk}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"

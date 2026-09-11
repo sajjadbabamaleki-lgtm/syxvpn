@@ -177,7 +177,7 @@ test('the tools the assistant is given', async (t) => {
     const previous = { ...config.assistant, telegram: { ...config.assistant.telegram } };
     try {
       config.assistant.enabled = false;
-      config.assistant.telegram.botUsername = 'cvpn_support_bot';
+      config.assistant.telegram.botUsername = 'sixvpn_support_bot';
       let res = await ctx.request('GET', '/api/v1/shop/config');
       assert.equal(res.body.data.supportBot, null, 'a disabled assistant was advertised');
 
@@ -186,9 +186,9 @@ test('the tools the assistant is given', async (t) => {
       res = await ctx.request('GET', '/api/v1/shop/config');
       assert.equal(res.body.data.supportBot, null, 'a bot with no handle was advertised');
 
-      config.assistant.telegram.botUsername = 'cvpn_support_bot';
+      config.assistant.telegram.botUsername = 'sixvpn_support_bot';
       res = await ctx.request('GET', '/api/v1/shop/config');
-      assert.deepEqual(res.body.data.supportBot, { telegram: 'cvpn_support_bot' });
+      assert.deepEqual(res.body.data.supportBot, { telegram: 'sixvpn_support_bot' });
     } finally {
       Object.assign(config.assistant, previous);
     }

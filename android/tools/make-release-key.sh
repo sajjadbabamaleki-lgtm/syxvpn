@@ -1,5 +1,5 @@
 #!/bin/sh
-# Create the one key that signs every cVPN release, for as long as the app exists.
+# Create the one key that signs every SixVPN release, for as long as the app exists.
 #
 # Android identifies an app by its signature, not by its name. An update signed
 # with a different key is not an update: the installer refuses it, and the only
@@ -18,9 +18,9 @@
 # the GitHub CLI is here and signed in — offers to upload them itself.
 set -eu
 
-OUT=${OUT:-$HOME/cvpn-release}
-STORE="$OUT/cvpn-release.jks"
-ALIAS=${ALIAS:-cvpn}
+OUT=${OUT:-$HOME/sixvpn-release}
+STORE="$OUT/sixvpn-release.jks"
+ALIAS=${ALIAS:-sixvpn}
 # 10000 days: a little over 27 years. Google Play requires a certificate valid
 # past 2033, and a key that expires is a key that ends the app.
 VALIDITY=${VALIDITY:-10000}
@@ -135,7 +135,7 @@ keytool -genkeypair \
   -keyalg RSA -keysize 4096 \
   -validity "$VALIDITY" \
   -storepass "$PASS" -keypass "$PASS" \
-  -dname "CN=cVPN, O=cVPN" >/dev/null
+  -dname "CN=SixVPN, O=SixVPN" >/dev/null
 
 chmod 600 "$STORE"
 base64 < "$STORE" | tr -d '\n' > "$OUT/keystore.base64"

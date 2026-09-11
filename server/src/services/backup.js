@@ -25,13 +25,14 @@ import { EVENT, recordEvent } from '../domain/events.js';
  */
 
 /**
- * `cvpn-20260910T041233Z.sqlite` — sortable, and unambiguous across zones.
+ * `sixvpn-20260910T041233Z.sqlite` — sortable, and unambiguous across zones.
  *
- * The old prefix is still recognised so that snapshots taken before the rename
- * stay listed and downloadable. A backup you cannot find is not a backup, and
- * the ones from before a rename are exactly the ones worth keeping.
+ * Every prefix this service has ever written is still recognised, so snapshots
+ * taken before a rename stay listed and downloadable. A backup you cannot find
+ * is not a backup, and the ones from before a rename are exactly the ones worth
+ * keeping.
  */
-const NAME_SHAPE = /^(cvpn|jordan)-\d{8}T\d{6}Z\.sqlite$/;
+const NAME_SHAPE = /^(sixvpn|cvpn|jordan)-\d{8}T\d{6}Z\.sqlite$/;
 
 const stamp = (when) => new Date(when).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
 
@@ -86,7 +87,7 @@ export function pruneBackups(cfg = config) {
  */
 export function takeBackup(db, { cfg = config, now = Date.now(), reason = 'scheduled' } = {}) {
   fs.mkdirSync(cfg.backup.dir, { recursive: true });
-  const name = `cvpn-${stamp(now)}.sqlite`;
+  const name = `sixvpn-${stamp(now)}.sqlite`;
   const target = backupPath(name, cfg);
   const partial = `${target}.partial`;
   try {
