@@ -313,17 +313,6 @@
         </div>
       </noscript>
 
-      <div class="included reveal">
-        <h3>در همهٔ پلن‌ها هست</h3>
-        <ul>
-          <li>دسترسی به همهٔ سرورها</li>
-          <li>انتخاب خودکار سرور</li>
-          <li>بازیابی خودکار اتصال</li>
-          <li>بخش کانفیگ دستی</li>
-          <li>DNS رمزنگاری‌شده</li>
-          <li>پشتیبانی ۲۴ ساعته</li>
-        </ul>
-      </div>
 
       <p class="plans-note">
         قیمت‌ها همان چیزی است که سرور همین لحظه اعلام می‌کند — روی این صفحه عددی دستی نوشته نشده.
@@ -488,6 +477,8 @@
     if (!grid) return;
 
     var term = function (days) {
+      if (days >= 6 && days <= 8) return 'هفتگی';
+      if (days >= 13 && days <= 16) return 'دوهفته‌ای';
       if (days >= 28 && days <= 31) return 'ماهانه';
       if (days >= 88 && days <= 93) return 'سه‌ماهه';
       if (days >= 175 && days <= 190) return 'شش‌ماهه';
@@ -495,22 +486,47 @@
       return days + ' روزه';
     };
     var forWhom = function (days) {
-      if (days <= 31) return 'برای امتحان کردن';
-      if (days <= 93) return 'برای استفادهٔ روزمره';
+      if (days <= 8) return 'برای امتحان کردن';
+      if (days <= 31) return 'برای استفادهٔ روزمره';
+      if (days <= 93) return 'به‌صرفه‌ترین انتخاب';
       if (days <= 190) return 'برای نیم سال';
-      return 'به‌صرفه‌ترین انتخاب';
+      return 'برای یک سال';
     };
+    var days = function (n) { return n.toLocaleString('fa-IR', { useGrouping: false }); };
     var money = function (micro) {
       // 3.50 reads as a typo; 3.5 and 9 read as prices.
       return (micro / 1e6).toFixed(2).replace(/0$/, '').replace(/\.0?$/, '');
     };
     var gigabytes = function (bytes) {
       if (!bytes) return 'بدون محدودیت حجم';
-      return Math.round(bytes / 1073741824) + ' گیگابایت';
+      return days(Math.round(bytes / 1073741824)) + ' گیگابایت';
     };
     var ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
       + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/></svg>';
+
+    // What a plan buys, read off the plan itself rather than typed here.
+    //
+    // The only rows that can be crossed out are the two product tabs: a plan
+    // sold as 'vpn' does not unlock the configs tab and the other way round,
+    // and a card that fails to say which one it is, is a refund request. A plan
+    // recorded as 'all' — which is what every subscription sold before the
+    // split is — unlocks both, so nothing is crossed out on it.
+    var features = function (p) {
+      var has = function (what) { return p.product === 'all' || p.product === what; };
+      var rows = [
+        [true, gigabytes(p.quotaBytes)],
+        [true, days(p.durationDays) + ' روز اعتبار'],
+        [has('vpn'), 'سرورهای SyxVPN، با انتخاب خودکار'],
+        [has('configs'), 'کانفیگ‌های آمادهٔ اشتراک'],
+        [true, 'بازیابی خودکار اتصال'],
+        [true, 'DNS رمزنگاری‌شده'],
+        [true, 'پشتیبانی ۲۴ ساعته'],
+      ];
+      return '<ul class="feat">' + rows.map(function (r) {
+        return '<li' + (r[0] ? '' : ' class="no"') + '>' + r[1] + '</li>';
+      }).join('') + '</ul>';
+    };
 
     fetch(API + '/api/v1/shop/plans', { headers: { accept: 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -520,7 +536,7 @@
         plans.sort(function (a, b) { return a.durationDays - b.durationDays; });
         var longest = plans[plans.length - 1];
         grid.innerHTML = plans.map(function (p) {
-          var monthly = p.durationDays > 45
+          var monthly = p.durationDays > 31
             ? '<div class="per">معادل ' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT در ماه</div>'
             : '<div class="per"></div>';
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
@@ -532,7 +548,7 @@
             + '</div>'
             + '<div class="price">' + money(p.priceMicro) + '<span>USDT</span></div>'
             + monthly
-            + '<div class="quota">' + gigabytes(p.quotaBytes) + '</div>'
+            + features(p)
             + '<div class="buy"><a href="/app/#/store">خرید</a></div>'
             + '</article>';
         }).join('');

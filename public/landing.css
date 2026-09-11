@@ -427,6 +427,14 @@ h3 { font-weight: 400; }
 .plan > * { position: relative; z-index: 1; }
 .plan:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
 .plan.best { border-color: rgba(216, 248, 58, .42); }
+/* The featured card is lit from underneath as well — the reference's one piece
+   of asymmetry, and what makes it read as raised rather than merely outlined. */
+.plan.best::after {
+  content: ""; position: absolute; z-index: 0;
+  inset-inline: 6%; bottom: -34px; height: 90px;
+  background: radial-gradient(50% 60% at 50% 30%, rgba(245, 232, 150, .5), rgba(217, 176, 33, .22) 45%, transparent 75%);
+  filter: blur(14px); pointer-events: none;
+}
 .plan .tag {
   align-self: flex-start; margin-bottom: 12px;
   background: var(--accent); color: var(--accent-ink);
@@ -437,10 +445,36 @@ h3 { font-weight: 400; }
 .plan-head .term { font-size: 19px; font-weight: 500; line-height: 1.3; }
 .plan-head .for { color: var(--dim); font-size: 13px; }
 .plan .price { font-size: 42px; font-weight: 300; letter-spacing: -.035em; color: var(--gold); line-height: 1.2; }
-.plan .price span { font-size: 15px; font-weight: 500; color: var(--dim); margin-inline-start: 6px; letter-spacing: 0; }
+/* The unit is a word, not part of the figure: set tight against the digits it
+   reads as "2USDT". A margin on both sides survives either direction. */
+.plan .price span { font-size: 15px; font-weight: 500; color: var(--dim); margin: 0 8px; letter-spacing: 0; }
 .plan .per { color: var(--faint); font-size: 12px; min-height: 18px; }
-.plan .quota { color: var(--dim); font-size: 14px; margin-top: 8px; }
-.plan .buy { margin-top: auto; padding-top: 22px; }
+
+/* What the plan actually buys.
+ *
+ * A tick is a claim, so the two marks have to mean different things: `+` for
+ * what this plan includes, a filled `×` for what it does not. The only row that
+ * is ever crossed out is the product tab a plan does not unlock — which is real,
+ * comes from the plan's own record, and is exactly the thing somebody asks for
+ * a refund over when a card failed to say it.
+ */
+.plan .feat { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 13px; }
+.plan .feat li { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.5; }
+.plan .feat li::before {
+  content: "+"; flex: none;
+  width: 20px; height: 20px; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold); font-size: 17px; line-height: 1;
+}
+.plan .feat li.no { color: var(--faint); }
+.plan .feat li.no::before {
+  content: "\00d7";
+  background: var(--gold); color: var(--accent-ink);
+  border-radius: 5px; font-size: 13px; font-weight: 700;
+  width: 18px; height: 18px; margin-top: 2px;
+}
+
+.plan .buy { margin-top: auto; padding-top: 26px; }
 .plan .buy a { display: block; text-align: center; border-radius: 999px; padding: 13px; border: 1px solid var(--border); font-weight: 600; font-size: 14px; }
 .plan.best .buy a { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .plan .buy a:hover { border-color: var(--faint); }
@@ -449,18 +483,6 @@ h3 { font-weight: 400; }
 .plans-empty { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; color: var(--dim); font-size: 14px; }
 .plans-empty a { color: var(--accent); }
 
-/* What is in every plan. A tick is a promise; this list is all ticks, because
-   listing something as absent from the only plans on sale is a comparison with
-   nothing. */
-.included { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; margin-top: 20px; }
-.included h3 { margin: 0 0 20px; font-size: 19px; }
-.included ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.included li { display: flex; align-items: flex-start; gap: 12px; color: var(--dim); font-size: 15px; }
-.included li::before {
-  content: "+"; flex: none; width: 22px; height: 22px; margin-top: 2px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--gold); font-size: 18px; line-height: 1;
-}
 
 /* --------------------------------------------------------------- big call */
 
