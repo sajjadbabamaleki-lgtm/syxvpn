@@ -1,9 +1,11 @@
 /* SyxVPN — the public page.
  *
- * One stylesheet for both languages. No web fonts, no CDN, no third-party
- * script: this page is read from networks where fonts.googleapis.com is a
- * gamble, and a page that waits on a blocked host is a page nobody sees.
- * System fonts render instantly and carry Persian correctly on every phone.
+ * One stylesheet for both languages. No CDN and no third-party script: this
+ * page is read from networks where fonts.googleapis.com is a gamble, and a
+ * page that waits on a blocked host is a page nobody sees.
+ *
+ * The one font it does load is served from this same origin, so it is exactly
+ * as reachable as the page asking for it — see the @font-face below.
  *
  * Near-black ground, one lime accent, and a warmer gold used as light rather
  * than as paint. Four treatments carry the whole page, and every one of them is
@@ -41,15 +43,61 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
+/* Persian, in a face drawn for Persian.
+ *
+ * The stack used to start with system-ui, which meant the Persian text was
+ * always drawn by whatever the device happened to default to — Tahoma on
+ * Windows, something else on Android — and Vazirmatn, sitting fourth, was never
+ * reached even on a machine that had it. A stack is not a preference list if
+ * the first entry always matches.
+ *
+ * So the face is served rather than hoped for. Three things keep that honest:
+ *
+ *   it is on this origin, not a CDN, so it is reachable wherever the page is;
+ *   `unicode-range` is Persian only, so the English page never downloads it and
+ *     Latin keeps the system's own grotesque, which is what the design wants;
+ *   `swap` means the text is readable from the first paint in the fallback and
+ *     changes face when the file lands — never invisible while waiting.
+ *
+ * One variable file, 48KB, every weight from 100 to 900. Vazirmatn 33.0.3,
+ * SIL Open Font License 1.1 — the licence ships beside it in public/fonts/.
+ */
+@font-face {
+  font-family: "Vazirmatn Web";
+  src: url("/fonts/vazirmatn-nl-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  /* Arabic script, Arabic-Indic and Persian digits, presentation forms — plus
+     U+200C, the zero-width non-joiner, which Persian cannot be set without. */
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+200C-200F,
+                 U+FB50-FDFF, U+FE70-FEFF;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Vazirmatn, Tahoma, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.62;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
+
+/* The face is asked for on the Persian page only. `unicode-range` alone was not
+   enough: the English page carries the word فارسی in its language switcher, and
+   a browser downloads a 48KB file for one nav link as readily as for a whole
+   page of text. There, that word can have the system's own Arabic fallback.
+
+   Persian also sits lower and looser than Latin at the same size: set to a
+   Latin line height its descenders and its dots collide. Corrected here too,
+   so both belong to the same rule and cannot drift apart. */
+[dir="rtl"] body {
+  font-family: "Vazirmatn Web", system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.85;
+}
+[dir="rtl"] h1, [dir="rtl"] h2 { line-height: 1.45; letter-spacing: 0; }
+[dir="rtl"] .card h3, [dir="rtl"] .plan-head .term { letter-spacing: 0; }
 
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
@@ -192,7 +240,9 @@ h1 {
   font-size: clamp(40px, 8.6vw, 84px); font-weight: 300;
   line-height: 1.06; margin: 24px 0 0; letter-spacing: -.03em; text-wrap: balance;
 }
-h1 .on { color: var(--accent); }
+/* Kept whole. Left to itself the accented phrase breaks across the line and
+   leaves its last word stranded, which reads as a mistake rather than a break. */
+h1 .on { color: var(--accent); white-space: nowrap; }
 h2 {
   font-size: clamp(28px, 5vw, 46px); font-weight: 300;
   line-height: 1.16; margin: 0 0 16px; letter-spacing: -.025em; text-wrap: balance;
