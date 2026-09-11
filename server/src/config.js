@@ -74,6 +74,18 @@ export function loadConfig(env = process.env) {
       maxSkewSeconds: int(env.AGENT_MAX_SKEW_SECONDS, 300),
     },
 
+    // Additional inbound protocols per gateway. Off by default: the fleet has
+    // to be able to take this build without taking the feature, and turning it
+    // on is a decision with a date and a person attached to it.
+    //
+    // `enabled` gates generation, serving and probing alike, so off means the
+    // control plane produces exactly what it produced before the feature —
+    // rows in the table and all. `rolloutPercent` is the second dial: which
+    // share of subscribers are told that the extra doors exist.
+    adaptiveInbounds: {
+      enabled: bool(env.ADAPTIVE_INBOUNDS, false),
+      rolloutPercent: int(env.ADAPTIVE_INBOUNDS_PERCENT, 0),
+    },
     health: {
       enabled: bool(env.HEALTH_MONITOR_ENABLED, true),
       intervalSeconds: int(env.HEALTH_INTERVAL_SECONDS, 60),

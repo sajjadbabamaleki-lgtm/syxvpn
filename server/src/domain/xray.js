@@ -14,6 +14,7 @@
  */
 
 import { splitList } from '../lib/reality.js';
+import { inboundConfig } from './inbounds.js';
 
 export const API_PORT = 10085;
 // Loopback SOCKS inbounds, one per assigned egress, used by the gateway agent
@@ -160,8 +161,11 @@ export const probeTag = (id) => `probe-${id}`;
  * @param {Array<{credentialId:string, uuid:string}>} clients currently entitled credentials
  * @param {Array<object>} egresses egress paths assigned to this gateway
  * @param {string|null} activeEgressId the egress selected by the control plane
+ * @param {Array<object>} extraInbounds additional doors into the same gateway
+ *   (see domain/inbounds.js). Empty is the shape this function had before they
+ *   existed, and is what a fleet with the feature off keeps generating.
  */
-export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) {
+export function gatewayServerConfig(gateway, clients, egresses, activeEgressId, extraInbounds = []) {
   const listen = listenEndpoint(gateway);
   const reality = isReality(gateway);
   const inbound = {
@@ -239,6 +243,10 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
     settings: { auth: 'noauth', udp: false },
   }));
 
+  const extra = extraInbounds.map((inbound) => inboundConfig(gateway, inbound, clients));
+  // Every door into this gateway, for the rules that have to name all of them.
+  const clientTags = ['client-in', ...extra.map((i) => i.tag)];
+
   const rules = [{ type: 'field', inboundTag: ['api-in'], outboundTag: 'api' }];
   for (const e of ordered) {
     rules.push({ type: 'field', inboundTag: [probeTag(e.id)], outboundTag: egressTag(e.id) });
@@ -253,7 +261,7 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
   } else {
     // Probe inbounds are matched earlier, so the agent can still measure every
     // path and the gateway can recover automatically once one comes back.
-    rules.push({ type: 'field', inboundTag: ['client-in'], outboundTag: 'block' });
+    rules.push({ type: 'field', inboundTag: clientTags, outboundTag: 'block' });
   }
 
   return {
@@ -267,6 +275,7 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
     },
     inbounds: [
       inbound,
+      ...extra,
       ...probeInbounds,
       {
         tag: 'api-in',
@@ -291,7 +300,10 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId) 
  */
 export function structuralConfig(config) {
   const inbounds = config.inbounds.map((inbound) => {
-    if (inbound.tag !== 'client-in') return inbound;
+    // Every client-carrying door, not only the gateway's own: an additional
+    // inbound holds the same client list, and leaving it in here would turn
+    // every subscriber added or removed into a full redeploy of the fleet.
+    if (!String(inbound.tag || '').startsWith('client-in')) return inbound;
     const { settings, ...rest } = inbound;
     const { clients, ...restSettings } = settings || {};
     return { ...rest, settings: { ...restSettings, clients: [] } };

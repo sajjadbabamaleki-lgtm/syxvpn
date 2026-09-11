@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { listGateways } from '../domain/gateways.js';
 import { checkGatewayIngress, sweepStaleReports } from '../domain/health.js';
+import { checkGatewayInbounds } from '../domain/inbounds.js';
 import { reevaluateAll } from '../domain/routing.js';
 import { enforceEntitlements, sweepCredentials } from '../domain/subscribers.js';
 import { pruneEvents, pruneHealthChecks } from '../domain/events.js';
@@ -23,6 +24,11 @@ export function startMonitor(db, cfg = config) {
       for (const gateway of listGateways(db)) {
         if (gateway.enabled !== 1) continue;
         await checkGatewayIngress(db, gateway);
+        // Each additional door, on the same tick as the gateway's own. An
+        // inbound nobody probes is an inbound that is advertised long after it
+        // stopped answering, and the client finds out instead of the operator.
+        // With the feature off this loop has nothing to iterate.
+        await checkGatewayInbounds(db, gateway);
       }
       sweepStaleReports(db);
       sweepCredentials(db);

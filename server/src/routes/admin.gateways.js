@@ -5,10 +5,14 @@ import { ok, created } from '../lib/respond.js';
 import { notFound, badRequest } from '../lib/errors.js';
 import {
   listGateways, getGateway, createGateway, updateGateway, deleteGateway,
-  buildGatewayConfig, assignedEgresses,
+  buildGatewayConfig, assignedEgresses, bumpConfigVersion,
 } from '../domain/gateways.js';
 import { assignEgress, unassignEgress } from '../domain/egresses.js';
 import { checkGatewayIngress, recentChecks } from '../domain/health.js';
+import {
+  KINDS, listInbounds, createInbound, updateInbound, deleteInbound, getInbound,
+  checkGatewayInbounds, inboundConfig,
+} from '../domain/inbounds.js';
 import { issueAgentKey } from '../auth/agent.js';
 import { EVENT, recordEvent } from '../domain/events.js';
 import { gatewayView, egressView, healthCheckView, routeSwitchView } from './serialize.js';
@@ -16,6 +20,51 @@ import { lastSwitch, reevaluateGateway } from '../domain/routing.js';
 import { parseDest, SHORT_ID_SHAPE } from '../lib/reality.js';
 
 const tlsModes = ['none', 'reverse-proxy', 'xray'];
+
+/**
+ * An additional inbound. Only the shape is described here; whether the gateway
+ * can actually run it is answered by rendering it (see the POST below), which
+ * is the only check that knows about certificate material.
+ */
+const inboundSchema = z.object({
+  kind: z.enum(KINDS),
+  port: portField,
+  listenAddress: z.string().trim().max(64).nullish(),
+  enabled: z.boolean().optional(),
+  realityDest: z.string().trim().max(255).nullish(),
+  realityServerNames: z.array(hostField).max(8).nullish(),
+  realityShortIds: z.array(z.string().trim().toLowerCase()).max(8).nullish(),
+  realityFingerprint: z.enum(['chrome', 'firefox', 'safari', 'edge', 'ios', 'android', 'random']).nullish(),
+});
+
+const inboundPatchSchema = z.object({
+  enabled: z.boolean().optional(),
+  port: portField.optional(),
+});
+
+/**
+ * What an operator is shown about an inbound.
+ *
+ * No key material: the Shadowsocks server key and the REALITY private key stay
+ * in the database and in the gateway's own configuration. A subscriber's key is
+ * not here either, because it is not stored anywhere — it is derived when a
+ * profile is written.
+ */
+const inboundView = (row) => ({
+  id: row.id,
+  gatewayId: row.gateway_id,
+  kind: row.kind,
+  port: row.port,
+  enabled: row.enabled === 1,
+  status: row.status,
+  latencyMs: row.latency_ms,
+  checkedAt: row.checked_at,
+  detail: row.detail,
+  realityDest: row.reality_dest,
+  realityServerNames: row.reality_server_names,
+  realityPublicKey: row.reality_public_key,
+  createdAt: row.created_at,
+});
 
 const baseGateway = {
   name: nameField,
@@ -213,6 +262,73 @@ export function adminGatewayRoutes({ db }) {
     if (!getGateway(db, req.params.id)) return next(notFound('Gateway'));
     if (!unassignEgress(db, req.params.id, req.params.egressId)) return next(notFound('Assignment'));
     return ok(res, { removed: true });
+  });
+
+  // Additional inbounds: other protocols into the same gateway. Secrets are
+  // derived per subscriber and never stored, so nothing here returns one.
+  router.get('/:id/inbounds', (req, res, next) => {
+    if (!getGateway(db, req.params.id)) return next(notFound('Gateway'));
+    return ok(res, listInbounds(db, req.params.id).map(inboundView));
+  });
+
+  router.post('/:id/inbounds', validate(inboundSchema), (req, res, next) => {
+    const gateway = getGateway(db, req.params.id);
+    if (!gateway) return next(notFound('Gateway'));
+    if (req.body.port === gateway.port) return next(badRequest('That port is the gateway\'s own inbound'));
+    const taken = db.prepare('SELECT id FROM gateway_inbounds WHERE gateway_id=? AND port=?')
+      .get(gateway.id, req.body.port);
+    if (taken) return next(badRequest('An inbound already uses that port on this gateway'));
+
+    const inbound = createInbound(db, gateway.id, req.body);
+    // Rendered once, here, where an operator is waiting for the answer: an
+    // inbound the gateway cannot run is a mistake to report now rather than a
+    // deployment that quietly leaves it out later.
+    try {
+      inboundConfig(gateway, inbound, []);
+    } catch (error) {
+      deleteInbound(db, inbound.id);
+      return next(badRequest(error.message));
+    }
+    bumpConfigVersion(db, gateway.id);
+    recordEvent(db, {
+      type: EVENT.GATEWAY_INBOUND_ADDED,
+      severity: 'info',
+      targetType: 'gateway',
+      targetId: gateway.id,
+      message: `${gateway.name}: ${inbound.kind} inbound added on ${inbound.port}`,
+      data: { inboundId: inbound.id, kind: inbound.kind, port: inbound.port },
+    });
+    return created(res, inboundView(inbound));
+  });
+
+  router.patch('/:id/inbounds/:inboundId', validate(inboundPatchSchema), (req, res, next) => {
+    const gateway = getGateway(db, req.params.id);
+    if (!gateway) return next(notFound('Gateway'));
+    const existing = getInbound(db, req.params.inboundId);
+    if (!existing || existing.gateway_id !== gateway.id) return next(notFound('Inbound'));
+    const updated = updateInbound(db, existing.id, req.body);
+    bumpConfigVersion(db, gateway.id);
+    return ok(res, inboundView(updated));
+  });
+
+  router.delete('/:id/inbounds/:inboundId', (req, res, next) => {
+    const gateway = getGateway(db, req.params.id);
+    if (!gateway) return next(notFound('Gateway'));
+    const existing = getInbound(db, req.params.inboundId);
+    if (!existing || existing.gateway_id !== gateway.id) return next(notFound('Inbound'));
+    deleteInbound(db, existing.id);
+    bumpConfigVersion(db, gateway.id);
+    return ok(res, { removed: true });
+  });
+
+  router.post('/:id/inbounds/check', async (req, res, next) => {
+    const gateway = getGateway(db, req.params.id);
+    if (!gateway) return next(notFound('Gateway'));
+    try {
+      return ok(res, { gatewayId: gateway.id, inbounds: await checkGatewayInbounds(db, gateway) });
+    } catch (error) {
+      return next(error);
+    }
   });
 
   return router;

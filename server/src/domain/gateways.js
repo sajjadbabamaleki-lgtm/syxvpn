@@ -3,6 +3,7 @@ import { EVENT, recordEvent } from './events.js';
 import { gatewayServerConfig, stableStringify, structuralConfig, probePort } from './xray.js';
 import { sha256 } from '../lib/crypto.js';
 import { realityKeyPair, generateShortIds, parseDest } from '../lib/reality.js';
+import { activeInbounds, inboundConfig } from './inbounds.js';
 
 export function listGateways(db) {
   return db.prepare('SELECT * FROM gateways ORDER BY priority, name').all();
@@ -182,7 +183,27 @@ export function buildGatewayConfig(db, gatewayId, now = Date.now()) {
   if (!gateway) return null;
   const clients = entitledCredentials(db, now);
   const egresses = assignedEgresses(db, gatewayId);
-  const config = gatewayServerConfig(gateway, clients, egresses, gateway.active_egress_id);
+  // An additional inbound that cannot be rendered — trojan on a gateway whose
+  // certificate paths were removed, say — is left out and said out loud. The
+  // gateway keeps its own door and every other one that works: a config that
+  // throws would leave the agent running yesterday's until somebody noticed.
+  const extras = [];
+  for (const inbound of activeInbounds(db, gatewayId)) {
+    try {
+      inboundConfig(gateway, inbound, clients);
+      extras.push(inbound);
+    } catch (error) {
+      recordEvent(db, {
+        type: EVENT.GATEWAY_DEGRADED,
+        severity: 'warning',
+        targetType: 'gateway',
+        targetId: gatewayId,
+        message: `${gateway.name}: ${inbound.kind} inbound on ${inbound.port} left out — ${error.message}`,
+        data: { inboundId: inbound.id, kind: inbound.kind },
+      });
+    }
+  }
+  const config = gatewayServerConfig(gateway, clients, egresses, gateway.active_egress_id, extras);
   return {
     gatewayId,
     version: gateway.config_version,

@@ -6,6 +6,8 @@ export const EVENT = {
   GATEWAY_DEGRADED: 'gateway.degraded',
   GATEWAY_CREATED: 'gateway.created',
   GATEWAY_DELETED: 'gateway.deleted',
+  // An additional inbound protocol was added to a gateway; see domain/inbounds.js.
+  GATEWAY_INBOUND_ADDED: 'gateway.inbound.added',
   AGENT_KEY_ROTATED: 'agent.key_rotated',
   AGENT_HEARTBEAT_MISSED: 'agent.heartbeat_missed',
   AGENT_RECOVERED: 'agent.recovered',

@@ -557,4 +557,76 @@ export const migrations = [
       db.exec(`UPDATE orders SET product = 'all'`);
     },
   },
+  {
+    id: '007_adaptive_inbounds',
+    up(db) {
+      // A gateway has always had exactly one way in, named by its own columns.
+      // One way in is one thing to block: a censor who learns the shape of a
+      // VLESS-over-WebSocket connection has learned the shape of the whole
+      // fleet, and there is nothing for a client to fall back to.
+      //
+      // These are *additional* ways into the same gateway, each on its own
+      // port, each a different protocol. The gateway's own columns are
+      // untouched and the inbound they describe keeps being generated exactly
+      // as before: this table can be empty, and then nothing anywhere changes.
+      db.exec(`CREATE TABLE gateway_inbounds (
+        id TEXT PRIMARY KEY,
+        gateway_id TEXT NOT NULL REFERENCES gateways(id) ON DELETE CASCADE,
+        -- shadowsocks: 2022-blake3, no certificate, nothing to buy or burn
+        -- trojan:      real TLS, so only on a gateway that holds a certificate
+        -- reality:     a second borrowed handshake, on its own port and site
+        kind TEXT NOT NULL CHECK (kind IN ('shadowsocks','trojan','reality')),
+        port INTEGER NOT NULL,
+        listen_address TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        -- shadowsocks
+        method TEXT,
+        server_key TEXT,
+        -- reality, per inbound: a second inbound borrowing the same site as the
+        -- first would be the same fingerprint twice and worth nothing.
+        reality_dest TEXT,
+        reality_server_names TEXT,
+        reality_short_ids TEXT,
+        reality_private_key TEXT,
+        reality_public_key TEXT,
+        reality_fingerprint TEXT,
+        -- what the control plane last measured about this port
+        status TEXT NOT NULL DEFAULT 'unknown',
+        latency_ms INTEGER,
+        checked_at INTEGER,
+        fail_count INTEGER NOT NULL DEFAULT 0,
+        detail TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (gateway_id, port)
+      )`);
+      db.exec('CREATE INDEX idx_gateway_inbounds_gateway ON gateway_inbounds(gateway_id, enabled)');
+
+      // Health checks can now be about a port rather than about a gateway, and
+      // the kinds were fixed when they could not be. Rebuilt rather than
+      // altered: SQLite cannot widen a CHECK in place.
+      db.exec(`CREATE TABLE health_checks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_type TEXT NOT NULL CHECK (target_type IN ('gateway','egress','inbound')),
+        target_id TEXT NOT NULL,
+        gateway_id TEXT,
+        check_kind TEXT NOT NULL CHECK (check_kind IN ('tcp','http','tls','e2e')),
+        status TEXT NOT NULL,
+        latency_ms INTEGER,
+        detail TEXT,
+        source TEXT NOT NULL CHECK (source IN ('control-plane','agent')),
+        created_at INTEGER NOT NULL
+      )`);
+      db.exec(`INSERT INTO health_checks_new
+        (id,target_type,target_id,gateway_id,check_kind,status,latency_ms,detail,source,created_at)
+        SELECT id,target_type,target_id,gateway_id,check_kind,status,latency_ms,detail,source,created_at
+        FROM health_checks`);
+      db.exec('DROP TABLE health_checks');
+      db.exec('ALTER TABLE health_checks_new RENAME TO health_checks');
+      db.exec('CREATE INDEX idx_health_target ON health_checks(target_type, target_id, created_at DESC)');
+
+      const orphans = db.pragma('foreign_key_check');
+      if (orphans.length) throw new Error(`inbound migration left ${orphans.length} orphaned rows`);
+    },
+  },
 ];

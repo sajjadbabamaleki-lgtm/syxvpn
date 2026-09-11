@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
 import { findByToken, activeCredentials, entitlement } from '../domain/subscribers.js';
 import { clientProfile } from '../domain/xray.js';
+import { inboundProfile, offerableInbounds, requestedProtocols, inCohort } from '../domain/inbounds.js';
 import { candidatesFor, routeState } from '../domain/routing.js';
 import { routesForSubscriber } from '../domain/fleet.js';
 import { logger } from '../logger.js';
@@ -58,6 +59,14 @@ export function publicRoutes({ db }) {
 
     const credentials = activeCredentials(db, subscriber.id);
     const routes = gatewaysFor(db, subscriber.id);
+
+    // What this client can actually use. A client that says nothing is a client
+    // built before any of this existed: it is told about the gateway's own
+    // inbound and nothing else, which is what it has always been told. That is
+    // the whole backward-compatibility story for the app already on phones.
+    const protocols = requestedProtocols(req.query.protocols);
+    const wantsExtra = protocols.length > 1 && inCohort(subscriber.id);
+
     const profiles = [];
     for (const { gateway, state: routeStateValue } of routes) {
       for (const credential of credentials) {
@@ -69,8 +78,25 @@ export function publicRoutes({ db }) {
           gatewayName: gateway.name,
           region: gateway.region,
           routeState: routeStateValue,
+          protocol: 'vless',
           uri: clientProfile(gateway, credential.uuid),
         });
+        if (!wantsExtra) continue;
+        // The same gateway, the same credential, other doors. Offered after
+        // the gateway's own so a client reading the list in order still tries
+        // the connection it has always made first.
+        for (const inbound of offerableInbounds(db, gateway.id)) {
+          if (!protocols.includes(inbound.kind)) continue;
+          profiles.push({
+            gatewayId: gateway.id,
+            gatewayName: gateway.name,
+            region: gateway.region,
+            routeState: routeStateValue,
+            protocol: inbound.kind,
+            inboundId: inbound.id,
+            uri: inboundProfile(gateway, inbound, credential.uuid),
+          });
+        }
       }
     }
 
