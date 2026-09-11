@@ -11,6 +11,27 @@
 The control plane never carries subscriber traffic. Gateways never hold customer
 or payment data.
 
+## 0. Names
+
+| Name | Points at | Proxy |
+| --- | --- | --- |
+| `sixvpn.pro`, `www.sixvpn.pro` | the control-plane host | Cloudflare is fine |
+| `control.sixvpn.pro` | the same host | Cloudflare is fine |
+| `gw1.sixvpn.pro`, `gw2…` | each gateway host, one record each | **DNS only — grey cloud** |
+
+A gateway is never proxied through Cloudflare. The tunnel is not ordinary web
+traffic, proxying it breaks the TLS the client expects to terminate at the
+gateway, and doing it would put this deployment on the wrong side of their
+terms.
+
+Keep the names you are no longer using rather than dropping them. An old domain
+costs a registration a year and goes into the client's endpoint list behind the
+current one, where it is reached only when the first name cannot be connected to
+at all — which is a situation you cannot register a domain from inside of. The
+Android build ships `control.sixvpn.pro` first and `control.cvpn.pro` behind it
+for exactly this reason; add more with `SIXVPN_CONTROL_PLANE_URLS`, comma
+separated, in the order to try.
+
 ## 1. Control plane
 
 ```sh
