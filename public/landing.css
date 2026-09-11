@@ -414,6 +414,15 @@ h3 { font-weight: 400; }
  */
 .card::before {
   content: ""; position: absolute; z-index: 0;
+  /* Its own rounded top corners, matching the card's inside the 1px border.
+     The card clips with overflow:hidden, which is enough in Chrome — but WebKit
+     does not apply the rounded part of that clip to a composited child, and this
+     one is composited because it is masked. So the light kept a square corner
+     and spilled past the card's curve on iOS. Rounding the light itself is
+     correct without needing anything to clip it.
+     -1px because the pseudo-element is laid out against the padding box, which
+     sits inside the card's border. */
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
   /* A corner light, and it must be spent before it reaches a word.
      The reference's cards are tall and mostly empty, so a core at 43% of their
      height still sits far above their title. These cards are shorter and
@@ -519,6 +528,15 @@ h3 { font-weight: 400; }
 }
 .plan::before {
   content: ""; position: absolute; z-index: 0;
+  /* Its own rounded top corners, matching the card's inside the 1px border.
+     The card clips with overflow:hidden, which is enough in Chrome — but WebKit
+     does not apply the rounded part of that clip to a composited child, and this
+     one is composited because it is masked. So the light kept a square corner
+     and spilled past the card's curve on iOS. Rounding the light itself is
+     correct without needing anything to clip it.
+     -1px because the pseudo-element is laid out against the padding box, which
+     sits inside the card's border. */
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
   inset: 0 0 auto 0; height: 86px;
   -webkit-mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 94%);
   mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 94%);
