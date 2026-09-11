@@ -98,6 +98,11 @@ body {
 }
 [dir="rtl"] h1, [dir="rtl"] h2 { line-height: 1.45; letter-spacing: 0; }
 [dir="rtl"] .card h3, [dir="rtl"] .plan-head .term { letter-spacing: 0; }
+/* The head of a price card sits on the leading edge, so the light belongs on
+   the other one — which swaps sides with the direction. */
+[dir="rtl"] .plan::before { --gx: 12%; }
+[dir="rtl"] .plans .plan:nth-child(2)::before { --gx: 18%; }
+[dir="rtl"] .plans .plan:nth-child(3)::before { --gx: 6%; }
 
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
@@ -359,21 +364,36 @@ h3 { font-weight: 400; }
  * the cheapest possible fix for that and the reference does exactly it.
  */
 .card::before {
-  content: ""; position: absolute; z-index: 0; inset: 0;
-  --gx: 92%; --gy: 16%;
+  content: ""; position: absolute; z-index: 0;
+  /* A corner light, and it must be spent before it reaches a word.
+     The reference's cards are tall and mostly empty, so a core at 43% of their
+     height still sits far above their title. These cards are shorter and
+     text-dense — at 430px the headings start between 40 and 95px down — and the
+     same proportions put the light squarely behind the heading, which is the one
+     place it may never be. So the band is short, measured in pixels rather than
+     as a fraction of a height that varies, and masked to nothing at its foot so
+     there is no edge where it stops. */
+  inset: 0 0 auto 0; height: 108px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 34%, transparent 92%);
+  mask-image: linear-gradient(180deg, #000 0, #000 34%, transparent 92%);
+  --gx: 92%; --gy: 30px;
   background:
-    radial-gradient(26% 22% at var(--gx) var(--gy), rgba(240, 216, 14, .96), transparent 72%),
-    radial-gradient(52% 42% at var(--gx) var(--gy), rgba(202, 158, 18, .34), transparent 76%),
-    radial-gradient(96% 78% at var(--gx) var(--gy), rgba(124, 96, 20, .17), transparent 80%);
+    radial-gradient(24% 62% at var(--gx) var(--gy), rgba(240, 216, 14, .96), transparent 72%),
+    radial-gradient(48% 116% at var(--gx) var(--gy), rgba(202, 158, 18, .34), transparent 76%),
+    radial-gradient(92% 190% at var(--gx) var(--gy), rgba(124, 96, 20, .17), transparent 80%);
   /* Enough blur to lose the gradient's banding, not enough to eat the peak: at
      22px the core measured barely half the reference's brightness. */
   filter: blur(13px);
   pointer-events: none; opacity: var(--lit);
   transition: opacity .25s ease;
 }
-.grid .card:nth-child(4n + 2)::before { --gx: 60%; --gy: 40%; }
-.grid .card:nth-child(4n + 3)::before { --gx: 68%; --gy: 22%; }
-.grid .card:nth-child(4n + 4)::before { --gx: 22%; --gy: 50%; }
+.grid .card:nth-child(4n + 2)::before { --gx: 56%; --gy: 34px; }
+.grid .card:nth-child(4n + 3)::before { --gx: 72%; --gy: 24px; }
+.grid .card:nth-child(4n + 4)::before { --gx: 18%; --gy: 36px; }
+/* A card that is only a statement carries no icon, so its heading begins at the
+   padding and there is no clear zone above it to light. It goes unlit — not
+   every card has to be, and a row of plain claims reads better without. */
+.grid-2 .card::before { display: none; }
 
 .card > * { position: relative; z-index: 1; }
 .card:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
@@ -441,16 +461,19 @@ h3 { font-weight: 400; }
   transition: border-color .2s ease, box-shadow .2s ease;
 }
 .plan::before {
-  content: ""; position: absolute; z-index: 0; inset: 0;
-  --gx: 78%; --gy: 8%;
+  content: ""; position: absolute; z-index: 0;
+  inset: 0 0 auto 0; height: 86px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 94%);
+  mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 94%);
+  --gx: 88%; --gy: 16px;
   background:
-    radial-gradient(26% 18% at var(--gx) var(--gy), rgba(236, 212, 14, .80), transparent 70%),
-    radial-gradient(54% 34% at var(--gx) var(--gy), rgba(202, 158, 18, .40), transparent 74%),
-    radial-gradient(94% 58% at var(--gx) var(--gy), rgba(124, 96, 20, .22), transparent 78%);
+    radial-gradient(17% 68% at var(--gx) var(--gy), rgba(236, 212, 14, .80), transparent 70%),
+    radial-gradient(34% 128% at var(--gx) var(--gy), rgba(202, 158, 18, .40), transparent 74%),
+    radial-gradient(62% 210% at var(--gx) var(--gy), rgba(124, 96, 20, .22), transparent 78%);
   filter: blur(13px); pointer-events: none; opacity: var(--lit);
 }
-.plans .plan:nth-child(2)::before { --gx: 46%; --gy: 10%; }
-.plans .plan:nth-child(3)::before { --gx: 22%; --gy: 8%; }
+.plans .plan:nth-child(2)::before { --gx: 82%; --gy: 24px; }
+.plans .plan:nth-child(3)::before { --gx: 94%; --gy: 14px; }
 .plan > * { position: relative; z-index: 1; }
 .plan:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
 .plan.best { border-color: rgba(216, 248, 58, .42); }
