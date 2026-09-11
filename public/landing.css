@@ -129,19 +129,22 @@ img { max-width: 100%; display: block; }
   letter-spacing: .07em; white-space: nowrap;
   /* Latin either way, so it keeps its own direction on the RTL page. */
   direction: ltr;
-  /* Centring the flex item centres its line box, not its ink. With the page's
-     inherited line-height that put the capitals well above the middle of the
-     tile; at 1 the line box is the em box, which is most of the difference. */
   line-height: 1;
-  /* The rest is the em box's descender space, which all-capitals never use, so
-     the ink rides high. Nudged down by the amount actually measured against the
-     tile rather than a fraction of the size — the two do not track each other
-     closely enough at these sizes to share one value. */
-  transform: translateY(1.92px);
+  /* Centring a flex item centres its line box, and capitals never reach the
+     bottom of theirs — the space below the baseline is for descenders they do
+     not have — so the name rides high on the tile. This trims the box to the
+     capitals themselves, top and bottom, and then `align-items: center` is
+     centring the ink. It reads the figure out of the font, which is the only
+     way this can be right in both places: the fallback below was measured
+     against this machine's font, and a phone renders SYX VPN in a different
+     one with a different cap height. */
+  text-box: trim-both cap alphabetic;
 }
-@media (max-width: 359px) {
-  .brand-name { font-size: 12px; transform: translateY(.33px); }
-  .brand { gap: 8px; }
+@supports not (text-box: trim-both cap alphabetic) {
+  .brand-name { transform: translateY(1.92px); }
+  @media (max-width: 359px) { .brand-name { transform: translateY(.33px); } }
+}
+@media (max-width: 359px) { .brand-name { font-size: 12px; } .brand { gap: 8px; } }
 }
 .brand svg { display: block; }
 /* Light around the tile rather than a line drawn on it: two shadows, a tight
