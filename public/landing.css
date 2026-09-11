@@ -682,35 +682,63 @@ h3 { font-weight: 400; }
 
 /* --------------------------------------------------------------- footer */
 
-footer { border-top: 1px solid var(--border); padding: 68px 0 60px; color: var(--faint); font-size: 13px; }
-.foot-top { display: grid; gap: 40px; grid-template-columns: 1fr; margin-bottom: 48px; }
-@media (min-width: 861px) { .foot-top { grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(120px, 1fr)); } }
-.foot-brand .brand { margin-bottom: 18px; }
-.foot-brand p { color: var(--dim); max-width: 320px; margin: 0 0 26px; line-height: 1.75; }
-.signup h4 { margin: 0 0 12px; font-size: 17px; font-weight: 400; color: var(--text); letter-spacing: 0; text-transform: none; }
-.signup form { display: flex; flex-direction: column; gap: 12px; max-width: 320px; }
+/* Centred, because three left-aligned columns in a phone's width is a third of
+   a screen of text and two thirds of nothing. */
+footer { border-top: 1px solid var(--border); padding: 64px 0 52px; color: var(--faint); font-size: 13px; }
+.foot-lead { text-align: center; display: grid; justify-items: center; gap: 22px; }
+.foot-lead > svg { display: block; filter: drop-shadow(0 0 4px rgba(216, 248, 58, .5)) drop-shadow(0 0 13px rgba(216, 248, 58, .26)); }
+.foot-tag { color: var(--dim); max-width: 46ch; margin: 0; line-height: 1.8; }
+
+/* One pill holding both halves, rather than a field with a button under it. */
+.signup { width: 100%; display: grid; justify-items: center; gap: 10px; }
+.signup h4 { margin: 0; font-size: 15px; font-weight: 500; color: var(--text); }
+.signup form {
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
+  width: 100%; max-width: 410px;
+  padding: 5px; padding-inline-start: 20px;
+  border: 1px solid rgba(217, 176, 33, .45); border-radius: 999px;
+  background: rgba(217, 176, 33, .06);
+}
 .signup input {
-  width: 100%; padding: 14px 20px; border-radius: 999px;
-  background: rgba(217, 176, 33, .06); border: 1px solid rgba(217, 176, 33, .5);
-  color: var(--text); font: inherit; font-size: 14px;
+  flex: 1 1 auto; width: auto; min-width: 0;
+  background: none; border: 0; color: var(--text);
+  font: inherit; font-size: 14px; padding: 11px 0;
 }
-.signup input::placeholder { color: var(--gold); opacity: .8; }
-.signup input:focus { outline: none; border-color: var(--gold); }
-.signup .btn { align-self: flex-start; }
-.signup .said { color: var(--accent); font-size: 13px; min-height: 20px; }
-.foot-col h4 { margin: 0 0 16px; font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: .2em; text-transform: uppercase; direction: ltr; }
-/* `direction: ltr` above is there to give the Latin heading its tracking. On
-   the RTL page it also drags the heading to the left edge while its own links
-   stay right-aligned, so the direction has to come back with the rest. */
-[dir="rtl"] .foot-col h4 {
-  direction: rtl; letter-spacing: normal; text-transform: none; font-size: 13px;
+.signup input::placeholder { color: var(--gold); opacity: .75; }
+.signup input:focus { outline: none; }
+.signup .btn { flex: none; padding: 12px 20px; font-size: 14px; }
+.signup .said { color: var(--accent); font-size: 13px; min-height: 18px; margin: 0; }
+
+/* The four accounts. Any without an address yet is a span, not a link: a guessed
+   instagram.com/<name> is as likely to be a stranger's as ours. */
+.social { display: flex; gap: 10px; justify-content: center; }
+.soc {
+  display: grid; place-items: center; width: 42px; height: 42px;
+  border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--dim); transition: color .18s ease, border-color .18s ease, transform .18s ease;
 }
+.soc svg { width: 18px; height: 18px; }
+a.soc:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
+.soc[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+.foot-top { display: grid; gap: 34px; grid-template-columns: 1fr; margin: 52px 0 0; text-align: center; }
+@media (min-width: 620px) { .foot-top { grid-template-columns: repeat(3, 1fr); } }
+.foot-col h4 {
+  margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--accent);
+  letter-spacing: .2em; text-transform: uppercase; direction: ltr;
+}
+/* `direction: ltr` above gives the Latin heading its tracking; on the RTL page
+   it would also drag the heading to the wrong edge, so it comes back here. */
+[dir="rtl"] .foot-col h4 { direction: rtl; letter-spacing: normal; text-transform: none; font-size: 13px; }
 .foot-col a { display: block; color: var(--dim); padding: 6px 0; }
 .foot-col a:hover { color: var(--text); }
-.foot { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; padding-top: 28px; border-top: 1px solid var(--border); }
+
+.foot {
+  display: flex; gap: 10px 20px; flex-wrap: wrap; justify-content: center; text-align: center;
+  margin-top: 44px; padding-top: 26px; border-top: 1px solid var(--border);
+}
 .foot a { color: var(--dim); }
 .foot a:hover { color: var(--text); }
-.foot .spacer { margin-inline-start: auto; }
 
 /* --------------------------------------------------------------- badges */
 
