@@ -28,6 +28,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -77,21 +78,68 @@ import pro.syxvpn.app.data.SessionStore
 import pro.syxvpn.app.data.SubscriptionRepository
 import pro.syxvpn.app.vpn.TunnelService
 
-private val Background = Color(0xFF0A0C0F)
-private val Surface = Color(0xFF12161C)
-private val SurfaceHigh = Color(0xFF171C23)
-private val Border = Color(0xFF232A34)
-// One accent, and it is the green of the switch: green means the tunnel is up,
-// and the same green marks anything the product wants you to press. There is
-// deliberately no amber — a state that is merely being attempted is shown in
-// neutral grey, so colour never implies a connection that does not exist yet.
-private val Accent = Color(0xFF5FD97A)
+// The palette is the public page's, value for value — see the token block at
+// the top of public/landing.css. The app and the site are one product, and a
+// visitor who installs from syxvpn.pro should not feel handed off to something
+// else: same near-black ground, same lime, same gold used as light.
+//
+// The ground is neutral, not blue. The old #0A0C0F carried a blue cast that
+// read as "console" next to the site's plain black, and the two shown side by
+// side looked like two different companies.
+private val Background = Color(0xFF0A0A0A)
+private val Surface = Color(0xFF141414)
+private val SurfaceHigh = Color(0xFF1B1B1B)
+private val Border = Color(0xFF262626)
+
+// One accent, and it is the lime of the site's primary button — which is also
+// the green of the switch: lime means the tunnel is up, and the same lime marks
+// anything the product wants you to press. There is deliberately no amber — a
+// state that is merely being attempted is shown in neutral grey, so colour
+// never implies a connection that does not exist yet.
+private val Accent = Color(0xFFD8F83A)
 private val Ok = Accent
-private val OnAccent = Color(0xFF06210E)
-private val Pending = Color(0xFF98A3B2)
+private val OnAccent = Color(0xFF0E1400)
+private val Pending = Color(0xFF909090)
 private val Bad = Color(0xFFF2665F)
-private val TextDim = Color(0xFF98A3B2)
-private val TextFaint = Color(0xFF6C7684)
+private val TextDim = Color(0xFF909090)
+private val TextFaint = Color(0xFF6A6A6A)
+
+// Gold is light, not paint: it appears only as the glow behind a card's top
+// corner, never as a fill or a label. Two stops, because a single flat gold
+// spreads into a muddy olive wash — the one failure mode this look has.
+private val Gold = Color(0xFFD9B021)
+private val GoldSoft = Color(0xFFF0E07A)
+
+// A card is not a flat fill. The surface lifts at the top and falls to a
+// darker foot, which is what makes the glow read as light landing on glass
+// rather than paint applied to it.
+private val CardTop = Color(0xFF1B1B1B)
+private val CardFoot = Color(0xFF121212)
+
+/**
+ * The site's card treatment: the lifted surface, and the light spilling over
+ * its top corner.
+ *
+ * The light has to be spent before it reaches a word, so the band is short and
+ * measured in dp rather than as a fraction of a height that varies between a
+ * two-line card and a six-line one.
+ */
+private fun Modifier.litCard(): Modifier = this
+    .background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
+    .drawBehind {
+        val band = minOf(size.height, 108.dp.toPx())
+        drawRect(
+            brush = Brush.radialGradient(
+                0.00f to GoldSoft.copy(alpha = 0.30f),
+                0.42f to Gold.copy(alpha = 0.12f),
+                1.00f to Color.Transparent,
+                center = Offset(size.width * 0.92f, 30.dp.toPx()),
+                radius = 150.dp.toPx(),
+            ),
+            topLeft = Offset.Zero,
+            size = Size(size.width, band),
+        )
+    }
 
 @Composable
 fun cVPNTheme(content: @Composable () -> Unit) {
@@ -276,7 +324,7 @@ private fun ConnectSwitch(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(percent = 50))
                     // Grey while connecting; green only once the tunnel is up.
-                    .background(if (connected) Ok else Color(0xFF2A323D)),
+                    .background(if (connected) Ok else Color(0xFF2E2E2E)),
             )
         }
 
@@ -310,8 +358,8 @@ private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifie
             text,
             modifier = Modifier.padding(start = 2.dp),
             color = when {
-                active && onGreen -> Color(0xFF06210E)
-                active -> Color(0xFFE7ECF3)
+                active && onGreen -> OnAccent
+                active -> Color(0xFFF4F4F4)
                 else -> TextFaint
             },
             fontWeight = FontWeight.ExtraBold,
@@ -1148,7 +1196,7 @@ private fun ColumnScope.ServerAndPlanCard(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(Surface)
+            .litCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp)),
     ) {
         Row(
@@ -1271,7 +1319,7 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(Surface)
+            .litCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
@@ -2093,7 +2141,7 @@ private fun PlanCard(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(Surface)
+            .litCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp))
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -2187,7 +2235,7 @@ private fun OrderPanel(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(Surface)
+            .litCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp))
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -2351,7 +2399,7 @@ private fun SupportScreen(app: SyxVpnApplication) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(Surface)
+                .litCard()
                 .border(1.dp, Border, RoundedCornerShape(28.dp))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

@@ -12,8 +12,8 @@
    */
   * { box-sizing: border-box; margin: 0; }
   body {
-    background: #14171c;
-    color: #e7ecf3;
+    background: #141414;
+    color: #f4f4f4;
     font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
     padding: 28px;
     display: flex;
@@ -23,12 +23,12 @@
     align-items: flex-start;
   }
   .frame { width: 390px; }
-  .caption { font-size: 12px; color: #98a3b2; margin-bottom: 8px; text-align: center; }
-  .caption b { color: #e7ecf3; display: block; font-size: 13px; margin-bottom: 2px; }
+  .caption { font-size: 12px; color: #909090; margin-bottom: 8px; text-align: center; }
+  .caption b { color: #f4f4f4; display: block; font-size: 13px; margin-bottom: 2px; }
   .phone {
     /* 390 x 844: the point size of the phones this is judged on. */
     width: 390px; height: 844px;
-    background: #0a0c0f;
+    background: #0a0a0a;
     /* No outline: the frame is the phone's own black, not a drawn border. */
     border-radius: 26px;
     overflow: hidden;
@@ -37,7 +37,7 @@
   }
   .statusbar {
     height: 32px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 18px; font-size: 12px; color: #8b95a3; flex: none;
+    padding: 0 18px; font-size: 12px; color: #909090; flex: none;
   }
   /* The screen column does NOT scroll; only the config list inside it does. */
   /* One inset for everything: 16 on the sides, the same as the bar's own
@@ -60,14 +60,14 @@
        width and the labels sit on the thumb's centre. */
     padding: 0 12px;
     border-radius: 999px;
-    background: #171c23;
+    background: #1b1b1b;
     /* An inset shadow, not a border: a border would shrink the padding box and
        shift every absolutely positioned child down by a pixel, which is what
        made the top gap larger than the bottom one. */
-    box-shadow: inset 0 0 0 1px #232a34;
+    box-shadow: inset 0 0 0 1px #262626;
     display: flex; align-items: center;
   }
-  .switch.live { background: rgba(95,217,122,0.10); box-shadow: inset 0 0 0 1px rgba(95,217,122,0.50); }
+  .switch.live { background: rgba(216, 248, 58,0.10); box-shadow: inset 0 0 0 1px rgba(216, 248, 58,0.50); }
 
   .switch .seg {
     position: relative; z-index: 2;
@@ -75,22 +75,22 @@
     font-weight: 800; font-size: 17px; letter-spacing: 2px;
     /* Letter spacing trails the last glyph, pulling centred text left. */
     padding-left: 2px;
-    color: #6c7684;
+    color: #6a6a6a;
     line-height: 1;
   }
-  .switch .seg.active { color: #e7ecf3; }
-  .switch.live .seg.active { color: #06210e; }
+  .switch .seg.active { color: #f4f4f4; }
+  .switch.live .seg.active { color: #0e1400; }
 
   .thumb {
     position: absolute; top: 12px; left: 12px; z-index: 1;
     /* the orbit sits behind this, so only its ring shows */
     width: 92px; height: 48px;
     border-radius: 999px;
-    background: #2a323d;
+    background: #2e2e2e;
     transition: transform .3s ease, background .3s ease;
   }
   .switch.on .thumb { transform: translateX(92px); }
-  .switch.live .thumb { background: #5fd97a; }
+  .switch.live .thumb { background: #d8f83a; }
 
   /* A single bright arc chasing the thumb outline while connecting. It sits
      2px inside the pill, so it never touches the outer edge. */
@@ -106,8 +106,8 @@
     content: ""; position: absolute; inset: -60%;
     background: conic-gradient(from 0deg,
       transparent 0deg, transparent 200deg,
-      rgba(95,217,122,0.25) 280deg,
-      #5fd97a 338deg, transparent 360deg);
+      rgba(216, 248, 58,0.25) 280deg,
+      #d8f83a 338deg, transparent 360deg);
     animation: spin 1.2s linear infinite;
   }
   .connecting .orbit { opacity: 1; }
@@ -116,36 +116,56 @@
   /* ---- geometry strip at the top of the page ---- */
   .strip { width: 100%; display: flex; justify-content: center; gap: 26px; padding: 6px 0 26px; }
   .strip .item { text-align: center; width: 350px; }
-  .strip .item p { font-size: 12px; color: #98a3b2; margin-top: 12px; }
+  .strip .item p { font-size: 12px; color: #909090; margin-top: 12px; }
   .strip .switch-wrap { margin-top: 0; transform: scale(1.6); transform-origin: top center; height: 122px; }
 
-  .status { margin-top: 16px; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: #98a3b2; text-align: center; flex: none; }
-  .status.on { color: #5fd97a; }
-  .status.waiting { color: #98a3b2; }
-  .uptime { margin-top: 3px; font-size: 12px; color: #6c7684; text-align: center; flex: none; }
+  .status { margin-top: 16px; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: #909090; text-align: center; flex: none; }
+  .status.on { color: #d8f83a; }
+  .status.waiting { color: #909090; }
+  .uptime { margin-top: 3px; font-size: 12px; color: #6a6a6a; text-align: center; flex: none; }
 
+  /* The public page's card, at app scale.
+     Not a flat fill: the surface lifts at the top and falls to a darker foot,
+     which is what makes the glow read as light landing on glass rather than
+     paint applied to it. The light is gold, it sits over the top corner, and it
+     is spent before it reaches a word — these cards are short, so the band is
+     masked to nothing well above the second line. */
   .card {
+    position: relative; overflow: hidden;
     margin-top: 18px; padding: 14px 16px; flex: none;
-    background: #12161c; border: 1px solid #232a34; border-radius: 28px;
+    background: linear-gradient(180deg, #1b1b1b, #121212 62%);
+    border: 1px solid #262626; border-radius: 28px;
   }
+  .card::before {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    inset: 0 0 auto 0; height: 96px;
+    border-radius: 27px 27px 0 0;
+    background:
+      radial-gradient(26% 64% at 92% 26px, rgba(240, 224, 122, .58), transparent 72%),
+      radial-gradient(52% 120% at 92% 26px, rgba(217, 176, 33, .22), transparent 76%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
+    mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
+    filter: blur(13px);
+  }
+  .card > * { position: relative; z-index: 1; }
   .config-row { display: flex; align-items: center; gap: 10px; }
   .config-row .name { font-weight: 500; font-size: 15px; }
-  .config-row .addr { font-size: 12px; color: #98a3b2; }
-  .config-row .proto { margin-left: auto; font-size: 11px; color: #6c7684; white-space: nowrap; }
+  .config-row .addr { font-size: 12px; color: #909090; }
+  .config-row .proto { margin-left: auto; font-size: 11px; color: #6a6a6a; white-space: nowrap; }
 
   /* Down, ping and up on one row. Keeping them on a single line is what lets
      the card stay this short. */
   .tiles { display: flex; gap: 8px; margin-top: 12px; }
   .tile {
-    flex: 1; border-radius: 16px; background: #171c23;
+    flex: 1; border-radius: 16px; background: #1b1b1b;
     padding: 10px 4px; text-align: center;
     font-size: 14px; font-weight: 500; color: #fff;
     white-space: nowrap;
   }
-  .tile .arrow { color: #6c7684; margin-right: 5px; font-size: 13px; }
-  .tile .arrow.live { color: #5fd97a; }
-  .tile.ping { color: #98a3b2; font-weight: 600; letter-spacing: 1px; }
-  .tile.ping.measured { color: #5fd97a; letter-spacing: 0; }
+  .tile .arrow { color: #6a6a6a; margin-right: 5px; font-size: 13px; }
+  .tile .arrow.live { color: #d8f83a; }
+  .tile.ping { color: #909090; font-weight: 600; letter-spacing: 1px; }
+  .tile.ping.measured { color: #d8f83a; letter-spacing: 0; }
 
   .errorcard {
     margin-top: 10px; padding: 14px; flex: none;
@@ -159,7 +179,7 @@
      rendering accident rather than as "there is more below", and the height the
      third row used to take belongs to the banner slot at the top. */
   /* A gateway the control plane is not sure about says so, in neutral grey. */
-  .cfg .who span.warn { color: #98a3b2; }
+  .cfg .who span.warn { color: #909090; }
 
   /* Mirrors Compose: a small weighted spacer under the title takes part of the
      slack, and the list sits at the bottom of the rest, so a tall phone gets
@@ -176,26 +196,26 @@
   .cfg {
     display: flex; align-items: center; gap: 12px; flex: none;
     height: 62px; padding: 0 6px 0 16px; border-radius: 24px;
-    background: #12161c; border: 1px solid #232a34;
+    background: #141414; border: 1px solid #262626;
   }
-  .cfg.sel { background: #171c23; border-color: rgba(95,217,122,0.45); }
-  .cfg .dot { width: 8px; height: 8px; border-radius: 50%; background: #232a34; flex: none; }
-  .cfg.sel .dot { background: #98a3b2; }
-  .cfg.sel.live .dot { background: #5fd97a; }
+  .cfg.sel { background: #1b1b1b; border-color: rgba(216, 248, 58,0.45); }
+  .cfg .dot { width: 8px; height: 8px; border-radius: 50%; background: #262626; flex: none; }
+  .cfg.sel .dot { background: #909090; }
+  .cfg.sel.live .dot { background: #d8f83a; }
   .cfg .who { flex: 1; min-width: 0; }
   .cfg .who b { display: block; font-size: 14px; font-weight: 400; color: #fff;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cfg .who span { font-size: 11px; color: #98a3b2; }
+  .cfg .who span { font-size: 11px; color: #909090; }
   /* Copy, share and delete. 40px targets, the minimum comfortable tap size;
      the 12px radius keeps the press ripple square-ish inside the round row. */
   /* The Automatic entry: the config list's own row, built to the same 62px as
      the rest so the list still ends on a whole row. */
-  .cfg .globe { color: #6c7684; flex: none; }
-  .cfg.sel .globe { color: #5fd97a; }
+  .cfg .globe { color: #6a6a6a; flex: none; }
+  .cfg.sel .globe { color: #d8f83a; }
   .cfg .acts { display: flex; flex: none; }
   .cfg .act {
     width: 40px; height: 40px; flex: none; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center; color: #98a3b2;
+    display: flex; align-items: center; justify-content: center; color: #909090;
   }
   .cfg .act svg { display: block; }
 
@@ -204,7 +224,7 @@
      on instead of a capsule wider than the icon it points at. */
   .navwrap { flex: none; padding: 12px 16px; }
   .nav {
-    height: 66px; border: 1px solid #232a34; background: #12161c; border-radius: 28px;
+    height: 66px; border: 1px solid #262626; background: #141414; border-radius: 28px;
     padding: 0 4px;
     display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
   }
@@ -214,56 +234,56 @@
     /* The label's line box is 12, not the body's 1.45: a taller box would hang
        empty space under the baseline and leave the icon closer to the bar's top
        edge than the label is to its bottom one. 20 + 4 + 12 centres in 54. */
-    gap: 4px; font-size: 10px; line-height: 12px; color: #6c7684;
+    gap: 4px; font-size: 10px; line-height: 12px; color: #6a6a6a;
   }
-  .nav div.active { color: #fff; background: rgba(95,217,122,0.14); font-weight: 600; }
-  .nav div.active svg { color: #5fd97a; }
+  .nav div.active { color: #fff; background: rgba(216, 248, 58,0.14); font-weight: 600; }
+  .nav div.active svg { color: #d8f83a; }
   .nav svg { display: block; }
 
   /* ---- premium and support ---- */
   .screen h2 { font-size: 20px; font-weight: 700; margin: 14px 0 0; flex: none; }
   .stack { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; }
   .stack::-webkit-scrollbar { display: none; }
-  .panel { background: #12161c; border: 1px solid #232a34; border-radius: 28px; padding: 18px; }
+  .panel { background: #141414; border: 1px solid #262626; border-radius: 28px; padding: 18px; }
   .plan-head { display: flex; align-items: flex-start; gap: 12px; }
   .plan-head b { display: block; font-size: 16px; font-weight: 600; color: #fff; }
-  .plan-head p { font-size: 12px; color: #98a3b2; margin-top: 2px; }
+  .plan-head p { font-size: 12px; color: #909090; margin-top: 2px; }
   .price { margin-left: auto; display: flex; align-items: flex-end; gap: 4px; white-space: nowrap; }
-  .price b { font-size: 22px; font-weight: 700; color: #5fd97a; }
-  .price small { font-size: 11px; color: #6c7684; padding-bottom: 3px; }
-  .specs { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: #98a3b2; }
+  .price b { font-size: 22px; font-weight: 700; color: #d8f83a; }
+  .price small { font-size: 11px; color: #6a6a6a; padding-bottom: 3px; }
+  .specs { display: flex; gap: 16px; margin-top: 12px; font-size: 13px; color: #909090; }
   .btn {
-    margin-top: 12px; height: 48px; border-radius: 18px; background: #5fd97a; color: #06210e;
+    margin-top: 12px; height: 48px; border-radius: 18px; background: #d8f83a; color: #0e1400;
     display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;
   }
-  .btn.off { background: #232a34; color: #6c7684; }
-  .quiet { font-size: 12px; color: #6c7684; line-height: 1.5; }
-  .eyebrow { font-size: 10px; letter-spacing: 1px; color: #6c7684; margin-top: 6px; }
+  .btn.off { background: #262626; color: #6a6a6a; }
+  .quiet { font-size: 12px; color: #6a6a6a; line-height: 1.5; }
+  .eyebrow { font-size: 10px; letter-spacing: 1px; color: #6a6a6a; margin-top: 6px; }
   .amount { display: flex; align-items: flex-end; gap: 5px; }
   .amount b { font-size: 26px; font-weight: 700; color: #fff; }
-  .amount span { font-size: 12px; color: #98a3b2; padding-bottom: 5px; }
-  .pay-addr { background: #171c23; border-radius: 16px; padding: 12px; font-size: 13px; color: #fff; word-break: break-all; }
+  .amount span { font-size: 12px; color: #909090; padding-bottom: 5px; }
+  .pay-addr { background: #1b1b1b; border-radius: 16px; padding: 12px; font-size: 13px; color: #fff; word-break: break-all; }
   .actions { display: flex; gap: 8px; }
   .act-btn {
-    flex: 1; height: 44px; border-radius: 16px; background: #171c23; border: 1px solid #232a34;
+    flex: 1; height: 44px; border-radius: 16px; background: #1b1b1b; border: 1px solid #262626;
     display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: #fff;
   }
   .lrow { display: flex; justify-content: space-between; font-size: 13px; }
-  .lrow span:first-child { color: #6c7684; }
+  .lrow span:first-child { color: #6a6a6a; }
   .lrow span:last-child { color: #fff; font-weight: 500; }
-  .panel .note { font-size: 11px; color: #6c7684; line-height: 1.5; }
+  .panel .note { font-size: 11px; color: #6a6a6a; line-height: 1.5; }
   .panel .title { font-size: 16px; font-weight: 600; }
-  .panel .body { font-size: 12px; color: #98a3b2; line-height: 1.5; }
-  .warn { color: #98a3b2; }
+  .panel .body { font-size: 12px; color: #909090; line-height: 1.5; }
+  .warn { color: #909090; }
   .tips { display: flex; flex-direction: column; gap: 6px; }
-  .tip { display: flex; gap: 8px; font-size: 12px; color: #98a3b2; line-height: 1.5; }
-  .tip i { color: #5fd97a; font-style: normal; }
+  .tip { display: flex; gap: 8px; font-size: 12px; color: #909090; line-height: 1.5; }
+  .tip i { color: #d8f83a; font-style: normal; }
   .section { font-size: 14px; font-weight: 600; color: #fff; }
-  .diag { background: #12161c; border: 1px solid #232a34; border-radius: 20px; padding: 14px;
-          font-size: 12px; color: #98a3b2; line-height: 1.6; white-space: pre-line; }
-  .notice-warn { background: #171c23; border: 1px solid #232a34; border-radius: 24px; padding: 16px; }
+  .diag { background: #141414; border: 1px solid #262626; border-radius: 20px; padding: 14px;
+          font-size: 12px; color: #909090; line-height: 1.6; white-space: pre-line; }
+  .notice-warn { background: #1b1b1b; border: 1px solid #262626; border-radius: 24px; padding: 16px; }
   .notice-warn b { display: block; color: #fff; font-size: 14px; }
-  .notice-warn p { color: #98a3b2; font-size: 12px; margin-top: 4px; line-height: 1.5; }
+  .notice-warn p { color: #909090; font-size: 12px; margin-top: 4px; line-height: 1.5; }
 
   /* The VPN screen has no list, so the switch sits in the middle of what is
      left and the card lands just above the bar. */
@@ -276,25 +296,25 @@
   .spread { flex: 1 1 0; min-height: 0; }
   .banner {
     flex: 1 1 0; min-height: 0; margin-bottom: 4px;
-    border: 1px dashed #2a323d; border-radius: 20px;
+    border: 1px dashed #2e2e2e; border-radius: 20px;
     display: flex; align-items: center; justify-content: center;
-    color: #3d4653; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: #3a3a3a; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
   }
   .below-card { height: 14px; flex: none; }
   /* The VPN card: two halves, and both of them go somewhere. */
-  .vcard { margin-top: 20px; background: #12161c; border: 1px solid #232a34; border-radius: 28px; flex: none; overflow: hidden; }
+  .vcard { margin-top: 20px; background: #141414; border: 1px solid #262626; border-radius: 28px; flex: none; overflow: hidden; }
   .vcard .half { display: flex; align-items: center; padding: 14px 16px; gap: 10px; }
-  .vcard .half + .half { border-top: 1px solid #232a34; }
+  .vcard .half + .half { border-top: 1px solid #262626; }
   .vcard .who { flex: 1; min-width: 0; }
   .vcard .who b { display: block; font-size: 15px; font-weight: 500; color: #fff; }
-  .vcard .who span { font-size: 12px; color: #98a3b2; }
+  .vcard .who span { font-size: 12px; color: #909090; }
   .vcard .who .offer { font-size: 14px; font-weight: 500; color: #fff; display: block; }
-  .vcard .tagline { font-size: 12px; color: #98a3b2; }
-  .vcard .mode { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #5fd97a; }
-  .vcard .mode.manual { color: #6c7684; }
-  .vcard .plans { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #5fd97a; }
-  .vcard .chev { color: #6c7684; font-size: 15px; }
-  .vcard .chev.on { color: #5fd97a; }
+  .vcard .tagline { font-size: 12px; color: #909090; }
+  .vcard .mode { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #d8f83a; }
+  .vcard .mode.manual { color: #6a6a6a; }
+  .vcard .plans { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #d8f83a; }
+  .vcard .chev { color: #6a6a6a; font-size: 15px; }
+  .vcard .chev.on { color: #d8f83a; }
 
   /* Countries, not configs: a flag drawn as regional-indicator letters, in the
      app's own circle, so the list needs no image assets. */
@@ -303,15 +323,15 @@
   .purposes { display: flex; gap: 8px; margin-top: 12px; flex: none; }
   .purpose {
     flex: 1; height: 34px; border-radius: 17px;
-    background: #12161c; border: 1px solid #232a34; color: #98a3b2;
+    background: #141414; border: 1px solid #262626; color: #909090;
     display: flex; align-items: center; justify-content: center;
     font-size: 12px; white-space: nowrap;
   }
-  .purpose.sel { background: rgba(95,217,122,0.14); border-color: rgba(95,217,122,0.45); color: #5fd97a; font-weight: 600; }
+  .purpose.sel { background: rgba(216, 248, 58,0.14); border-color: rgba(216, 248, 58,0.45); color: #d8f83a; font-weight: 600; }
 
   /* Health of an imported config: measured, never acted on. */
-  .cfg .dot.good { background: rgba(95,217,122,0.75); }
-  .cfg .dot.warn { background: #98a3b2; }
+  .cfg .dot.good { background: rgba(216, 248, 58,0.75); }
+  .cfg .dot.warn { background: #909090; }
   .cfg .dot.bad { background: #ff6b6b; }
 
   /* Two whole rows: 2 x 60 + 10. */
@@ -320,24 +340,24 @@
   .country {
     display: flex; align-items: center; gap: 12px; flex: none;
     height: 60px; padding: 0 14px; border-radius: 20px;
-    background: #12161c; border: 1px solid #232a34;
+    background: #141414; border: 1px solid #262626;
   }
-  .country.sel { background: #171c23; border-color: rgba(95,217,122,0.45); }
+  .country.sel { background: #1b1b1b; border-color: rgba(216, 248, 58,0.45); }
   .country .circle {
     width: 36px; height: 36px; border-radius: 50%; flex: none;
-    background: #171c23; border: 1px solid #232a34;
-    display: flex; align-items: center; justify-content: center; font-size: 19px; color: #98a3b2;
+    background: #1b1b1b; border: 1px solid #262626;
+    display: flex; align-items: center; justify-content: center; font-size: 19px; color: #909090;
   }
   .country .who { flex: 1; min-width: 0; }
   .country .who b { display: block; font-size: 15px; font-weight: 500; color: #fff; }
-  .country .who span { font-size: 11px; color: #98a3b2; }
-  .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #98a3b2; flex: none; }
-  .country.sel.live .pip { background: #5fd97a; }
+  .country .who span { font-size: 11px; color: #909090; }
+  .country .pip { width: 8px; height: 8px; border-radius: 50%; background: #909090; flex: none; }
+  .country.sel.live .pip { background: #d8f83a; }
   .listwrap.tall { flex: none; align-items: stretch; margin-top: 14px; }
   .configs.tall { max-height: 137px; height: 137px; }
-  .card .proto .mode { color: #5fd97a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
-  .card .proto .mode.manual { color: #6c7684; }
-  .card .proto .chev { color: #6c7684; }
+  .card .proto .mode { color: #d8f83a; font-weight: 700; letter-spacing: 1px; font-size: 10px; }
+  .card .proto .mode.manual { color: #6a6a6a; }
+  .card .proto .chev { color: #6a6a6a; }
 </style>
 </head>
 <body>
@@ -699,7 +719,7 @@
             <div class="lrow"><span>Order expires</span><span>in 52 min</span></div>
             <div class="lrow"><span>Plan</span><span>150 GB · 30 days</span></div>
           </div>
-          <div style="margin-top:12px; font-size:13px; color:#98a3b2">Cancel this order</div>
+          <div style="margin-top:12px; font-size:13px; color:#909090">Cancel this order</div>
         </div>
       </div>
     </div>
