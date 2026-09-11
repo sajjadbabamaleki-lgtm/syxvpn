@@ -33,9 +33,44 @@ function importLinks(url) {
   ];
 }
 
+/**
+ * One config line, on its own.
+ *
+ * The subscription link is the better path and stays first — it refreshes
+ * itself, so a gateway that changes reaches the client without anybody doing
+ * anything. But a link is fetched over the network, and the network is exactly
+ * what is unreliable here: on the day the link's own domain is unreachable, a
+ * config copied while it worked still connects. Apps that take a single config
+ * and no subscription at all are the other half of the reason.
+ */
+function ConfigLine({ profile }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <div className="config-head">
+        <span className="state-label state-label-plain">{profile.label || profile.gatewayName}</span>
+        <span className="config-protocol">{profile.protocol}</span>
+      </div>
+      <code className="token-box">{profile.uri}</code>
+      <div className="action-row">
+        <CopyButton value={profile.uri} label="Copy config" />
+        <Button variant="ghost" onClick={() => setOpen((v) => !v)}>
+          {open ? 'Hide QR' : 'Show QR'}
+        </Button>
+      </div>
+      {open && (
+        <div className="qr-wrap">
+          <Qr value={profile.uri} size={200} label={`QR code for ${profile.label || profile.gatewayName}`} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function MyConfig() {
   const { data, error, loading, stale, updatedAt, refresh } = useResource('shop:me', shop.me, { intervalMs: 30000 });
   const [showQr, setShowQr] = useState(true);
+  const [showConfigs, setShowConfigs] = useState(false);
 
   if (loading && !data) return <Skeleton rows={4} />;
   if (error && !data) return <ErrorState error={error} onRetry={refresh} />;
@@ -106,6 +141,33 @@ export function MyConfig() {
               &quot;Copy link&quot; and add it as a subscription inside the app.
             </p>
           </Card>
+        </Section>
+      )}
+
+      {subscription.active && subscription.profiles?.length > 0 && (
+        <Section
+          title="Individual configs"
+          hint="For apps that take one config at a time, or for a day the link will not load"
+        >
+          <Card>
+            <div className="action-row">
+              <CopyButton
+                value={subscription.profiles.map((p) => p.uri).join('\n')}
+                label={`Copy all ${subscription.profiles.length}`}
+              />
+              <Button variant="ghost" onClick={() => setShowConfigs((v) => !v)}>
+                {showConfigs ? 'Hide them' : 'Show them one by one'}
+              </Button>
+            </div>
+            <p className="detail-note">
+              These are the same servers your subscription link points at, written out. In NPV
+              Tunnel, v2rayNG or any similar app, import from the clipboard or scan a QR code.
+              They do not update themselves — the subscription link does.
+            </p>
+          </Card>
+          {showConfigs && subscription.profiles.map((profile) => (
+            <ConfigLine key={profile.uri} profile={profile} />
+          ))}
         </Section>
       )}
 

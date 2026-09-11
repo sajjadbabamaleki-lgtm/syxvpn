@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer, seedGateway, seedEgress } from './helpers.js';
+import { createSubscriber } from '../src/domain/subscribers.js';
 import { config } from '../src/config.js';
 import {
   derivedKey, inboundConfig, inboundProfile, requestedProtocols, inCohort, SS_METHOD,
@@ -364,6 +365,72 @@ test('the real Xray accepts what is generated', async (t) => {
   writeFileSync(path, JSON.stringify(built));
   const output = execFileSync(binary, ['-test', '-config', path], { encoding: 'utf8' });
   assert.match(output, /Configuration OK/);
+});
+
+test('the storefront hands over the same lines the subscription does', async (t) => {
+  // Somebody using NPV Tunnel or v2rayNG copies their config from this screen.
+  // Serving fewer doors here than /sub serves would give the people on other
+  // apps less than the app's own users get, on the day it matters most.
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const token = await ctx.login();
+
+  const gw = await seedGateway(ctx, token);
+  const egress = await seedEgress(ctx, token);
+  await ctx.request('POST', `/api/v1/gateways/${gw.id}/egresses`, {
+    token, body: { egressId: egress.id, priority: 10 },
+  });
+  ctx.db.prepare("UPDATE gateways SET ingress_status='online', ingress_checked_at=? WHERE id=?")
+    .run(Date.now(), gw.id);
+  ctx.db.prepare("UPDATE gateway_egress SET status='online', checked_at=? WHERE gateway_id=?")
+    .run(Date.now(), gw.id);
+
+  const original = { ...config.adaptiveInbounds };
+  t.after(() => Object.assign(config.adaptiveInbounds, original));
+  Object.assign(config.adaptiveInbounds, { enabled: true, rolloutPercent: 100 });
+
+  const added = await ctx.request('POST', `/api/v1/gateways/${gw.id}/inbounds`, {
+    token, body: { kind: 'shadowsocks', port: 8388 },
+  });
+  ctx.db.prepare("UPDATE gateway_inbounds SET status='online' WHERE id=?").run(added.body.data.id);
+
+  const register = await ctx.request('POST', '/api/v1/shop/register', {
+    body: { email: 'configs@example.com', password: 'a-long-enough-password' },
+  });
+  const customerToken = register.body.data.token;
+  const customerId = ctx.db.prepare('SELECT id FROM customers WHERE email = ?').get('configs@example.com').id;
+  createSubscriber(ctx.db, {
+    name: 'configs',
+    quotaBytes: 10 * 1024 ** 3,
+    expiresAt: Date.now() + 30 * 86400000,
+    customerId,
+  });
+
+  const res = await ctx.request('GET', '/api/v1/shop/me', { token: customerToken });
+  assert.equal(res.status, 200);
+  const profiles = res.body.data.subscription.profiles;
+
+  await t.test('every door is written out, not only counted', () => {
+    assert.deepEqual(profiles.map((p) => p.protocol), ['vless', 'shadowsocks']);
+    assert.equal(res.body.data.subscription.profileCount, 2);
+  });
+
+  await t.test('each line carries what a person needs to tell them apart', () => {
+    for (const profile of profiles) {
+      assert.ok(profile.uri, 'a config with no line is nothing to copy');
+      assert.ok(profile.label, 'a config with no label cannot be chosen between');
+      assert.ok(profile.protocol);
+    }
+    assert.match(profiles[1].uri, /^ss:\/\//);
+    assert.match(profiles[1].label, / · shadowsocks$/);
+  });
+
+  await t.test('the flag takes them away here too', async () => {
+    config.adaptiveInbounds.enabled = false;
+    const off = await ctx.request('GET', '/api/v1/shop/me', { token: customerToken });
+    assert.deepEqual(off.body.data.subscription.profiles.map((p) => p.protocol), ['vless']);
+    config.adaptiveInbounds.enabled = true;
+  });
 });
 
 test('operating the extra doors', async (t) => {

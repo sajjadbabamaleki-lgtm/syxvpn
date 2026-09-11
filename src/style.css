@@ -583,6 +583,18 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .pay-amount strong small { font-size: 14px; color: var(--text-dim); font-weight: 500; }
 .pay-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
 
+/* One written-out config: what it is, and which door it goes through. */
+.config-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.config-protocol {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex: none;
+}
+
 .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; }
 .qr {
   padding: 10px;

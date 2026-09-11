@@ -15,6 +15,7 @@ import {
 } from '../domain/subscribers.js';
 import { describePaymentConfig } from '../services/tron.js';
 import { clientProfile } from '../domain/xray.js';
+import { inboundProfile, offerableInbounds, inCohort } from '../domain/inbounds.js';
 import { gatewaysFor } from './public.js';
 
 const credentialsSchema = z.object({
@@ -88,14 +89,38 @@ function subscriptionView(db, req, customerId, product = null) {
   const token = revealToken(db, subscriber.id);
   const base = config.publicBaseUrl || `${req.protocol}://${req.get('host')}`;
   const credentials = activeCredentials(db, subscriber.id).filter((c) => c.state === 'active');
+  // Every line this subscriber could hand to a client app, including the
+  // additional doors when they are in the rollout. This screen is where
+  // somebody using another app — NPV Tunnel, v2rayNG, Hiddify — copies a
+  // config from, so serving fewer here than the subscription endpoint does
+  // would quietly give those people less than the app's own users get.
+  const extras = inCohort(subscriber.id);
   const profiles = token
-    ? gatewaysFor(db, subscriber.id).flatMap(({ gateway, state: routeState }) => credentials.map((credential) => ({
-      gatewayId: gateway.id,
-      gatewayName: gateway.name,
-      region: gateway.region,
-      routeState,
-      uri: clientProfile(gateway, credential.uuid),
-    })))
+    ? gatewaysFor(db, subscriber.id).flatMap(({ gateway, state: routeState }) => credentials.flatMap((credential) => {
+      const lines = [{
+        gatewayId: gateway.id,
+        gatewayName: gateway.name,
+        region: gateway.region,
+        routeState,
+        protocol: 'vless',
+        label: `${gateway.name} · ${gateway.region}`,
+        uri: clientProfile(gateway, credential.uuid),
+      }];
+      if (!extras) return lines;
+      for (const inbound of offerableInbounds(db, gateway.id)) {
+        lines.push({
+          gatewayId: gateway.id,
+          gatewayName: gateway.name,
+          region: gateway.region,
+          routeState,
+          protocol: inbound.kind,
+          inboundId: inbound.id,
+          label: `${gateway.name} · ${gateway.region} · ${inbound.kind}`,
+          uri: inboundProfile(gateway, inbound, credential.uuid),
+        });
+      }
+      return lines;
+    }))
     : [];
 
   return {
