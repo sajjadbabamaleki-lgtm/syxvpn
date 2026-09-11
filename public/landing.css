@@ -277,8 +277,24 @@ h3 { font-weight: 400; }
 .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
 .btn-ghost:hover { border-color: var(--faint); }
 .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
-.cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 36px; }
-.cta.start { justify-content: flex-start; }
+/* The pair is one decision offered twice, so the two buttons are the same size.
+   A flex row sizes each to its own words — "Get started" next to "See all
+   plans" comes out lopsided, which reads as a main button and an afterthought.
+   Two equal grid tracks hold them level at every width; the max-width keeps
+   them from stretching across a desktop column. */
+.cta {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  gap: 14px; margin: 36px auto 0; max-width: 430px;
+}
+/* Narrower than a free-standing button: at 360px each track is about 160px, and
+   the label needs the room more than the padding does. */
+.cta > .btn { padding-inline: 18px; }
+/* The one-button row in the about section, which should hug its words and sit
+   against the start edge rather than stretch to the full track. */
+.cta.start {
+  display: flex; justify-content: flex-start; flex-wrap: wrap;
+  max-width: none; margin-inline: 0;
+}
 
 /* ------------------------------------------------------------------- hero */
 
@@ -317,19 +333,27 @@ h3 { font-weight: 400; }
    users", and wearing that shape without the truth behind it is how a product
    starts lying before it has shipped. */
 .proof {
-  display: grid; gap: 30px 44px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--border); text-align: start;
+  display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-top: 52px; text-align: start;
 }
-.proof-item { display: flex; align-items: baseline; gap: 18px; }
+/* Tiles, in the page's own material. These used to be a number beside a caption
+   set in wide-tracked capitals — which reads as a caption only while it stays on
+   one line. On a phone it wrapped to four ragged lines beside a number that had
+   nothing to line up with, so the row that is supposed to look checkable looked
+   like a mistake. Stacked in a card, in ordinary sentence case, it reads. */
+.proof-item {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 22px 24px;
+  border: 1px solid var(--border); border-radius: 20px;
+  background: var(--surface);
+}
 .proof-item b {
-  font-size: clamp(28px, 5vw, 44px); font-weight: 300; letter-spacing: -.03em;
-  line-height: 1.1; white-space: nowrap;
+  font-size: clamp(26px, 4.2vw, 38px); font-weight: 300; letter-spacing: -.03em;
+  line-height: 1.15; text-wrap: balance;
 }
 .proof-item span {
-  color: var(--dim); font-size: 12px; line-height: 1.5; max-width: 16ch;
-  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--dim); font-size: 13px; line-height: 1.6;
 }
-[dir="rtl"] .proof-item span { letter-spacing: normal; text-transform: none; font-size: 13px; }
 
 /* ------------------------------------------------------------------ cards */
 
@@ -426,12 +450,18 @@ h3 { font-weight: 400; }
    to name, so the row names what it is built out of instead — which is both
    true and, for anybody who recognises the words, more convincing. */
 .marks {
-  display: flex; flex-wrap: wrap; gap: 14px 40px; justify-content: center; align-items: center;
-  padding: 30px 0; opacity: .62;
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;
+  padding: 10px 0 0;
 }
+/* Chips rather than bare words. Six wide-tracked capitals floating in a row wrap
+   into something that looks spilled rather than listed; an outline around each
+   one gives the wrap somewhere to happen and matches the chip already used under
+   the big call to action. */
 .marks span {
-  font-size: 15px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
   color: var(--dim); direction: ltr;
+  padding: 9px 15px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface);
 }
 
 /* ------------------------------------------------------------------- bars */
@@ -733,24 +763,27 @@ footer { border-top: 1px solid var(--border); padding: 68px 0 60px; color: var(-
        A card carries this instead of the rise below, and that is the honest
        reading of the reference: its cards do not visibly travel. The light
        coming up on them is the motion. */
-    /* Where the lamp runs, the observer's fade on a card is redundant and would
-       be a second, differently-timed motion on the same object. Neutralised, so
-       the light is the only thing moving. */
-    .js .card.reveal { opacity: 1; transform: none; transition: none; }
+    /* Where the lamp runs, the observer's one-shot fade on a card would be a
+       second motion on the same object, on its own clock. Its transition is
+       dropped so the scroll-linked pair below is the only thing moving. */
+    .js .card.reveal { transition: none; }
 
+    /* Two scroll-linked animations on one element: the light coming up, and the
+       card itself arriving. The rise runs a touch longer than the lamp so the
+       card settles into place a moment after it is fully lit. */
     .card, .plan {
-      animation: lamp linear both;
-      animation-timeline: view();
+      animation: lamp linear both, rise cubic-bezier(.22, .7, .3, 1) both;
+      animation-timeline: view(), view();
       /* Dim as it appears, full by the time it is a third of the way up. */
-      animation-range: entry 0% cover 26%;
+      animation-range: entry 0% cover 26%, entry 0% cover 32%;
     }
 
     /* A row of cards should not light as one slab. Each column comes up a
        little later than the one before it — which on a phone, where they are
        stacked, costs nothing, because they are already apart. */
-    .grid > .card:nth-child(2), .plans > .plan:nth-child(2) { animation-range: entry 5% cover 31%; }
-    .grid > .card:nth-child(3), .plans > .plan:nth-child(3) { animation-range: entry 10% cover 36%; }
-    .grid > .card:nth-child(4) { animation-range: entry 15% cover 41%; }
+    .grid > .card:nth-child(2), .plans > .plan:nth-child(2) { animation-range: entry 5% cover 31%, entry 5% cover 37%; }
+    .grid > .card:nth-child(3), .plans > .plan:nth-child(3) { animation-range: entry 10% cover 36%, entry 10% cover 42%; }
+    .grid > .card:nth-child(4) { animation-range: entry 15% cover 41%, entry 15% cover 47%; }
 
     /* Everything that is not a card keeps a rise, now tracking the scroll
        rather than firing once — so a reader who scrolls back up sees it again
