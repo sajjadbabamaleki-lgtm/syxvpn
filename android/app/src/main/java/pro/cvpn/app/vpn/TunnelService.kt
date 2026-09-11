@@ -24,6 +24,7 @@ import kotlinx.coroutines.coroutineScope
 import pro.cvpn.app.R
 import pro.cvpn.app.core.ConnectionMemory
 import pro.cvpn.app.core.Latency
+import pro.cvpn.app.core.PrivateDns
 import pro.cvpn.app.core.Probe
 import pro.cvpn.app.core.Purpose
 import pro.cvpn.app.core.RecoveryPolicy
@@ -92,6 +93,9 @@ class TunnelService : VpnService() {
     private var automaticMode: Boolean = false
     private var controlHosts: List<String> = emptyList()
     private var purpose: Purpose = Purpose.AUTO
+
+    /** Which resolver this tunnel answers with. Set with the request. */
+    private var dns: PrivateDns = PrivateDns.STANDARD
     private val recovery = RecoveryPolicy()
 
     /** What this phone has learned about these gateways. Worker thread only. */
@@ -106,6 +110,7 @@ class TunnelService : VpnService() {
                 sourceOf(intent?.getStringExtra(EXTRA_SOURCE)),
                 intent?.getStringArrayExtra(EXTRA_CONTROL_HOST)?.toList().orEmpty(),
                 Purpose.of(intent?.getStringExtra(EXTRA_PURPOSE)),
+                dnsOf(intent?.getStringExtra(EXTRA_DNS)),
             )
         }
         return START_STICKY
@@ -127,6 +132,7 @@ class TunnelService : VpnService() {
         from: Source,
         controlPlaneHosts: List<String>,
         wanted: Purpose,
+        wantedDns: PrivateDns,
     ) {
         val servers = parseServers(serversJson)
         if (servers.isEmpty()) {
@@ -140,6 +146,7 @@ class TunnelService : VpnService() {
         source.value = from
         controlHosts = controlPlaneHosts
         purpose = wanted
+        dns = wantedDns
         // A fresh request from the app is not a recovery attempt: someone is
         // holding the phone, so the budget for automatic retries starts again.
         recovery.settled()
@@ -194,6 +201,7 @@ class TunnelService : VpnService() {
                                 controlPlaneHosts = controlPlaneHosts,
                                 tunFd = descriptor.fd,
                                 metricsPort = metricsPort,
+                                dns = dns,
                             ),
                         )
                     } catch (failure: Throwable) {
@@ -326,7 +334,10 @@ class TunnelService : VpnService() {
             // Default route: everything goes through the tunnel.
             .addRoute("0.0.0.0", 0)
             .addRoute("::", 0)
-        XrayConfigBuilder.DNS_SERVERS.forEach(builder::addDnsServer)
+        // What the system is told to use. Every port-53 query is captured by
+        // the tunnel regardless, so on an encrypted mode these are the
+        // addresses Android displays rather than the ones queried.
+        dns.addresses.forEach(builder::addDnsServer)
         // Never route this app's own traffic into its own tunnel: the account
         // and the subscription have to stay reachable when the tunnel does not.
         builder.addDisallowedApplication(packageName)
@@ -525,6 +536,9 @@ class TunnelService : VpnService() {
         /** What the connection is for; changes how candidates are weighed. */
         const val EXTRA_PURPOSE = "purpose"
 
+        /** Which resolver to answer with; the name of a [PrivateDns]. */
+        const val EXTRA_DNS = "dns"
+
         /** How many of the best candidates are worth an end-to-end test. */
         private const val PROBE_SHORTLIST = 3
 
@@ -543,6 +557,17 @@ class TunnelService : VpnService() {
          * no section would leave both switches showing themselves off while it
          * carries traffic.
          */
+        /**
+         * The resolver named in an intent.
+         *
+         * A missing name is the plain one, not the default: the only caller
+         * that leaves it out is a build that does not have the feature, and a
+         * service must not turn something on that the app it serves cannot
+         * turn off.
+         */
+        private fun dnsOf(value: String?): PrivateDns =
+            if (value == null) PrivateDns.STANDARD else PrivateDns.of(value)
+
         private fun sourceOf(value: String?): Source =
             Source.entries.firstOrNull { it.name.equals(value, ignoreCase = true) && it != Source.NONE }
                 ?: Source.VPN

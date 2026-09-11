@@ -3,6 +3,8 @@ package pro.cvpn.app.data
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import pro.cvpn.app.BuildConfig
+import pro.cvpn.app.core.PrivateDns
 
 /**
  * Holds the customer session token and the last known subscription URL.
@@ -90,6 +92,25 @@ class SessionStore(context: Context) {
      * Choosing a config by hand turns it off, and it stays off until they pick
      * the Automatic row again.
      */
+    /**
+     * Which resolver the tunnel uses.
+     *
+     * Stored by name, read back through [PrivateDns.of], so a name this build
+     * does not know reads as the default rather than as no resolver at all.
+     *
+     * `PRIVATE_DNS` gates it outright rather than only setting the default: a
+     * build with the flag off has to behave exactly like the build before the
+     * feature, including for the phone of somebody who had already picked an
+     * encrypted mode. That is what makes it a switch that can be thrown back.
+     */
+    var dnsMode: PrivateDns
+        get() = if (!BuildConfig.PRIVATE_DNS) {
+            PrivateDns.STANDARD
+        } else {
+            PrivateDns.of(prefs.getString(KEY_DNS, null))
+        }
+        set(value) = prefs.edit().putString(KEY_DNS, value.name).apply()
+
     var automaticServer: Boolean
         get() = prefs.getBoolean(KEY_AUTOMATIC, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTOMATIC, value).apply()
@@ -173,5 +194,6 @@ class SessionStore(context: Context) {
         const val KEY_PURPOSE = "purpose"
         const val KEY_MEMORY = "connection_memory"
         const val KEY_CONTROL_BASE = "control_plane_base"
+        const val KEY_DNS = "dns_mode"
     }
 }

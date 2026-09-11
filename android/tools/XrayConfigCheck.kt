@@ -1,3 +1,5 @@
+import org.json.JSONObject
+import pro.cvpn.app.core.PrivateDns
 import pro.cvpn.app.core.VlessProfile
 import pro.cvpn.app.core.XrayConfigBuilder
 
@@ -12,12 +14,16 @@ import pro.cvpn.app.core.XrayConfigBuilder
  *     curl -sSLo /tmp/json.jar \
  *       https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
  *     kotlinc -cp /tmp/json.jar \
- *       android/tools/UriStub.kt \
+ *       android/app/src/main/java/pro/cvpn/app/core/UriParts.kt \
+ *       android/app/src/main/java/pro/cvpn/app/core/PrivateDns.kt \
  *       android/app/src/main/java/pro/cvpn/app/core/VlessProfile.kt \
  *       android/app/src/main/java/pro/cvpn/app/core/XrayConfigBuilder.kt \
  *       android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
  *     java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
  *     xray -test -config /tmp/xray.json
+ *
+ * Pass `--dns` for the encrypted-resolver configuration instead, and `--probe`
+ * for the outbound-only one libXray's pingBatch is given.
  *
  * The TUN inbound, the descriptor in the root `env`, the metrics server and the
  * stats policy are all part of what gets validated.
@@ -28,20 +34,66 @@ fun main(args: Array<String>) {
             "?type=ws&security=tls&path=%2Fws&host=gw1.example.net&sni=gw1.example.net#Frankfurt%20Edge"
     }
     val profile = requireNotNull(VlessProfile.parse(uri)) { "the profile did not parse" }
-    check(profile.host == "gw1.example.net") { "host: ${profile.host}" }
-    check(profile.port == 443) { "port: ${profile.port}" }
-    check(profile.tls) { "tls flag" }
-    check(profile.wsPath == "/ws") { "path: ${profile.wsPath}" }
-    check(profile.label == "Frankfurt Edge") { "label: ${profile.label}" }
+    // Only for the profile this tool ships with. A profile passed in is
+    // somebody checking a real one, and asserting the example's values against
+    // it turns a working config into a crash.
+    if (args.isEmpty()) {
+        check(profile.host == "gw1.example.net") { "host: ${profile.host}" }
+        check(profile.port == 443) { "port: ${profile.port}" }
+        check(profile.tls) { "tls flag" }
+        check(profile.wsPath == "/ws") { "path: ${profile.wsPath}" }
+        check(profile.label == "Frankfurt Edge") { "label: ${profile.label}" }
+    }
 
     val json = XrayConfigBuilder.build(
         profile = profile,
-        controlPlaneHost = "control.example.net",
+        controlPlaneHosts = listOf("control.example.net", "control-2.example.net"),
         tunFd = 42,
         metricsPort = 49227,
     )
     // The descriptor must reach Xray through the root env, as a string.
     check("\"xray.tun.fd\":\"42\"" in json.replace(" ", "")) { "tun fd missing from env" }
+
+    // Nothing about DNS unless a mode asks for it: the default configuration
+    // must stay the one that has been running.
+    check("dns-out" !in json) { "the standard config grew a DNS outbound" }
+
+    // The encrypted mode: a resolver, an outbound to answer from, and the one
+    // rule that sends every port-53 query there. All three or none of them —
+    // a rule with no outbound is a config Xray refuses, on a phone.
+    val encrypted = XrayConfigBuilder.build(
+        profile = profile,
+        controlPlaneHosts = listOf("control.example.net"),
+        tunFd = 42,
+        metricsPort = 49227,
+        dns = PrivateDns.CLOUDFLARE,
+    ).replace(" ", "")
+    // Read back as JSON rather than matched as text: org.json writes an
+    // object's keys in its own order, so a string check here would pass or fail
+    // on nothing.
+    val parsed = JSONObject(encrypted)
+    check(parsed.getJSONObject("dns").getJSONArray("servers").getString(0) == "https://1.1.1.1/dns-query") {
+        "no DoH server"
+    }
+    val outbounds = parsed.getJSONArray("outbounds")
+    val dnsOut = (0 until outbounds.length()).map { outbounds.getJSONObject(it) }
+        .singleOrNull { it.optString("tag") == "dns-out" }
+    check(dnsOut != null && dnsOut.getString("protocol") == "dns") { "no dns outbound" }
+
+    val rules = parsed.getJSONObject("routing").getJSONArray("rules")
+    val dnsRuleAt = (0 until rules.length()).singleOrNull {
+        rules.getJSONObject(it).optString("outboundTag") == "dns-out"
+    }
+    check(dnsRuleAt != null) { "port 53 is not captured" }
+    check(rules.getJSONObject(dnsRuleAt!!).optInt("port") == 53) { "the DNS rule is not about port 53" }
+    // The control plane is reached without the tunnel, so its rule has to be
+    // matched first: its name must not depend on a resolver that only answers
+    // while the tunnel is up.
+    val directAt = (0 until rules.length()).first {
+        rules.getJSONObject(it).optString("outboundTag") == "direct"
+    }
+    check(directAt < dnsRuleAt) { "the DNS rule is ahead of the direct rules" }
+    if (args.getOrNull(1) == "--dns") { print(encrypted); return }
 
     // The probe config libXray's pingBatch is given: outbounds only, by design.
     val probe = XrayConfigBuilder.outboundOnly(profile)

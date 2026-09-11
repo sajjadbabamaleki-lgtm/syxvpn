@@ -79,6 +79,17 @@ android {
         // goods for crypto in-app, and the tab then lists the plans read-only and
         // sends the customer to the web storefront to pay.
         buildConfigField("boolean", "IN_APP_ORDERS", "true")
+
+        /**
+         * Encrypted DNS inside the tunnel, and the setting that picks it.
+         *
+         * Off returns the app to plain resolvers on port 53 exactly as it
+         * behaved before the feature -- for everyone, including a phone that
+         * had already chosen otherwise -- and takes the setting off the screen.
+         * That is the rollback: one build, no migration, nothing to undo on a
+         * device.
+         */
+        buildConfigField("boolean", "PRIVATE_DNS", "true")
     }
 
     signingConfigs {

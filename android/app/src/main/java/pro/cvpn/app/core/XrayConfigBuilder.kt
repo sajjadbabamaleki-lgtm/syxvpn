@@ -25,8 +25,13 @@ import org.json.JSONObject
  */
 object XrayConfigBuilder {
 
-    /** The DNS servers handed to the TUN interface, and to Go's own resolver. */
-    val DNS_SERVERS = listOf("1.1.1.1", "8.8.8.8")
+    /**
+     * What the TUN interface advertises when no mode says otherwise.
+     *
+     * [PrivateDns.STANDARD] carries the same two addresses, so a build with the
+     * private-DNS flag off generates what the app has always generated.
+     */
+    val DNS_SERVERS = PrivateDns.STANDARD.addresses
 
     const val TUN_NAME = "cvpn0"
     const val MTU = 1500
@@ -48,11 +53,19 @@ object XrayConfigBuilder {
     fun outboundOnly(profile: VlessProfile): String =
         JSONObject().put("outbounds", JSONArray().put(proxyOutbound(profile))).toString()
 
+    /**
+     * @param dns which resolver the tunnel uses. On an encrypted mode the
+     *   config gains a `dns` section, a `dns` outbound and one routing rule
+     *   that sends every port-53 query to it; the queries are then re-issued as
+     *   DoH, which goes out through the proxy like any other request — so they
+     *   are encrypted to the resolver and invisible to the gateway as DNS.
+     */
     fun build(
         profile: VlessProfile,
         controlPlaneHosts: List<String>,
         tunFd: Int,
         metricsPort: Int,
+        dns: PrivateDns = PrivateDns.STANDARD,
         mtu: Int = MTU,
     ): String = JSONObject()
         .put("log", JSONObject().put("loglevel", "warning"))
@@ -65,9 +78,20 @@ object XrayConfigBuilder {
             JSONArray()
                 .put(proxyOutbound(profile))
                 .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
-                .put(JSONObject().put("tag", "block").put("protocol", "blackhole")),
+                .put(JSONObject().put("tag", "block").put("protocol", "blackhole"))
+                // The resolver the tunnel answers with. Present only on an
+                // encrypted mode: an outbound nothing routes to would be one
+                // more thing in the config that does nothing.
+                .apply {
+                    if (dns.encrypted) put(JSONObject().put("tag", "dns-out").put("protocol", "dns"))
+                },
         )
-        .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", routingRules(profile, controlPlaneHosts)))
+        .apply {
+            dns.dohUrl?.let { url ->
+                put("dns", JSONObject().put("servers", JSONArray().put(url)))
+            }
+        }
+        .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", routingRules(profile, controlPlaneHosts, dns)))
         // Counters for the connect screen, read over loopback from the metrics
         // server rather than estimated anywhere in the app.
         .put("metrics", JSONObject().put("listen", "127.0.0.1:$metricsPort"))
@@ -154,7 +178,11 @@ object XrayConfigBuilder {
         return proxy
     }
 
-    private fun routingRules(profile: VlessProfile, controlPlaneHosts: List<String>): JSONArray {
+    private fun routingRules(
+        profile: VlessProfile,
+        controlPlaneHosts: List<String>,
+        dns: PrivateDns,
+    ): JSONArray {
         val rules = JSONArray()
         // The gateway and the control plane stay off the tunnel: if the tunnel
         // breaks, the app must still be able to fetch a new subscription.
@@ -177,6 +205,22 @@ object XrayConfigBuilder {
                 .put("ip", JSONArray().put("127.0.0.0/8").put("::1/128"))
                 .put("outboundTag", "direct"),
         )
+        // Every query, whichever resolver an app was told to use and whichever
+        // one it asks anyway. A rule that named only the advertised addresses
+        // would leave an app with a hard-coded resolver of its own resolving in
+        // clear text, which is the leak this is here to close.
+        //
+        // It comes after the direct rules on purpose: the control plane is
+        // reached without the tunnel, and its name must not depend on a
+        // resolver that only answers while the tunnel is up.
+        if (dns.encrypted) {
+            rules.put(
+                JSONObject()
+                    .put("type", "field")
+                    .put("port", 53)
+                    .put("outboundTag", "dns-out"),
+            )
+        }
         return rules
     }
 

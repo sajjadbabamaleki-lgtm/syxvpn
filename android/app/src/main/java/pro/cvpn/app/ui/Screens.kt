@@ -66,6 +66,7 @@ import pro.cvpn.app.core.CountryGroup
 import pro.cvpn.app.core.countryOf
 import pro.cvpn.app.core.groupByCountry
 import pro.cvpn.app.core.Latency
+import pro.cvpn.app.core.PrivateDns
 import pro.cvpn.app.core.Probe
 import pro.cvpn.app.core.Purpose
 import pro.cvpn.app.core.RouteState
@@ -2506,9 +2507,88 @@ private fun AccountScreen(
             fontSize = 12.sp,
         )
 
+        PrivacyCard(app)
+
         TextButton(onClick = {
             scope.launch { app.api.signOut(); onSignedOut() }
         }) { Text("Sign out", color = TextDim) }
+    }
+}
+
+/**
+ * What this phone keeps, and who answers its DNS.
+ *
+ * Both halves belong together and both belong on a screen someone can reach
+ * without an account: the tunnel has never needed one, and neither does any of
+ * this. The first line is a statement about storage that the code has to keep
+ * true — the token, the imported configs, the chosen resolver and what the app
+ * has measured about each gateway live in EncryptedSharedPreferences under a
+ * key held by the platform keystore, and none of it is ever sent anywhere.
+ *
+ * The resolver picker is here rather than in a settings screen of its own
+ * because it is the only setting the app has, and a settings screen holding one
+ * row is a place people never find.
+ */
+@Composable
+private fun PrivacyCard(app: CvpnApplication) {
+    if (!BuildConfig.PRIVATE_DNS) return
+    var mode by remember { mutableStateOf(app.session.dnsMode) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(28.dp)),
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Privacy", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Everything this app stores — your account, your configs, and " +
+                    "what it has measured — is encrypted on this phone and is " +
+                    "never sent anywhere.",
+                color = TextDim,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+            Text("DNS", color = TextFaint, fontSize = 11.sp, letterSpacing = 1.sp)
+            PrivateDns.entries.forEach { option ->
+                val selected = mode == option
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) SurfaceHigh else Color.Transparent)
+                        .border(
+                            1.dp,
+                            if (selected) Accent.copy(alpha = 0.45f) else Border,
+                            RoundedCornerShape(16.dp),
+                        )
+                        .clickable {
+                            mode = option
+                            app.session.dnsMode = option
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            option.label,
+                            color = if (selected) Color.White else TextDim,
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                        )
+                        Text(option.detail, color = TextFaint, fontSize = 11.sp)
+                    }
+                    if (selected) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(Accent))
+                    }
+                }
+            }
+            Text(
+                "A change applies to the next connection.",
+                color = TextFaint,
+                fontSize = 11.sp,
+            )
+        }
     }
 }
 
@@ -2584,6 +2664,10 @@ private fun SignInScreen(
             fontSize = 12.sp,
             lineHeight = 17.sp,
         )
+        // The privacy settings belong to the phone, not to an account, so they
+        // are reachable from the screen someone sees when they have neither.
+        Spacer(Modifier.height(16.dp))
+        PrivacyCard(app)
         if (expired && !creating) {
             Spacer(Modifier.height(10.dp))
             Text("Your session ended. Sign in again.", color = Pending, fontSize = 13.sp)

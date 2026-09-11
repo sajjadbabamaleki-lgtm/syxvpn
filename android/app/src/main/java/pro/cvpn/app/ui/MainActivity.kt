@@ -129,6 +129,13 @@ class MainActivity : ComponentActivity() {
                 .putExtra(
                     TunnelService.EXTRA_PURPOSE,
                     (application as CvpnApp).session.purposeName,
+                )
+                // Which resolver to answer with. Read at connect time rather
+                // than held by the service, so a change on the Account tab
+                // applies to the next connection without an app restart.
+                .putExtra(
+                    TunnelService.EXTRA_DNS,
+                    (application as CvpnApp).session.dnsMode.name,
                 ),
         )
     }
