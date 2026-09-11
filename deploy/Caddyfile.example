@@ -28,8 +28,11 @@ cvpn.pro, www.cvpn.pro {
 control.cvpn.pro {
     encode zstd gzip
 
-    # API and subscription endpoints.
-    @api path /api/* /sub/* /health /readiness
+    # API and subscription endpoints. /telegram/* is the support bot's webhook:
+    # it belongs to the API, and sending it to the web app instead would answer
+    # Telegram with the storefront's HTML and no bot would ever reply. Its own
+    # secret is in the path and in a header, both checked by the API.
+    @api path /api/* /sub/* /telegram/* /health /readiness
     handle @api {
         reverse_proxy 127.0.0.1:8787
     }

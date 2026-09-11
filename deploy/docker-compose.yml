@@ -36,6 +36,20 @@ services:
       TRON_ADDRESS: ${TRON_ADDRESS:-}
       TRON_API_KEY: ${TRON_API_KEY:-}
       PAYMENT_CONFIRMATIONS: ${PAYMENT_CONFIRMATIONS:-19}
+      # Additional inbound protocols. Off unless the .env says otherwise; see
+      # docs/ADAPTIVE-INBOUNDS.md.
+      ADAPTIVE_INBOUNDS: ${ADAPTIVE_INBOUNDS:-false}
+      ADAPTIVE_INBOUNDS_PERCENT: ${ADAPTIVE_INBOUNDS_PERCENT:-0}
+      # The support bot. Off unless enabled AND given a key; see
+      # docs/SUPPORT-ASSISTANT.md.
+      ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5}
+      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-medium}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_OPERATOR_CHAT_ID: ${TELEGRAM_OPERATOR_CHAT_ID:-}
     volumes:
       - cvpn-data:/data
       # Every credential in the fleet ends up in here. Keep it 0700 and copy it

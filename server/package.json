@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "test": "node --test 'test/**/*.test.js'",
     "bootstrap": "node scripts/bootstrap-admin.js",
-    "try-bot": "node scripts/try-bot.js"
+    "try-bot": "node scripts/try-bot.js",
+    "telegram": "node scripts/telegram-webhook.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

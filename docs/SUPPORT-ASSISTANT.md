@@ -74,21 +74,36 @@ and confirm the bot says *nothing* — only the operator sees it — until
 5. **A key.** `ANTHROPIC_API_KEY`, then `ASSISTANT_ENABLED=true`. Without the
    key the flag does nothing: a support channel that cannot answer is worse
    than no support channel.
-6. **Register the webhook** with Telegram:
+6. **Restart the control plane**, so it comes up holding all of that:
 
    ```sh
-   curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-     -H 'content-type: application/json' \
-     -d "{\"url\":\"$PUBLIC_BASE_URL/telegram/webhook/$TELEGRAM_WEBHOOK_SECRET\",
-          \"secret_token\":\"$TELEGRAM_WEBHOOK_SECRET\",
-          \"allowed_updates\":[\"message\"]}"
+   docker compose -f deploy/docker-compose.yml up -d api
    ```
 
-   Check it with `getWebhookInfo`; `last_error_message` is where a wrong path
-   or a certificate problem shows up.
+   The startup line names the model when the assistant is on and says `off`
+   when it is not.
 
-Restart the control plane. The startup line names the model when the assistant
-is on and says `off` when it is not.
+7. **Register the webhook:**
+
+   ```sh
+   cd server && npm run telegram set
+   ```
+
+   That reads the same `.env` and points the bot at
+   `PUBLIC_BASE_URL/telegram/webhook/<secret>`, with the secret header set.
+   `npm run telegram info` says whether Telegram is getting through, and
+   `npm run telegram delete` stops it.
+
+For step 4, `npm run telegram whoami` lists the chats that have written to the
+bot, which is where the operator chat id comes from. It only works before a
+webhook is registered — Telegram delivers updates one way or the other, not
+both — so do it in that order, or run `delete`, `whoami`, `set`.
+
+**The reverse proxy has to send `/telegram/*` to the API**, not to the web app.
+`deploy/Caddyfile.example` does; a proxy that does not will answer Telegram
+with the storefront's HTML and no reply will ever arrive. The webhook's own
+secret is in the path and in a header, both checked, so exposing that prefix
+publicly is what it is designed for.
 
 ## Linking an account
 
@@ -149,8 +164,9 @@ Telegram.
   share of chats ending with a person means the tools stopped covering
   something, not that people got harder.
 - The startup log line: `assistant: claude-opus-5` or `assistant: off`.
-- `getWebhookInfo` → `pending_update_count`. A number that does not come back
-  down means the control plane is not answering Telegram.
+- `npm run telegram info` → `Waiting`. A number that does not come back down
+  means the control plane is not answering Telegram, and `Last error` says
+  why.
 - The webhook replies `200` before it does any work, so Telegram never retries
   into a duplicate answer; a failure shows up in the logs, not as a second
   message to the customer.
@@ -158,6 +174,6 @@ Telegram.
 ## Turning it off
 
 `ASSISTANT_ENABLED=false` and restart. The webhook then accepts and drops
-updates, which is quiet but not honest for long — also `deleteWebhook` if it is
-staying off, so the bot is plainly silent rather than seemingly ignoring
+updates, which is quiet but not honest for long — also `npm run telegram
+delete` if it is staying off, so the bot is plainly silent rather than seemingly ignoring
 people. Nothing else in the control plane depends on it.
