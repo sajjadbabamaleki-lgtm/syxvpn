@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The SixVPN mark, on the adaptive icon's 108dp canvas.
+  The mark, on the adaptive icon's 108dp canvas. Still the C traced from the
+  old product's artwork — see the note in src/components/Logo.jsx.
 
   Sized to 72dp across, which is the safe zone every launcher mask keeps: a
   circular mask, a squircle and a rounded square all cut somewhere different

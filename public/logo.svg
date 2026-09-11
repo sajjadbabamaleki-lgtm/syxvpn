@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="SixVPN">
-  <!-- The SixVPN mark: a C open to the right, with a square held in its centre.
+  <!-- The mark: a C open to the right, with a square held in its centre. Still
+       the old product's initial — see the note in src/components/Logo.jsx.
        Traced from the supplied artwork — outer radius 48, inner 27.8, a 62°
        gap centred on due east, and a 20.6 × 17.8 block on the same centre. -->
   <title>SixVPN</title>

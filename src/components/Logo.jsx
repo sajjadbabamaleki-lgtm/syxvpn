@@ -1,5 +1,11 @@
 /**
- * The SixVPN mark.
+ * The app's mark — which is still a C.
+ *
+ * The shape is the old product's initial, traced from the supplied artwork. It
+ * is left exactly as it was because artwork is a decision to be made once and
+ * on purpose, not swept along by a find and replace; the name around it has
+ * changed and this has not. Replacing it means replacing all three copies (see
+ * below) in one go.
  *
  * Inline rather than an <img>: it inherits currentColor where a screen wants
  * it in another colour, needs no second request on a network where the second
