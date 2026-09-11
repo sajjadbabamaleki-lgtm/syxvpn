@@ -29,6 +29,34 @@ credential UUID, a config line, a gateway address, or anything about traffic.
 State, not content. The bot is told in its prompt never to ask for a password,
 a subscription link or a payment receipt, because it never needs one.
 
+## Trying it before any of this
+
+```sh
+cd server && npm run try-bot
+```
+
+That boots a whole control plane in memory — a customer, a subscription, one
+healthy gateway and one degraded one, a plan — and wires the real webhook to
+your keyboard. No bot, no token, no public URL, no Telegram. What you type goes
+in as an update; what would have been sent back is printed.
+
+With `ANTHROPIC_API_KEY` set the assistant is the real one, and each reply is
+worth a fraction of a cent; the tools it consults are printed as it uses them,
+because an answer about a subscription that never called `get_subscription` is
+an answer somebody made up. Without a key it runs a stand-in, which exercises
+the commands, the link code, the handover and the operator side for free —
+everything except the model's own words.
+
+Besides the customer commands, the harness understands `!code` (issue a link
+code, so `/link` can be tried), `!op <command>` (type as the operator), `!id`
+(the chat id, for `/reply`) and `!quit`. The database is `:memory:` and is gone
+when you leave.
+
+The thing worth testing by hand is the handover: send `/human`, watch it reach
+the operator, answer with `!op /reply <id> …`, then type again as the customer
+and confirm the bot says *nothing* — only the operator sees it — until
+`!op /bot <id>` gives the chat back.
+
 ## Turning it on
 
 1. **A bot.** `@BotFather` → `/newbot` → a token. `TELEGRAM_BOT_TOKEN`.
