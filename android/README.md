@@ -1,4 +1,4 @@
-# SixVPN — Android client
+# SyxVPN — Android client
 
 This is the app that can do what the browser cannot: open the tunnel itself.
 
@@ -89,7 +89,7 @@ refuses a second instance outright.
 libXray states that it does not guarantee API stability. If a future release
 renames a method, the compile breaks in `LibXrayBridge.kt` and nowhere else.
 
-## How it fits the rest of SixVPN
+## How it fits the rest of SyxVPN
 
 ```
 customer buys on the web storefront  ──▶  control plane provisions a subscription
@@ -358,9 +358,9 @@ and each run gets a fresh runner — so each APK would carry a different signatu
 and Android refuses to install an update signed by a different key: every new
 build would have to be installed over an *uninstalled* app, losing its settings.
 
-So the workflow keeps the key itself: it creates `~/.sixvpn-debug-key/debug.keystore`
+So the workflow keeps the key itself: it creates `~/.syxvpn-debug-key/debug.keystore`
 when the cache has none, caches that directory under a fixed name, and passes the
-path to Gradle as `SIXVPN_DEBUG_KEYSTORE`, which `app/build.gradle.kts` uses as
+path to Gradle as `SYXVPN_DEBUG_KEYSTORE`, which `app/build.gradle.kts` uses as
 the debug signing config. The toolchain's own default location is deliberately
 not cached — it moves with the platform and the SDK preference directory, and a
 first attempt at caching it saved nothing while appearing to succeed.
@@ -371,7 +371,7 @@ unused for a week; when that happens the next build starts a new identity, the
 digest changes, and that one APK needs the old app removed first.
 
 This is the ordinary Android debug key, with the well-known password. It never
-signs a release: that path is `keystore.properties` or the `SIXVPN_KEYSTORE*`
+signs a release: that path is `keystore.properties` or the `SYXVPN_KEYSTORE*`
 variables, and nothing about it is in this repository.
 
 ## Build (on a machine with the Android SDK)
@@ -408,7 +408,7 @@ from services.gradle.org over TLS; verify it if you like:
     sha256  gradle/wrapper/gradle-wrapper.jar
             2db75c40782f5e8ba1fc278a5574bab070adccb2d21ca5a6e5ed840888448046
 
-A debug build installs as `pro.sixvpn.app.debug`, so it can sit next to a
+A debug build installs as `pro.syxvpn.app.debug`, so it can sit next to a
 release build on the same phone.
 
 ### Signing a release
@@ -428,7 +428,7 @@ is a key somebody else may have:
 sh android/tools/make-release-key.sh
 ```
 
-It writes `~/sixvpn-release/sixvpn-release.jks`, generates a password rather than
+It writes `~/syxvpn-release/syxvpn-release.jks`, generates a password rather than
 asking for one, prints the four values CI needs, and refuses to run a second
 time over an existing key. Then, before anything else, **copy the `.jks`
 somewhere off that machine.** If it is lost, every installed copy of the app is
@@ -438,9 +438,9 @@ app, and no path from one to the other.
 **Building with it.** The keystore never enters the repository. Locally, write
 `android/keystore.properties` (git-ignored):
 
-    storeFile=/absolute/path/sixvpn-release.jks
+    storeFile=/absolute/path/syxvpn-release.jks
     storePassword=...
-    keyAlias=sixvpn
+    keyAlias=syxvpn
     keyPassword=...
 
 In CI it comes from four repository secrets, which the script above will upload
@@ -450,7 +450,7 @@ for you if the GitHub CLI is signed in:
 |---|---|
 | `ANDROID_KEYSTORE_BASE64` | the `.jks` file, base64, on one line |
 | `ANDROID_KEYSTORE_PASSWORD` | the store password |
-| `ANDROID_KEY_ALIAS` | `sixvpn` |
+| `ANDROID_KEY_ALIAS` | `syxvpn` |
 | `ANDROID_KEY_PASSWORD` | the key password (the same one — PKCS12 has only one) |
 
 With none of them set the build still runs: the release APKs are signed with
@@ -474,8 +474,8 @@ are ordinary Kotlin can — and they are the parts where a quiet mistake is
 expensive, since a wrong amount does not settle an order:
 
 ```sh
-kotlinc android/app/src/main/java/pro/sixvpn/app/core/SupportContact.kt \
-        android/app/src/main/java/pro/sixvpn/app/ui/Format.kt \
+kotlinc android/app/src/main/java/pro/syxvpn/app/core/SupportContact.kt \
+        android/app/src/main/java/pro/syxvpn/app/ui/Format.kt \
         android/tools/PureLogicChecks.kt -include-runtime -d /tmp/checks.jar
 java -jar /tmp/checks.jar
 ```
@@ -492,8 +492,8 @@ curl -sSLo /tmp/json.jar \
   https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
 kotlinc -cp /tmp/json.jar \
   android/tools/UriStub.kt \
-  android/app/src/main/java/pro/sixvpn/app/core/VlessProfile.kt \
-  android/app/src/main/java/pro/sixvpn/app/core/XrayConfigBuilder.kt \
+  android/app/src/main/java/pro/syxvpn/app/core/VlessProfile.kt \
+  android/app/src/main/java/pro/syxvpn/app/core/XrayConfigBuilder.kt \
   android/tools/XrayConfigCheck.kt -include-runtime -d /tmp/cfg.jar
 java -cp /tmp/cfg.jar:/tmp/json.jar XrayConfigCheckKt > /tmp/xray.json
 xray -test -config /tmp/xray.json          # any xray binary, e.g. lab/bin/xray
@@ -510,8 +510,8 @@ gomobile expects a `Long`:
 
 ```sh
 kotlinc -cp /tmp/json.jar android/tools/stubs/*.kt \
-  android/app/src/main/java/pro/sixvpn/app/vpn/XrayBridge.kt \
-  android/app/src/xray/java/pro/sixvpn/app/vpn/LibXrayBridge.kt -d /tmp/bridge
+  android/app/src/main/java/pro/syxvpn/app/vpn/XrayBridge.kt \
+  android/app/src/xray/java/pro/syxvpn/app/vpn/LibXrayBridge.kt -d /tmp/bridge
 ```
 
 It cannot prove the AAR you build exports exactly that — libXray does not

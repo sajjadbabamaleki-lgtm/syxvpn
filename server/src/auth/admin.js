@@ -21,7 +21,7 @@ export function ensureBootstrapAdmin(db, cfg = config) {
   if (cfg.admin.generatedPassword) {
     // Development only: the operator has no other way to learn this value.
     process.stdout.write(
-      `\n  SixVPN control plane bootstrap admin\n    username: ${cfg.admin.username}\n    password: ${cfg.admin.password}\n  (development only — set ADMIN_PASSWORD to pin it)\n\n`,
+      `\n  SyxVPN control plane bootstrap admin\n    username: ${cfg.admin.username}\n    password: ${cfg.admin.password}\n  (development only — set ADMIN_PASSWORD to pin it)\n\n`,
     );
   }
   logger.info('bootstrap admin created', { username: cfg.admin.username });
@@ -147,7 +147,7 @@ export function consumeRecoveryCode(db, adminId, code, now = Date.now()) {
  * authenticator holds it. Enrolling in one step would let a mistyped secret
  * lock the account out of the fleet.
  */
-export function beginTotpEnrolment(db, adminId, issuer = 'SixVPN') {
+export function beginTotpEnrolment(db, adminId, issuer = 'SyxVPN') {
   const admin = db.prepare('SELECT id, username, totp_confirmed_at FROM admins WHERE id = ?').get(adminId);
   if (!admin) return null;
   if (admin.totp_confirmed_at) return { alreadyEnabled: true };

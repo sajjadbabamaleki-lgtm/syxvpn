@@ -10,7 +10,7 @@ import { inboundProfile } from '../src/domain/inbounds.js';
  * build — it would fail on a customer's phone, in the middle of paying.
  *
  * Each list below is exactly what
- * `android/app/src/main/java/pro/sixvpn/app/data/ControlPlaneClient.kt`
+ * `android/app/src/main/java/pro/syxvpn/app/data/ControlPlaneClient.kt`
  * looks up. Renaming a field on either side should break this test.
  */
 const SHOP_CONFIG_PAYMENT = ['configured', 'chain', 'asset', 'address', 'contract', 'confirmations', 'windowMinutes'];
@@ -45,7 +45,7 @@ test('the Android client reads fields the storefront actually returns', async (t
     confirmations: 19,
     paymentWindowMinutes: 60,
     maxOpenOrders: 2,
-    supportContact: '@sixvpnsupport',
+    supportContact: '@syxvpnsupport',
   });
   t.after(() => Object.assign(config.shop, originalShop));
 
@@ -55,7 +55,7 @@ test('the Android client reads fields the storefront actually returns', async (t
     has(res.body.data.payment, SHOP_CONFIG_PAYMENT, 'shop config payment');
     // The Support tab shows this and turns it into a link; null means "not set",
     // which the app states rather than hiding behind a dead button.
-    assert.equal(res.body.data.supportContact, '@sixvpnsupport');
+    assert.equal(res.body.data.supportContact, '@syxvpnsupport');
   });
 
   await t.test('GET /shop/plans carries every field the plan card shows', async () => {

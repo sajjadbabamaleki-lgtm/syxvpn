@@ -20,7 +20,7 @@ const backups = config.backup.enabled ? startBackups(db) : null;
 watcher?.start();
 
 const server = app.listen(config.port, config.host, () => {
-  logger.info('sixvpn control plane listening', {
+  logger.info('syxvpn control plane listening', {
     port: config.port,
     host: config.host,
     env: config.nodeEnv,

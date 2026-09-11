@@ -1,5 +1,5 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const TOKEN_KEY = 'sixvpn.session';
+const TOKEN_KEY = 'syxvpn.session';
 // What it was called. Read so a rename does not sign every operator out.
 const LEGACY_TOKEN_KEYS = ['cvpn.session', 'jordan.session'];
 

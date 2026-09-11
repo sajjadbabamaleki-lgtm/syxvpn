@@ -13,13 +13,13 @@ plugins {
  * The keystore never enters the repository. Put its details in
  * `android/keystore.properties` (git-ignored):
  *
- *     storeFile=/absolute/path/sixvpn-release.jks
+ *     storeFile=/absolute/path/syxvpn-release.jks
  *     storePassword=...
- *     keyAlias=sixvpn
+ *     keyAlias=syxvpn
  *     keyPassword=...
  *
- * or set SIXVPN_KEYSTORE / SIXVPN_KEYSTORE_PASSWORD / SIXVPN_KEY_ALIAS /
- * SIXVPN_KEY_PASSWORD in the environment for a CI build. With neither present
+ * or set SYXVPN_KEYSTORE / SYXVPN_KEYSTORE_PASSWORD / SYXVPN_KEY_ALIAS /
+ * SYXVPN_KEY_PASSWORD in the environment for a CI build. With neither present
  * the release build still runs and is simply left unsigned, so a debug build
  * never fails because of a missing key.
  */
@@ -28,7 +28,7 @@ val keystoreProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val keystorePath: String? = (keystoreProperties.getProperty("storeFile")
-    ?: System.getenv("SIXVPN_KEYSTORE"))?.takeIf { it.isNotBlank() }
+    ?: System.getenv("SYXVPN_KEYSTORE"))?.takeIf { it.isNotBlank() }
 
 /**
  * The Xray runtime is not vendored here: libXray is a large native artifact
@@ -41,11 +41,11 @@ val xrayAars = fileTree("libs") { include("*.aar") }
 val hasXrayRuntime = !xrayAars.isEmpty
 
 android {
-    namespace = "pro.sixvpn.app"
+    namespace = "pro.syxvpn.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "pro.sixvpn.app"
+        applicationId = "pro.syxvpn.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -68,8 +68,8 @@ android {
         buildConfigField(
             "String",
             "CONTROL_PLANE_URLS",
-            "\"" + (System.getenv("SIXVPN_CONTROL_PLANE_URLS")
-                ?: "https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
+            "\"" + (System.getenv("SYXVPN_CONTROL_PLANE_URLS")
+                ?: "https://control.syxvpn.pro,https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
         )
 
         // Whether the Premium tab may open a USDT order inside the app.
@@ -105,7 +105,7 @@ android {
         // These are the published Android debug credentials, not a secret: they
         // are the same on every machine that has ever built a debug APK, and
         // they never sign a release. Unset, the toolchain's own default is used.
-        System.getenv("SIXVPN_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
+        System.getenv("SYXVPN_DEBUG_KEYSTORE")?.takeIf { it.isNotBlank() }?.let { path ->
             getByName("debug") {
                 storeFile = file(path)
                 storePassword = "android"
@@ -117,11 +117,11 @@ android {
             create("release") {
                 storeFile = file(keystorePath)
                 storePassword = keystoreProperties.getProperty("storePassword")
-                    ?: System.getenv("SIXVPN_KEYSTORE_PASSWORD")
+                    ?: System.getenv("SYXVPN_KEYSTORE_PASSWORD")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
-                    ?: System.getenv("SIXVPN_KEY_ALIAS")
+                    ?: System.getenv("SYXVPN_KEY_ALIAS")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
-                    ?: System.getenv("SIXVPN_KEY_PASSWORD")
+                    ?: System.getenv("SYXVPN_KEY_PASSWORD")
             }
         }
     }

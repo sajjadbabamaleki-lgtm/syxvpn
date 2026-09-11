@@ -290,7 +290,7 @@ export function MyConfig() {
 
       <Card className="quiet">
         <p>
-          SixVPN hands your app a config; the tunnel itself runs inside a VPN client such as
+          SyxVPN hands your app a config; the tunnel itself runs inside a VPN client such as
           NPV Tunnel, v2rayNG or Hiddify. A browser cannot open a VPN connection.
         </p>
       </Card>

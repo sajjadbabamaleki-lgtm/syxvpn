@@ -21,7 +21,7 @@ function resolveKeyMaterial() {
     });
   }
   const dir = config.dbPath === ':memory:' ? null : path.dirname(path.resolve(config.dbPath));
-  const file = dir && path.join(dir, '.sixvpn-secret-key');
+  const file = dir && path.join(dir, '.syxvpn-secret-key');
   if (!file) return crypto.randomBytes(32).toString('base64');
   try {
     return fs.readFileSync(file, 'utf8').trim();

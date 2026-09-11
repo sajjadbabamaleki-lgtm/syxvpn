@@ -15,9 +15,9 @@ or payment data.
 
 | Name | Points at | Proxy |
 | --- | --- | --- |
-| `sixvpn.pro`, `www.sixvpn.pro` | the control-plane host | Cloudflare is fine |
-| `control.sixvpn.pro` | the same host | Cloudflare is fine |
-| `gw1.sixvpn.pro`, `gw2…` | each gateway host, one record each | **DNS only — grey cloud** |
+| `syxvpn.pro`, `www.syxvpn.pro` | the control-plane host | Cloudflare is fine |
+| `control.syxvpn.pro` | the same host | Cloudflare is fine |
+| `gw1.syxvpn.pro`, `gw2…` | each gateway host, one record each | **DNS only — grey cloud** |
 
 A gateway is never proxied through Cloudflare. The tunnel is not ordinary web
 traffic, proxying it breaks the TLS the client expects to terminate at the
@@ -28,9 +28,10 @@ Keep the names you are no longer using rather than dropping them. An old domain
 costs a registration a year and goes into the client's endpoint list behind the
 current one, where it is reached only when the first name cannot be connected to
 at all — which is a situation you cannot register a domain from inside of. The
-Android build ships `control.sixvpn.pro` first and `control.cvpn.pro` behind it
-for exactly this reason; add more with `SIXVPN_CONTROL_PLANE_URLS`, comma
-separated, in the order to try.
+Android build ships `control.syxvpn.pro` first, then `control.sixvpn.pro` and
+`control.cvpn.pro` behind it — both names this product has been called, and
+both worth the renewal for exactly this reason. Add more with
+`SYXVPN_CONTROL_PLANE_URLS`, comma separated, in the order to try.
 
 ## 1. Control plane
 
@@ -44,8 +45,8 @@ Fill in at least:
 NODE_ENV=production
 ADMIN_PASSWORD=...              # or ADMIN_PASSWORD_HASH from server/scripts/hash-password.js
 SECRET_KEY=$(openssl rand -base64 32)
-PUBLIC_BASE_URL=https://control.sixvpn.pro
-CORS_ORIGINS=https://control.sixvpn.pro
+PUBLIC_BASE_URL=https://control.syxvpn.pro
+CORS_ORIGINS=https://control.syxvpn.pro
 TRON_ADDRESS=T...               # only if you are selling
 TRUST_PROXY=true                # you are behind a reverse proxy
 ```
@@ -83,7 +84,7 @@ no reverse proxy. **A bare IP address is enough**, which is what makes a spare
 gateway cheap enough to keep spares.
 
 ```sh
-CONTROL_URL=https://control.sixvpn.pro \
+CONTROL_URL=https://control.syxvpn.pro \
 GATEWAY_HOST=203.0.113.9 GATEWAY_REGION=nl \
 ADMIN_PASSWORD=… sh deploy/bootstrap-gateway.sh
 ```
@@ -108,7 +109,7 @@ client ──TLS──▶ Caddy :443 ──ws──▶ Xray 127.0.0.1:10001 ─�
 ```
 
 ```sh
-TRANSPORT=ws GATEWAY_HOST=gw2.sixvpn.pro … sh deploy/bootstrap-gateway.sh
+TRANSPORT=ws GATEWAY_HOST=gw2.syxvpn.pro … sh deploy/bootstrap-gateway.sh
 ```
 
 Or register it in the operator console (`/admin/gateways`) with:
@@ -133,11 +134,11 @@ Registration returns an agent key **once**. Then on the gateway host:
 # gateway recover from a bad config without a person on the machine.
 docker run -d --name cvpn-agent --restart unless-stopped \
   --network host \
-  -e SIXVPN_URL=https://control.sixvpn.pro \
-  -e SIXVPN_GATEWAY_ID=gw_... \
-  -e SIXVPN_AGENT_KEY=jga_... \
+  -e SYXVPN_URL=https://control.syxvpn.pro \
+  -e SYXVPN_GATEWAY_ID=gw_... \
+  -e SYXVPN_AGENT_KEY=jga_... \
   -v /var/lib/cvpn-agent:/var/lib/cvpn-agent \
-  sixvpn/agent:latest
+  syxvpn/agent:latest
 ```
 
 The agent fetches its configuration, tests it with `xray -test`, deploys it

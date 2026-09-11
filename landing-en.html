@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#0a0c0f" />
 <meta name="color-scheme" content="dark" />
 
-<title>SixVPN — one switch, and an app that admits when it cannot connect</title>
-<meta name="description" content="SixVPN picks the gateway by measuring the whole path, comes back on its own when a route dies, and keeps your imported configs strictly manual. Direct Android download." />
+<title>SyxVPN — one switch, and an app that admits when it cannot connect</title>
+<meta name="description" content="SyxVPN picks the gateway by measuring the whole path, comes back on its own when a route dies, and keeps your imported configs strictly manual. Direct Android download." />
 <link rel="canonical" href="%VITE_SITE_URL%/" />
 <link rel="alternate" hreflang="en" href="%VITE_SITE_URL%/" />
 <link rel="alternate" hreflang="fa" href="%VITE_SITE_URL%/fa" />
@@ -15,13 +15,13 @@
 <meta name="robots" content="index, follow, max-image-preview:large" />
 
 <meta property="og:type" content="website" />
-<meta property="og:site_name" content="SixVPN" />
+<meta property="og:site_name" content="SyxVPN" />
 <meta property="og:locale" content="en_US" />
-<meta property="og:title" content="SixVPN — one switch, and an app that admits when it cannot connect" />
+<meta property="og:title" content="SyxVPN — one switch, and an app that admits when it cannot connect" />
 <meta property="og:description" content="It measures the whole path, not just the first hop. It comes back on its own. It never touches the configs you imported." />
 <meta property="og:url" content="%VITE_SITE_URL%/" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="SixVPN — one switch, honestly built" />
+<meta name="twitter:title" content="SyxVPN — one switch, honestly built" />
 <meta name="twitter:description" content="It measures the whole path, not just the first hop. It comes back on its own." />
 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0c0f'/%3E%3Cg fill='%235CD673' transform='translate(50 50) scale(0.82) translate(-50 -50)'%3E%3Cpath d='M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z'/%3E%3Crect x='39.7' y='41.1' width='20.6' height='17.8'/%3E%3C/g%3E%3C/svg%3E" />
@@ -34,7 +34,7 @@
   "@graph": [
     {
       "@type": "SoftwareApplication",
-      "name": "SixVPN",
+      "name": "SyxVPN",
       "applicationCategory": "SecurityApplication",
       "operatingSystem": "Android 7.0+",
       "url": "%VITE_SITE_URL%/en",
@@ -44,7 +44,7 @@
     {
       "@type": "FAQPage",
       "mainEntity": [
-        { "@type": "Question", "name": "What makes SixVPN different?",
+        { "@type": "Question", "name": "What makes SyxVPN different?",
           "acceptedAnswer": { "@type": "Answer", "text": "Two things. Selection is based on measurement rather than assumption: the app tests the whole path through a gateway, not merely whether the gateway answers. And the manual config section is genuinely separate — nothing ever reorders, replaces or re-picks a config you imported." } },
         { "@type": "Question", "name": "Do you keep logs?",
           "acceptedAnswer": { "@type": "Answer", "text": "Byte counters per subscription, because that is how a data quota works. Not destinations: the gateways run at warning log level, so the addresses you open are not written down." } },
@@ -66,12 +66,12 @@
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="/" aria-label="SixVPN">
+    <a class="brand" href="/" aria-label="SyxVPN">
       <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true" fill="#5CD673">
         <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
         <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
       </svg>
-      SixVPN
+      SyxVPN
     </a>
     <nav class="nav">
       <a href="#features" class="hide-sm">Features</a>
@@ -108,7 +108,7 @@
       <span class="eyebrow reveal"><span class="dot"></span> Android — direct download</span>
       <h1 class="reveal">One switch.<br />The rest is <span class="on">our problem</span>.</h1>
       <p class="lede reveal">
-        SixVPN measures the whole path before it picks a gateway, and when a route dies
+        SyxVPN measures the whole path before it picks a gateway, and when a route dies
         mid-session it comes back on its own — without you touching anything.
       </p>
       <div class="store reveal">
@@ -234,7 +234,7 @@
       <p class="sub reveal">If yours is not here, message support from inside the app.</p>
 
       <details>
-        <summary>What makes SixVPN different?</summary>
+        <summary>What makes SyxVPN different?</summary>
         <p>Two things. Selection is based on measurement rather than assumption: the app tests the whole path through a gateway, not merely whether the gateway answers. And the manual config section is genuinely separate — nothing ever reorders, replaces or re-picks a config you imported.</p>
       </details>
       <details>
@@ -274,7 +274,7 @@
 
 <footer>
   <div class="wrap foot">
-    <span>© <span id="y">2026</span> SixVPN</span>
+    <span>© <span id="y">2026</span> SyxVPN</span>
     <a href="/fa" hreflang="fa">فارسی</a>
     <a href="/app/">Account</a>
     <span class="spacer">Built on Xray-core</span>
@@ -291,9 +291,9 @@
   // none. If the call fails, the section says so rather than inventing numbers.
   (function () {
     // Same origin: the reverse proxy in deploy/ serves this page and the API
-    // together. If a deployment ever splits them, set window.SIXVPN_API before
+    // together. If a deployment ever splits them, set window.SYXVPN_API before
     // this script rather than editing it.
-    var API = (window.SIXVPN_API || '').replace(/\/+$/, '');
+    var API = (window.SYXVPN_API || '').replace(/\/+$/, '');
     var grid = document.getElementById('plan-grid');
     if (!grid) return;
 

@@ -1,5 +1,5 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const TOKEN_KEY = 'sixvpn.customer';
+const TOKEN_KEY = 'syxvpn.customer';
 // What it was called. Read so a rename does not sign every customer out of the
 // account they paid for.
 const LEGACY_TOKEN_KEYS = ['cvpn.customer', 'jordan.customer'];

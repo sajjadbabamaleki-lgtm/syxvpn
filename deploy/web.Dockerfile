@@ -12,12 +12,12 @@ ENV VITE_API_URL=$VITE_API_URL
 # Where this deployment actually lives. The landing pages put it in their
 # canonical, hreflang and Open Graph tags, so a wrong value here is a page that
 # tells search engines to index somebody else's address.
-ARG VITE_SITE_URL="https://sixvpn.pro"
+ARG VITE_SITE_URL="https://syxvpn.pro"
 ENV VITE_SITE_URL=$VITE_SITE_URL
 
 # Where the Android build is published. Left empty, the download buttons point
 # at nothing — set it to the real file before announcing the page.
-ARG VITE_APK_URL="/download/sixvpn.apk"
+ARG VITE_APK_URL="/download/syxvpn.apk"
 ENV VITE_APK_URL=$VITE_APK_URL
 
 RUN npm run build

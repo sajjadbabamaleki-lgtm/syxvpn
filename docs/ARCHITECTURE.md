@@ -8,7 +8,7 @@ client ──▶ subscription ──▶ gateway (ingress) ──▶ egress ─�
 
 A client profile only ever describes the first arrow. The scarce resource is the
 last one: a path that is both available and authorized to reach international
-connectivity. SixVPN models ingress and egress as separate objects with separate
+connectivity. SyxVPN models ingress and egress as separate objects with separate
 health, because they fail independently.
 
 An old prototype config makes the point. A VMess profile with

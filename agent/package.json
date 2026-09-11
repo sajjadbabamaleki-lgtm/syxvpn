@@ -1,9 +1,9 @@
 {
-  "name": "sixvpn-gateway-agent",
+  "name": "syxvpn-gateway-agent",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Gateway-side agent: deploys Xray configuration safely, probes egress paths and reports usage to the SixVPN control plane.",
+  "description": "Gateway-side agent: deploys Xray configuration safely, probes egress paths and reports usage to the SyxVPN control plane.",
   "scripts": {
     "start": "node src/index.js",
     "once": "node src/index.js --once"

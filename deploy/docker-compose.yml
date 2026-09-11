@@ -72,9 +72,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-}
         # The public address, as the landing pages advertise it to search
         # engines. Wrong here means canonical tags pointing at somewhere else.
-        VITE_SITE_URL: ${SITE_URL:-https://sixvpn.pro}
+        VITE_SITE_URL: ${SITE_URL:-https://syxvpn.pro}
         # Where the Android build is published.
-        VITE_APK_URL: ${APK_URL:-/download/sixvpn.apk}
+        VITE_APK_URL: ${APK_URL:-/download/syxvpn.apk}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"

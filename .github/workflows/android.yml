@@ -145,7 +145,7 @@ jobs:
       # signed by a different key: every build would demand that the previous one
       # be uninstalled first, taking its settings with it. So the key is kept in
       # a directory of this workflow's own, cached under a fixed name, and the
-      # build is pointed at it through SIXVPN_DEBUG_KEYSTORE.
+      # build is pointed at it through SYXVPN_DEBUG_KEYSTORE.
       #
       # The toolchain's own default location is not used, because it is not one
       # location: it moves with the platform and the SDK's preference directory,
@@ -154,25 +154,25 @@ jobs:
       #
       # This is the ordinary Android debug key — the published password, never
       # used for a release. Release signing is separate and comes from
-      # keystore.properties or the SIXVPN_KEYSTORE* variables, and nothing about
+      # keystore.properties or the SYXVPN_KEYSTORE* variables, and nothing about
       # it is in this repository.
       - name: Restore the debug signing key
         uses: actions/cache@v4
         with:
-          path: ~/.sixvpn-debug-key
+          path: ~/.syxvpn-debug-key
           key: android-debug-keystore-v2
 
       - name: Create the debug key if there was none to restore
         run: |
-          mkdir -p ~/.sixvpn-debug-key
-          store=~/.sixvpn-debug-key/debug.keystore
+          mkdir -p ~/.syxvpn-debug-key
+          store=~/.syxvpn-debug-key/debug.keystore
           if [ ! -f "$store" ]; then
             keytool -genkeypair -v -keystore "$store" \
               -storepass android -keypass android -alias androiddebugkey \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -dname 'CN=Android Debug,O=Android,C=US'
           fi
-          echo "SIXVPN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
+          echo "SYXVPN_DEBUG_KEYSTORE=$store" >> "$GITHUB_ENV"
 
       # Unit tests first: they are the only thing in this pipeline that can fail
       # on a mistake the compiler is happy with — an icon path the renderer
@@ -293,7 +293,7 @@ jobs:
             }
           done
 
-          store="$RUNNER_TEMP/sixvpn-release.jks"
+          store="$RUNNER_TEMP/syxvpn-release.jks"
           printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$store" || {
             echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 — paste the whole of keystore.base64" >&2
             exit 1
@@ -309,10 +309,10 @@ jobs:
 
           # Gradle's release signingConfig reads these four.
           {
-            echo "SIXVPN_KEYSTORE=$store"
-            echo "SIXVPN_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-            echo "SIXVPN_KEY_ALIAS=$KEY_ALIAS"
-            echo "SIXVPN_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "SYXVPN_KEYSTORE=$store"
+            echo "SYXVPN_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "SYXVPN_KEY_ALIAS=$KEY_ALIAS"
+            echo "SYXVPN_KEY_PASSWORD=$KEY_PASSWORD"
           } >> "$GITHUB_ENV"
           echo "have_key=true" >> "$GITHUB_OUTPUT"
           echo "Release key loaded. This run produces installable releases."
@@ -347,14 +347,14 @@ jobs:
             base=$(basename "$apk" .apk | sed 's/-unsigned$//; s/-release$//; s/^app-//')
             if [ "$HAVE_KEY" = true ]; then
               # Gradle signed and aligned it already, with the real key.
-              cp "$apk" "app/build/outputs/apk/dist/sixvpn-$base.apk"
+              cp "$apk" "app/build/outputs/apk/dist/syxvpn-$base.apk"
             else
               # Signed with the debug key so it can be installed and tested at
               # all, and named so nobody can mistake it for something to publish.
-              out="app/build/outputs/apk/dist/sixvpn-$base-TEST-SIGNED.apk"
+              out="app/build/outputs/apk/dist/syxvpn-$base-TEST-SIGNED.apk"
               "$tools/zipalign" -p -f 4 "$apk" "$out.tmp"
               "$tools/apksigner" sign \
-                --ks "$SIXVPN_DEBUG_KEYSTORE" --ks-pass pass:android \
+                --ks "$SYXVPN_DEBUG_KEYSTORE" --ks-pass pass:android \
                 --ks-key-alias androiddebugkey --key-pass pass:android \
                 --out "$out" "$out.tmp"
               rm -f "$out.tmp" "$out.idsig"
@@ -429,14 +429,14 @@ jobs:
       - name: Attach the release arm64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-arm64-v8a
+          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-arm64-v8a
           path: android/app/build/outputs/apk/dist/*arm64-v8a*.apk
           if-no-files-found: error
 
       - name: Attach the release armeabi-v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-armeabi-v7a
+          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-armeabi-v7a
           path: android/app/build/outputs/apk/dist/*armeabi-v7a*.apk
           if-no-files-found: error
 
@@ -445,28 +445,28 @@ jobs:
       - name: Attach the release universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-universal
+          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-universal
           path: android/app/build/outputs/apk/dist/*universal*.apk
           if-no-files-found: error
 
       - name: Attach the universal APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-debug-apk-universal
+          name: syxvpn-debug-apk-universal
           path: android/app/build/outputs/apk/debug/*universal*.apk
           if-no-files-found: error
 
       - name: Attach the arm64 APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-debug-apk-arm64-v8a
+          name: syxvpn-debug-apk-arm64-v8a
           path: android/app/build/outputs/apk/debug/*arm64-v8a*.apk
           if-no-files-found: error
 
       - name: Attach the armeabi-v7a APK to this run
         uses: actions/upload-artifact@v4
         with:
-          name: sixvpn-debug-apk-armeabi-v7a
+          name: syxvpn-debug-apk-armeabi-v7a
           path: android/app/build/outputs/apk/debug/*armeabi-v7a*.apk
           if-no-files-found: error
 

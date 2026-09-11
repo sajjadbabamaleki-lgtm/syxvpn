@@ -1,4 +1,4 @@
-# SixVPN gateway agent
+# SyxVPN gateway agent
 
 Runs on a gateway host next to Xray. It is the only component that holds
 data-plane secrets, and the only one that touches the Xray configuration file.
@@ -69,9 +69,9 @@ be rotated from the dashboard.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SIXVPN_URL` | — | Control-plane base URL (required) |
-| `SIXVPN_GATEWAY_ID` | — | Gateway id from registration (required) |
-| `SIXVPN_AGENT_KEY` | — | Agent key issued at registration (required) |
+| `SYXVPN_URL` | — | Control-plane base URL (required) |
+| `SYXVPN_GATEWAY_ID` | — | Gateway id from registration (required) |
+| `SYXVPN_AGENT_KEY` | — | Agent key issued at registration (required) |
 | `STATE_DIR` | `/var/lib/cvpn-agent` | Where config and last-known-good live |
 | `XRAY_BIN` | `xray` | Path to the Xray binary |
 | `XRAY_CONFIG_PATH` | `$STATE_DIR/xray.json` | Active configuration file |

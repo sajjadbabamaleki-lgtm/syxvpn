@@ -3,9 +3,9 @@
 #
 # Names this deployment uses:
 #
-#   sixvpn.pro           the public page          (may sit behind Cloudflare)
-#   control.sixvpn.pro   API + storefront/console (may sit behind Cloudflare)
-#   gw1.sixvpn.pro       a gateway                (MUST be DNS-only)
+#   syxvpn.pro           the public page          (may sit behind Cloudflare)
+#   control.syxvpn.pro   API + storefront/console (may sit behind Cloudflare)
+#   gw1.syxvpn.pro       a gateway                (MUST be DNS-only)
 #
 # A gateway is never proxied through Cloudflare. The tunnel is not ordinary web
 # traffic, proxying it breaks the TLS the client expects to terminate at the
@@ -13,7 +13,7 @@
 # terms. Grey cloud, always.
 
 # ------------------------------------------------------------------ public site
-sixvpn.pro, www.sixvpn.pro {
+syxvpn.pro, www.syxvpn.pro {
     encode zstd gzip
     reverse_proxy 127.0.0.1:8080
 
@@ -25,7 +25,7 @@ sixvpn.pro, www.sixvpn.pro {
 }
 
 # ---------------------------------------------------------------- control plane
-control.sixvpn.pro {
+control.syxvpn.pro {
     encode zstd gzip
 
     # API and subscription endpoints. /telegram/* is the support bot's webhook:
@@ -52,7 +52,7 @@ control.sixvpn.pro {
 # --------------------------------------------------------------------- gateway
 # TLS terminates here; Xray listens on loopback with no TLS of its own, which is
 # what `tlsMode: reverse-proxy` in the gateway registration means.
-gw1.sixvpn.pro {
+gw1.syxvpn.pro {
     encode zstd gzip
 
     # Must match the gateway's configured WebSocket path.

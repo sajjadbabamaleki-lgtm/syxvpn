@@ -48,7 +48,7 @@ export function Login({ onSignedIn }) {
       <div className="login-brand">
         <Logo size={40} className="mark-logo" />
         <div>
-          <h1>SixVPN</h1>
+          <h1>SyxVPN</h1>
           <p>Control plane</p>
         </div>
       </div>

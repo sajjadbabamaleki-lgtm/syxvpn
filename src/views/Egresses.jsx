@@ -68,7 +68,7 @@ function AddEgressSheet({ open, onClose, onCreated }) {
     <Sheet open={open} title="Register egress path" onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <p className="warn-note">
-          Only register connectivity you are authorized to use. SixVPN will not help you obtain
+          Only register connectivity you are authorized to use. SyxVPN will not help you obtain
           access you do not have.
         </p>
         <Field label="Name"><input value={form.name} onChange={set('name')} required maxLength={64} /></Field>

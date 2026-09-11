@@ -25,7 +25,7 @@ export function Logo({ size = 24, className = '', color = '#5CD673' }) {
       className={className}
       fill={color}
       role="img"
-      aria-label="SixVPN"
+      aria-label="SyxVPN"
     >
       <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z" />
       <rect x="39.7" y="41.1" width="20.6" height="17.8" />

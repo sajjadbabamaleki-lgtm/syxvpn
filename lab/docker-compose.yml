@@ -78,9 +78,9 @@ services:
       context: ..
       dockerfile: lab/Dockerfile.agent
     environment:
-      SIXVPN_URL: http://control:8787
-      SIXVPN_GATEWAY_ID: ${LAB_GATEWAY_ID:?run ./run-lab.sh, which registers the gateway first}
-      SIXVPN_AGENT_KEY: ${LAB_AGENT_KEY:?run ./run-lab.sh, which issues the agent key}
+      SYXVPN_URL: http://control:8787
+      SYXVPN_GATEWAY_ID: ${LAB_GATEWAY_ID:?run ./run-lab.sh, which registers the gateway first}
+      SYXVPN_AGENT_KEY: ${LAB_AGENT_KEY:?run ./run-lab.sh, which issues the agent key}
       STATE_DIR: /var/lib/cvpn-agent
       XRAY_BIN: /usr/local/bin/xray
       RELOAD_MODE: supervise

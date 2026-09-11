@@ -33,7 +33,7 @@ export function Auth({ onDone }) {
       <div className="login-brand">
         <Logo size={40} className="mark-logo" />
         <div>
-          <h1>SixVPN</h1>
+          <h1>SyxVPN</h1>
           <p>{mode === 'signin' ? 'Sign in to your account' : 'Create an account'}</p>
         </div>
       </div>
