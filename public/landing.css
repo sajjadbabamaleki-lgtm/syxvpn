@@ -721,16 +721,26 @@ h3 { font-weight: 400; }
 /* Centred, because three left-aligned columns in a phone's width is a third of
    a screen of text and two thirds of nothing. */
 footer { border-top: 1px solid var(--border); padding: 64px 0 52px; color: var(--faint); font-size: 13px; }
-.foot-lead { text-align: center; display: grid; justify-items: center; gap: 22px; }
+/* minmax(0, 1fr) rather than the default auto column, here and in every
+   centred grid below it. An auto column is sized to its widest item, so a
+   single item that will not shrink — an <input>, which keeps an intrinsic
+   width of its own — widens the column past the box, and then everything
+   centred in that column moves right by half the overflow. That is one
+   element misbehaving and the whole panel looking crooked. A 0-floored track
+   cannot outgrow its container, so nothing else can be dragged along. */
+.foot-lead {
+  text-align: center; display: grid; grid-template-columns: minmax(0, 1fr);
+  justify-items: center; gap: 22px;
+}
 .foot-lead > svg { display: block; filter: drop-shadow(0 0 4px rgba(216, 248, 58, .5)) drop-shadow(0 0 13px rgba(216, 248, 58, .26)); }
 .foot-tag { color: var(--dim); max-width: 46ch; margin: 0; line-height: 1.8; }
 
 /* One pill holding both halves, rather than a field with a button under it. */
-.signup { width: 100%; display: grid; justify-items: center; gap: 10px; }
+.signup { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 10px; }
 .signup h4 { margin: 0; font-size: 15px; font-weight: 500; color: var(--text); }
 .signup form {
   display: flex; flex-direction: row; align-items: center; gap: 8px;
-  width: 100%; max-width: 410px;
+  width: 100%; min-width: 0; max-width: 410px;
   padding: 5px; padding-inline-start: 20px;
   border: 1px solid rgba(217, 176, 33, .45); border-radius: 999px;
   background: rgba(217, 176, 33, .06);
@@ -768,7 +778,7 @@ a.soc:hover {
    different document stapled to the end of it. */
 .foot-panel {
   position: relative; overflow: hidden;
-  display: grid; justify-items: center; gap: 20px;
+  display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 20px;
   width: 100%; padding: 34px 22px;
   border: 1px solid var(--border); border-radius: var(--radius);
   background: linear-gradient(180deg, #191919, #111 70%);
