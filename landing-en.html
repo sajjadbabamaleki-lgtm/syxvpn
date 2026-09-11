@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0c0f" />
+<meta name="theme-color" content="#0a0a0a" />
 <meta name="color-scheme" content="dark" />
 
 <title>SyxVPN — one switch, and an app that admits when it cannot connect</title>
@@ -24,7 +24,7 @@
 <meta name="twitter:title" content="SyxVPN — one switch, honestly built" />
 <meta name="twitter:description" content="It measures the whole path, not just the first hop. It comes back on its own." />
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0c0f'/%3E%3Cg fill='%235CD673' transform='translate(50 50) scale(0.82) translate(-50 -50)'%3E%3Cpath d='M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z'/%3E%3Crect x='39.7' y='41.1' width='20.6' height='17.8'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0a0a'/%3E%3Cg fill='%23d8f83a' transform='translate(50 50) scale(0.82) translate(-50 -50)'%3E%3Cpath d='M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z'/%3E%3Crect x='39.7' y='41.1' width='20.6' height='17.8'/%3E%3C/g%3E%3C/svg%3E" />
 <link rel="stylesheet" href="/landing.css" />
 <script>document.documentElement.className += ' js';</script>
 
@@ -67,7 +67,7 @@
 <header class="top">
   <div class="wrap">
     <a class="brand" href="/" aria-label="SyxVPN">
-      <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true" fill="#5CD673">
+      <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true" fill="#d8f83a">
         <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
         <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
       </svg>
@@ -126,11 +126,22 @@
         </a>
       </div>
       <p class="note reveal">The app opens without an account. One is only needed to buy a plan.</p>
+
+      <!-- Facts, not figures. This is the shape a page uses to claim twelve
+           million users; every row here is something a reader can check. -->
+      <div class="facts reveal">
+        <div class="fact"><b>3</b><span>protocols, on every gateway</span></div>
+        <div class="fact"><b>0</b><span>accounts to start</span></div>
+        <div class="fact"><b>Xray</b><span>tunnel core, pinned version</span></div>
+      </div>
     </div>
   </section>
 
+  <div class="arc" aria-hidden="true"></div>
+
   <section id="how">
     <div class="wrap">
+      <p class="label reveal">How it works</p>
       <h2 class="reveal">How it works</h2>
       <p class="sub reveal">Three steps, and then you stop thinking about it.</p>
       <div class="steps">
@@ -152,6 +163,7 @@
 
   <section id="features">
     <div class="wrap">
+      <p class="label reveal">Key features</p>
       <h2 class="reveal">What is actually in it</h2>
       <p class="sub reveal">Not a feature list for a landing page — these are written, and they have tests.</p>
       <div class="grid">
@@ -192,6 +204,7 @@
 
   <section id="plans">
     <div class="wrap">
+      <p class="label reveal">Pricing plans</p>
       <h2 class="reveal">Plans</h2>
       <p class="sub reveal">Monthly, three, six and twelve months. Paid in USDT on TRON, confirmed on chain.</p>
 
@@ -215,6 +228,7 @@
 
   <section id="honest">
     <div class="wrap">
+      <p class="label reveal">What we do not claim</p>
       <h2 class="reveal">What we will not claim</h2>
       <p class="sub reveal">Every VPN promises these. We do not, because nobody can keep them.</p>
       <div class="plain reveal">
@@ -230,6 +244,7 @@
 
   <section id="faq">
     <div class="wrap">
+      <p class="label reveal">FAQ</p>
       <h2 class="reveal">Questions</h2>
       <p class="sub reveal">If yours is not here, message support from inside the app.</p>
 
@@ -262,6 +277,7 @@
 
   <section id="get">
     <div class="wrap" style="text-align:center">
+      <p class="label center reveal">Get started</p>
       <h2 class="reveal">Try it now</h2>
       <p class="sub reveal" style="margin-inline:auto">Installing takes seconds, and opening it needs no account at all.</p>
       <div class="cta reveal">
@@ -273,11 +289,42 @@
 </main>
 
 <footer>
-  <div class="wrap foot">
-    <span>© <span id="y">2026</span> SyxVPN</span>
-    <a href="/fa" hreflang="fa">فارسی</a>
-    <a href="/app/">Account</a>
-    <span class="spacer">Built on Xray-core</span>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <span class="brand" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 100 100" fill="#d8f83a">
+            <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
+            <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
+          </svg>
+          SyxVPN
+        </span>
+        <p>One switch, and the rest is our problem. It picks the gateway, measures the whole path, and comes back on its own when a route dies.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#plans">Plans</a>
+        <a href="%VITE_APK_URL%" rel="nofollow">Download for Android</a>
+      </div>
+      <div class="foot-col">
+        <h4>Account</h4>
+        <a href="/app/">Sign in</a>
+        <a href="/app/#/store">Buy a plan</a>
+        <a href="/app/#/config">My config</a>
+      </div>
+      <div class="foot-col">
+        <h4>Help</h4>
+        <a href="#faq">Questions</a>
+        <a href="#honest">What we will not claim</a>
+        <a href="/fa" hreflang="fa">فارسی</a>
+      </div>
+    </div>
+    <div class="foot">
+      <span>© <span id="y">2026</span> SyxVPN</span>
+      <span class="spacer">Built on Xray-core</span>
+    </div>
   </div>
 </footer>
 
