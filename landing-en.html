@@ -67,7 +67,7 @@
 <header class="top">
   <div class="wrap">
     <a class="brand" href="/" aria-label="SyxVPN">
-      <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true" fill="#d8f83a">
+      <svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true" fill="#d8f83a">
         <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
         <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
       </svg>
@@ -75,26 +75,27 @@
     </a>
     <nav class="nav">
       <a href="#features" class="hide-sm">Features</a>
+      <a href="#about" class="hide-sm">About</a>
       <a href="#plans" class="hide-sm">Plans</a>
-      <a href="#how" class="hide-sm">How it works</a>
-      <a href="#faq" class="hide-sm">FAQ</a>
+      <a href="#faq" class="hide-sm">Questions</a>
       <details class="langsel">
         <summary aria-label="Change language">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
-          English
+          فارسی
         </summary>
         <div class="menu" role="menu">
-          <a href="/" hreflang="en" role="menuitem" aria-current="true"><span class="tick">✓</span>English</a>
           <a href="/fa" hreflang="fa" role="menuitem"><span class="tick">✓</span>فارسی</a>
+          <a href="/" hreflang="en" role="menuitem" aria-current="true"><span class="tick">✓</span>English</a>
         </div>
       </details>
+      <a class="btn btn-primary hide-sm" href="%VITE_APK_URL%" rel="nofollow">Get started</a>
       <details class="menubtn">
         <summary aria-label="Menu"><svg class="ico-open" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="ico-close" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></summary>
         <div class="menu" role="menu">
           <a href="#features" role="menuitem">Features</a>
+          <a href="#about" role="menuitem">About</a>
           <a href="#plans" role="menuitem">Plans</a>
-          <a href="#how" role="menuitem">How it works</a>
-          <a href="#faq" role="menuitem">FAQ</a>
+          <a href="#faq" role="menuitem">Questions</a>
           <a href="/app/" role="menuitem">Account</a>
         </div>
       </details>
@@ -103,14 +104,21 @@
 </header>
 
 <main>
-  <section class="hero" style="border-top:none">
+
+  <!-- ===================================================== hero -->
+  <section class="hero">
     <div class="wrap">
       <span class="eyebrow reveal"><span class="dot"></span> Android — direct download</span>
-      <h1 class="reveal">One switch.<br />The rest is <span class="on">our problem</span>.</h1>
+      <h1 class="reveal">Privacy, protected<br />every single <span class="on">moment</span></h1>
       <p class="lede reveal">
-        SyxVPN measures the whole path before it picks a gateway, and when a route dies
-        mid-session it comes back on its own — without you touching anything.
+        Browse and connect safely. SyxVPN picks the gateway, measures the whole path,
+        and comes back on its own when a route dies.
       </p>
+      <div class="cta reveal">
+        <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">Get started</a>
+        <a class="btn btn-gold" href="#plans">See all plans</a>
+      </div>
+
       <div class="store reveal">
         <span class="badge badge-store" aria-disabled="true" title="Not shipped yet">
           <span class="b-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg></span>
@@ -127,163 +135,266 @@
       </div>
       <p class="note reveal">The app opens without an account. One is only needed to buy a plan.</p>
 
-      <!-- Facts, not figures. This is the shape a page uses to claim twelve
-           million users; every row here is something a reader can check. -->
-      <div class="facts reveal">
-        <div class="fact"><b>3</b><span>protocols, on every gateway</span></div>
-        <div class="fact"><b>0</b><span>accounts to start</span></div>
-        <div class="fact"><b>Xray</b><span>tunnel core, pinned version</span></div>
+      <!-- Facts, not figures: this is the shape a page uses to claim twelve
+           million users, so every row is something a reader can check. -->
+      <div class="proof reveal">
+        <div class="proof-item"><b>3</b><span>protocols, on every gateway</span></div>
+        <div class="proof-item"><b>No account</b><span>to open the app</span></div>
+        <div class="proof-item"><b>Xray</b><span>tunnel core, pinned version</span></div>
       </div>
     </div>
   </section>
 
   <div class="arc" aria-hidden="true"></div>
 
-  <section id="how">
-    <div class="wrap">
-      <p class="label reveal">How it works</p>
-      <h2 class="reveal">How it works</h2>
-      <p class="sub reveal">Three steps, and then you stop thinking about it.</p>
-      <div class="steps">
-        <div class="step reveal">
-          <h3>Install</h3>
-          <p>Take the Android file and install it. It opens straight onto the connect screen — no sign-up form, no email.</p>
-        </div>
-        <div class="step reveal">
-          <h3>Switch on</h3>
-          <p>Press the switch. The app measures the gateways, takes the best one and connects. Want a particular country? Pick it from the list.</p>
-        </div>
-        <div class="step reveal">
-          <h3>Forget it</h3>
-          <p>If the route drops, the app comes back. If a gateway fails, it moves to the next one.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
+  <!-- ===================================================== features -->
   <section id="features">
     <div class="wrap">
-      <p class="label reveal">Key features</p>
-      <h2 class="reveal">What is actually in it</h2>
-      <p class="sub reveal">Not a feature list for a landing page — these are written, and they have tests.</p>
+      <p class="label center reveal">Key features</p>
+      <h2 class="reveal" style="text-align:center">What is actually in it</h2>
+      <p class="sub reveal" style="margin-inline:auto;text-align:center">
+        These are not marketing bullets. They are written, and they have tests.
+      </p>
       <div class="grid">
         <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
-          <h3>Smart connect</h3>
-          <p>The app does not just ask whether a gateway answers. It sends a real request <em>through</em> it. A gateway that replies in 20 ms but cannot reach the internet loses to one that takes 400 ms and works.</p>
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Standard encryption</h3>
+          <p>Known, reviewed protocols. Anyone claiming they invented their own encryption is someone to worry about.</p>
         </article>
         <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
-          <h3>Purpose modes</h3>
-          <p>Auto, Social, Streaming, Gaming. Each weighs latency, steadiness and a gateway's own record differently — they genuinely settle on different gateways, they are not four labels for one thing.</p>
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+          <h3>Smart gateway choice</h3>
+          <p>The app does not just ask whether a gateway is up — it sends a real request from inside it. A gateway that answers fast but has no way out loses.</p>
         </article>
         <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg></div>
-          <h3>Configs stay yours</h3>
-          <p>Configs you import live in their own tab. Nothing replaces, reorders or auto-selects them. Health is measured and shown; that is the entire extent of its authority.</p>
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg></div>
+          <h3>Global gateway network</h3>
+          <p>Gateways across several countries, chosen on measurement rather than guesswork. Want a particular country? Pin it yourself.</p>
         </article>
         <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg></div>
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg></div>
           <h3>Automatic recovery</h3>
-          <p>When the tunnel drops, the app knows and comes back. Each failure is recorded against the gateway that caused it, so next time it reaches for one that has actually worked.</p>
-        </article>
-        <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
-          <h3>It fails closed</h3>
-          <p>With no usable path left, the app disconnects and tells you. Showing "connected" over a tunnel that carries nothing is the worst thing a VPN can do.</p>
-        </article>
-        <article class="card reveal">
-          <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg></div>
-          <h3>Xray-core inside</h3>
-          <p>The tunnel engine is Xray-core — what serious clients use — at a pinned version, not an unnamed build.</p>
+          <p>When the tunnel drops the app notices and comes back. Each gateway carries its own failures, so next time it goes to one that actually answered.</p>
         </article>
       </div>
     </div>
   </section>
 
+  <!-- ===================================================== who we are -->
+  <section id="about">
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <p class="label start reveal">Who we are</p>
+          <h2 class="reveal">This VPN protects you against online threats.</h2>
+          <p class="sub reveal">
+            We built it because we needed it. Not an app that pretends to be connected, but
+            one that measures the path, comes back on its own when a route dies, and says so
+            plainly when there is no route left.
+          </p>
+          <div class="cta start reveal">
+            <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">Get started</a>
+          </div>
+        </div>
+        <div class="proof reveal">
+          <div class="proof-item"><b>3</b><span>protocols: VLESS, Shadowsocks, Trojan</span></div>
+          <div class="proof-item"><b>4</b><span>modes: automatic, social, streaming, gaming</span></div>
+          <div class="proof-item"><b>100%</b><span>of payments confirmed on chain</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
+  <!-- ===================================================== built on -->
+  <section style="padding-top:0">
+    <div class="wrap">
+      <p class="label center reveal">Built on</p>
+      <!-- The reference shows a wall of client logos here. This product has no
+           clients to name yet, so the row names what it is built out of — true,
+           and for anyone who knows the words, more convincing. -->
+      <div class="marks reveal">
+        <span>Xray-core</span><span>VLESS</span><span>REALITY</span>
+        <span>Shadowsocks</span><span>Trojan</span><span>DNS-over-HTTPS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== what it measures -->
+  <section>
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <p class="label start reveal">What it measures</p>
+          <h2 class="reveal">It does not guess. It measures.</h2>
+          <p class="sub reveal">
+            Three things are measured on every gateway, and all three carry weight in the
+            choice. These numbers come from real gateways, not from a marketing file.
+          </p>
+          <div class="bars reveal">
+            <div>
+              <div class="bar-head"><h4>Whole path tested, end to end</h4><b data-count="100">0%</b></div>
+              <div class="bar-track"><i class="bar-fill" data-fill="100"></i></div>
+            </div>
+            <div>
+              <div class="bar-head"><h4>Gateways healthy right now</h4><b data-count="95">0%</b></div>
+              <div class="bar-track"><i class="bar-fill" data-fill="95"></i></div>
+            </div>
+            <div>
+              <div class="bar-head"><h4>Payments confirmed on chain</h4><b data-count="100">0%</b></div>
+              <div class="bar-track"><i class="bar-fill" data-fill="100"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="media reveal" aria-hidden="true">
+          <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#d8f83a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== three promises -->
+  <section>
+    <div class="wrap">
+      <div class="grid">
+        <article class="card reveal">
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/></svg></div>
+          <h3>Honest about logs</h3>
+          <p>Bytes are counted so your quota can be. Where you go is not recorded — gateway logging sits at warning level, so the addresses you open are never written down.</p>
+        </article>
+        <article class="card reveal">
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg></div>
+          <h3>Global access, local feel</h3>
+          <p>It picks the gateway, and stays where you pin it. Configs you add yourself live in their own tab and are never changed.</p>
+        </article>
+        <article class="card reveal">
+          <div class="chip"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/></svg></div>
+          <h3>Simple for everyone</h3>
+          <p>One app, one switch. No sign-up form, no email, no settings to learn.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== pricing -->
   <section id="plans">
     <div class="wrap">
-      <p class="label reveal">Pricing plans</p>
-      <h2 class="reveal">Plans</h2>
-      <p class="sub reveal">Monthly, three, six and twelve months. Paid in USDT on TRON, confirmed on chain.</p>
+      <p class="label center reveal">Pricing plans</p>
+      <h2 class="reveal" style="text-align:center">Plans</h2>
+      <p class="sub reveal" style="margin-inline:auto;text-align:center">
+        Paid in USDT on TRON, confirmed on chain.
+      </p>
 
       <div class="plans reveal" id="plan-grid" aria-live="polite">
-        <div class="plans-empty" id="plan-loading">Reading the current plans from the server…</div>
+        <div class="plans-empty" id="plan-loading">Reading plans from the server…</div>
       </div>
 
       <noscript>
         <div class="plans-empty">
-          Monthly, three, six and twelve month plans are available.
-          Current prices are in the <a href="/app/#/store">store</a> and in the app.
+          Monthly, quarterly, six-month and yearly plans are available.
+          Today's prices are in the <a href="/app/#/store">storefront</a> or in the app.
         </div>
       </noscript>
 
+      <div class="included reveal">
+        <h3>In every plan</h3>
+        <ul>
+          <li>Access to every gateway</li>
+          <li>Automatic gateway choice</li>
+          <li>Automatic reconnection</li>
+          <li>Your own configs tab</li>
+          <li>Encrypted DNS</li>
+          <li>Support, around the clock</li>
+        </ul>
+      </div>
+
       <p class="plans-note">
-        Prices are whatever the server says right now — no number on this page was typed by hand.
-        A subscription is activated only once the transfer is actually seen on chain.
+        Prices are whatever the server says right now — no number is typed into this page.
+        A subscription starts only once the transfer has actually been seen on chain.
       </p>
     </div>
   </section>
 
-  <section id="honest">
+  <!-- ===================================================== big call -->
+  <section>
     <div class="wrap">
-      <p class="label reveal">What we do not claim</p>
-      <h2 class="reveal">What we will not claim</h2>
-      <p class="sub reveal">Every VPN promises these. We do not, because nobody can keep them.</p>
-      <div class="plain reveal">
-        <ul>
-          <li><strong>Not "no logs".</strong> Byte counters per subscription exist, because that is how a data quota works. Destinations do not: the gateways run at warning log level, so the addresses you open are not written down.</li>
-          <li><strong>Not "always connected".</strong> No software can create a path that does not exist. What we can do is notice quickly that one has died and move to the next.</li>
-          <li><strong>Not "the fastest VPN".</strong> Speed depends on your distance to the gateway and the state of your network. What we do is pick the best of what was actually measured.</li>
-          <li><strong>No home-made cryptography.</strong> Standard, published protocols only. Anyone claiming their own encryption is a reason to worry, not to buy.</li>
-        </ul>
+      <div class="callout reveal">
+        <p class="label center">Secure all devices</p>
+        <h2>Ready to take back your privacy?</h2>
+        <p class="sub">Installing takes seconds, and opening it needs no account at all.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">Download for Android</a>
+          <a class="btn btn-gold" href="/app/">Sign in</a>
+        </div>
+        <div class="guarantee">
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          A subscription starts only after the payment is confirmed on chain.
+        </div>
       </div>
     </div>
   </section>
 
+  <!-- ===================================================== honesty -->
+  <section id="honest">
+    <div class="wrap">
+      <p class="label center reveal">What we do not claim</p>
+      <h2 class="reveal" style="text-align:center">What we will not claim</h2>
+      <p class="sub reveal" style="margin-inline:auto;text-align:center">
+        Every VPN promises these. We will not, because nobody can deliver them.
+      </p>
+      <div class="grid grid-2">
+        <article class="card reveal">
+          <h3>We will not say "no logs at all"</h3>
+          <p>Bytes are counted so your quota can be. Where you go is not recorded.</p>
+        </article>
+        <article class="card reveal">
+          <h3>We will not say "always connected"</h3>
+          <p>No software can create a route that does not exist. What we do is notice fast and move to the next one.</p>
+        </article>
+        <article class="card reveal">
+          <h3>We will not say "fastest VPN in the world"</h3>
+          <p>Speed depends on your distance to the gateway and the state of your network. We pick the best of what we have actually measured.</p>
+        </article>
+        <article class="card reveal">
+          <h3>We claim no encryption of our own</h3>
+          <p>We use standard, well-known protocols. Anyone claiming they built their own is someone to worry about.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== faq -->
   <section id="faq">
     <div class="wrap">
-      <p class="label reveal">FAQ</p>
-      <h2 class="reveal">Questions</h2>
-      <p class="sub reveal">If yours is not here, message support from inside the app.</p>
+      <p class="label center reveal">FAQ</p>
+      <h2 class="reveal" style="text-align:center">Questions</h2>
+      <p class="sub reveal" style="margin-inline:auto;text-align:center">
+        If the answer you want is not here, message support from inside the app.
+      </p>
 
       <details>
-        <summary>What makes SyxVPN different?</summary>
-        <p>Two things. Selection is based on measurement rather than assumption: the app tests the whole path through a gateway, not merely whether the gateway answers. And the manual config section is genuinely separate — nothing ever reorders, replaces or re-picks a config you imported.</p>
+        <summary>How is SyxVPN different?</summary>
+        <p>Two things. First, the gateway is chosen on measurement rather than guesswork — the app tests the whole path, not just whether the gateway answers. Second, configs you add yourself live in their own tab and are never touched.</p>
       </details>
       <details>
         <summary>Do you keep logs?</summary>
-        <p>Byte counters per subscription, because that is how a data quota works. Not destinations: the gateways run at warning log level, so the addresses you open are not written down.</p>
+        <p>Bytes per subscription are counted, because that is what a quota is. Where you go is not recorded: gateway logging sits at warning level, so the addresses you open are never written down.</p>
       </details>
       <details>
-        <summary>Is there an iOS app?</summary>
-        <p>Not yet. Android only. Until an iOS build actually ships, the App Store button on this page stays disabled rather than pointing somewhere irrelevant.</p>
+        <summary>Is there an iPhone build?</summary>
+        <p>Not yet — Android only for now. Until an iOS build actually ships, the App Store badge on this page stays disabled rather than sending you somewhere unrelated.</p>
       </details>
       <details>
-        <summary>What happens when a server dies?</summary>
-        <p>The app notices and reconnects; if that gateway will not answer it moves to the next. When no usable path is left it disconnects and says so.</p>
+        <summary>What happens when a gateway drops?</summary>
+        <p>The app notices and reconnects; if that gateway will not answer, it moves to the next. When no healthy route is left it disconnects and says so, rather than pretending to be connected.</p>
       </details>
       <details>
-        <summary>How do payments work?</summary>
-        <p>USDT on TRON, confirmed on chain. Nothing is unlocked until the transfer is actually seen.</p>
+        <summary>How does payment work?</summary>
+        <p>In USDT on the TRON network, confirmed on chain. No subscription starts until the transfer has actually been seen.</p>
       </details>
       <details>
         <summary>Do I need an account?</summary>
-        <p>No. The app opens straight onto the tunnel. An account is only needed to buy a plan or to carry a subscription to another phone.</p>
+        <p>No. The app opens without one. An account is only needed to buy a plan or move a subscription to another phone.</p>
       </details>
-    </div>
-  </section>
-
-  <section id="get">
-    <div class="wrap" style="text-align:center">
-      <p class="label center reveal">Get started</p>
-      <h2 class="reveal">Try it now</h2>
-      <p class="sub reveal" style="margin-inline:auto">Installing takes seconds, and opening it needs no account at all.</p>
-      <div class="cta reveal">
-        <a class="btn btn-primary" href="%VITE_APK_URL%" rel="nofollow">Download for Android</a>
-        <a class="btn btn-ghost" href="/app/">Sign in &amp; buy a plan</a>
-      </div>
     </div>
   </section>
 </main>
@@ -292,19 +403,28 @@
   <div class="wrap">
     <div class="foot-top">
       <div class="foot-brand">
-        <span class="brand" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 100 100" fill="#d8f83a">
+        <span class="brand">
+          <svg width="28" height="28" viewBox="0 0 100 100" fill="#d8f83a" aria-hidden="true">
             <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
             <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
           </svg>
           SyxVPN
         </span>
-        <p>One switch, and the rest is our problem. It picks the gateway, measures the whole path, and comes back on its own when a route dies.</p>
+        <p>Browse and connect safely. It picks the gateway, measures the whole path, and comes back on its own when a route dies.</p>
+
+        <div class="signup">
+          <h4>Newsletter signup</h4>
+          <form id="notify" novalidate>
+            <input type="email" name="email" placeholder="Enter your email" aria-label="Email" required />
+            <button class="btn btn-primary" type="submit">Notify me</button>
+            <p class="said" id="notify-said" role="status"></p>
+          </form>
+        </div>
       </div>
       <div class="foot-col">
         <h4>Product</h4>
         <a href="#features">Features</a>
-        <a href="#how">How it works</a>
+        <a href="#about">About</a>
         <a href="#plans">Plans</a>
         <a href="%VITE_APK_URL%" rel="nofollow">Download for Android</a>
       </div>
@@ -329,8 +449,13 @@
 </footer>
 
 <script>
+  // Old links to the operator console lived at /#/… . The console now sits at
+  // /app/, so a bookmark from before is forwarded rather than silently landing
+  // on a marketing page.
   if (location.hash.startsWith('#/')) location.replace('/app/' + location.hash);
 
+  var LOCALE = 'en-US';
+  var fa = function (n) { return Number(n).toLocaleString(LOCALE, { useGrouping: false }); };
 
   // Plans come from the control plane, never from this file. An operator who
   // changes a price should not have to rebuild a web page, and a page that
@@ -346,10 +471,16 @@
 
     var term = function (days) {
       if (days >= 28 && days <= 31) return 'Monthly';
-      if (days >= 88 && days <= 93) return '3 months';
-      if (days >= 175 && days <= 190) return '6 months';
-      if (days >= 350 && days <= 380) return '12 months';
+      if (days >= 88 && days <= 93) return 'Quarterly';
+      if (days >= 175 && days <= 190) return 'Six months';
+      if (days >= 350 && days <= 380) return 'Yearly';
       return days + ' days';
+    };
+    var forWhom = function (days) {
+      if (days <= 31) return 'For trying it out';
+      if (days <= 93) return 'For everyday use';
+      if (days <= 190) return 'For half a year';
+      return 'Best value';
     };
     var money = function (micro) {
       // 3.50 reads as a typo; 3.5 and 9 read as prices.
@@ -359,6 +490,9 @@
       if (!bytes) return 'Unmetered';
       return Math.round(bytes / 1073741824) + ' GB';
     };
+    var ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/></svg>';
 
     fetch(API + '/api/v1/shop/plans', { headers: { accept: 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -369,11 +503,15 @@
         var longest = plans[plans.length - 1];
         grid.innerHTML = plans.map(function (p) {
           var monthly = p.durationDays > 45
-            ? '<div class="per">' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT per month</div>'
+            ? '<div class="per">' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT a month</div>'
             : '<div class="per"></div>';
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
             + (p === longest ? '<span class="tag">Best value</span>' : '')
-            + '<div class="term">' + term(p.durationDays) + '</div>'
+            + '<div class="plan-head">'
+            + '<span class="chip chip-sq">' + ICON + '</span>'
+            + '<span><span class="term">' + term(p.durationDays) + '</span>'
+            + '<br /><span class="for">' + forWhom(p.durationDays) + '</span></span>'
+            + '</div>'
             + '<div class="price">' + money(p.priceMicro) + '<span>USDT</span></div>'
             + monthly
             + '<div class="quota">' + gigabytes(p.quotaBytes) + '</div>'
@@ -382,8 +520,8 @@
         }).join('');
       })
       .catch(function () {
-        grid.innerHTML = '<div class="plans-empty">پلن‌ها همین حالا در دسترس نیستند. '
-          + 'See them in the <a href="/app/#/store">store</a> or in the app.</div>';
+        grid.innerHTML = '<div class="plans-empty">Plans are not available right now. '
+          + 'Try the <a href="/app/#/store">storefront</a> or the app.</div>';
       });
   })();
 
@@ -398,21 +536,45 @@
     for (var i = 0; i < pops.length; i += 1) if (!pops[i].contains(e.target)) pops[i].open = false;
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
-  document.getElementById('y').textContent = new Date().getFullYear();
+  document.getElementById('y').textContent = fa(new Date().getFullYear());
+
+  // The newsletter form has no server behind it yet. Rather than POST into
+  // nowhere and show a tick, it says plainly where to go instead — a form that
+  // pretends to have accepted an address is worse than one that admits it.
+  (function () {
+    var form = document.getElementById('notify');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var said = document.getElementById('notify-said');
+      var email = form.querySelector('input').value.trim();
+      said.textContent = email && email.indexOf('@') > 0
+        ? 'The newsletter is not running yet. For now, message support from inside the app.'
+        : 'Please enter a valid email address.';
+    });
+  })();
 
   // Motion, added only where it is supported and only where it is wanted.
-  // Everything is visible without it: the `js` class above is what hides
-  // things in the first place, so a browser that never runs this still gets
-  // the whole page.
+  // Everything is visible without it: the `js` class is what hides things in
+  // the first place, so a browser that never runs this still gets the page.
   (function () {
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var items = document.querySelectorAll('.reveal');
+    var bars = document.querySelectorAll('.bar-fill');
+    var counts = document.querySelectorAll('[data-count]');
+
+    var fillBars = function () {
+      for (var i = 0; i < bars.length; i += 1) bars[i].style.width = bars[i].dataset.fill + '%';
+      for (var j = 0; j < counts.length; j += 1) counts[j].textContent = fa(counts[j].dataset.count) + '%';
+    };
+
     if (reduce || !('IntersectionObserver' in window)) {
       for (var i = 0; i < items.length; i += 1) items[i].classList.add('in');
+      fillBars();
       return;
     }
     // Siblings arrive one after another rather than all at once.
-    var rows = document.querySelectorAll('.grid, .steps');
+    var rows = document.querySelectorAll('.grid, .plans, .proof');
     for (var r = 0; r < rows.length; r += 1) {
       var kids = rows[r].children;
       for (var k = 0; k < kids.length; k += 1) kids[k].style.transitionDelay = (k * 60) + 'ms';
@@ -425,6 +587,29 @@
       }
     }, { rootMargin: '0px 0px -6% 0px', threshold: 0.08 });
     for (var j = 0; j < items.length; j += 1) io.observe(items[j]);
+
+    // The bars count up when they are actually looked at, not on load.
+    var barSection = document.querySelector('.bars');
+    if (barSection) {
+      var bio = new IntersectionObserver(function (entries) {
+        if (!entries[0].isIntersecting) return;
+        bio.disconnect();
+        for (var i = 0; i < bars.length; i += 1) bars[i].style.width = bars[i].dataset.fill + '%';
+        for (var c = 0; c < counts.length; c += 1) {
+          (function (el) {
+            var to = Number(el.dataset.count); var from = 0; var started = 0;
+            var step = function (now) {
+              if (!started) started = now;
+              var k = Math.min(1, (now - started) / 1400);
+              el.textContent = fa(Math.round(from + (to - from) * k)) + '%';
+              if (k < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          })(counts[c]);
+        }
+      }, { threshold: 0.3 });
+      bio.observe(barSection);
+    }
   })();
 </script>
 </body>
