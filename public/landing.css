@@ -137,17 +137,16 @@ img { max-width: 100%; display: block; }
 
 /* Language switcher: a <details>, so it opens with JavaScript off. */
 .langsel { position: relative; margin-inline-start: 4px; }
+/* Where the menu button is showing, the switcher sits closer to it — the nav's
+   24px gap leaves the two floating apart at the end of a phone's header. */
+@media (max-width: 860px) { .langsel { margin-inline-end: -12px; } }
 .langsel > summary {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  padding: 3px 2px; font-size: 13px; color: var(--dim);
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  padding: 3px 2px; font-size: 12px; color: var(--dim);
   list-style: none; user-select: none;
 }
+.langsel > summary svg { width: 14px; height: 14px; }
 .langsel > summary::-webkit-details-marker { display: none; }
-.langsel > summary::after {
-  content: ""; width: 6px; height: 6px; margin-inline-start: 2px;
-  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
-  transform: rotate(45deg) translateY(-2px);
-}
 .langsel[open] > summary, .langsel > summary:hover { color: var(--text); }
 .langsel > summary:focus { outline: none; }
 .langsel > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
