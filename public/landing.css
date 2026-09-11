@@ -332,26 +332,49 @@ h3 { font-weight: 400; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 
 .card {
-  position: relative; padding: 30px; min-height: 236px;
+  position: relative; overflow: hidden;
+  padding: 30px; min-height: 236px;
   display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  /* Not a flat fill: the surface lifts slightly at the top, which is what makes
+     the glow read as light landing on glass rather than paint applied to it. */
+  background: linear-gradient(180deg, #1b1b1b, #121212 62%);
+  border: 1px solid var(--border); border-radius: var(--radius);
   transition: border-color .2s ease, box-shadow .2s ease;
 }
-/* Light from the top corner, not the middle: centred it reads as a spotlight
-   aimed at the card, off-centre it reads as a room the card is sitting in. */
+
+/* The light inside the card.
+ *
+ * Measured off the reference rather than guessed, because the two things that
+ * make it work are both easy to get wrong: it is saturated — a gold near
+ * #d5c00d, not a pale cream, which is what a blurred white turns into and what
+ * makes a knock-off of this look washed out — and it is *large*, its core
+ * sitting anywhere from a fifth to half way down the card.
+ *
+ * It is clipped by the card. That matters: cut by the rounded corner it reads
+ * as light inside a glass box, and the corner itself becomes the brightest
+ * edge. (The featured price card is the one exception, and spills deliberately.)
+ *
+ * The core moves from card to card — right, centre, centre-left, left. Four
+ * identical cards lit identically read as one card stamped four times; this is
+ * the cheapest possible fix for that and the reference does exactly it.
+ */
 .card::before {
-  content: ""; position: absolute; z-index: 0;
-  /* Kept inside the card horizontally. Hanging past the side edge put a few
-     pixels of blurred gradient beyond the viewport at some widths, which is a
-     horizontal scrollbar nobody can see the cause of; the 18px blur still
-     carries the light into the corner. */
-  inset-inline-end: 2%; top: -58px; width: 74%; height: 150px;
+  content: ""; position: absolute; z-index: 0; inset: 0;
+  --gx: 92%; --gy: 16%;
   background:
-    radial-gradient(46% 52% at 50% 62%, rgba(245, 232, 150, .5), transparent 70%),
-    radial-gradient(64% 80% at 50% 64%, rgba(217, 176, 33, .3), transparent 74%);
-  filter: blur(18px); pointer-events: none; opacity: .9;
+    radial-gradient(26% 22% at var(--gx) var(--gy), rgba(240, 216, 14, .96), transparent 72%),
+    radial-gradient(52% 42% at var(--gx) var(--gy), rgba(202, 158, 18, .34), transparent 76%),
+    radial-gradient(96% 78% at var(--gx) var(--gy), rgba(124, 96, 20, .17), transparent 80%);
+  /* Enough blur to lose the gradient's banding, not enough to eat the peak: at
+     22px the core measured barely half the reference's brightness. */
+  filter: blur(13px);
+  pointer-events: none; opacity: .95;
   transition: opacity .25s ease;
 }
+.grid .card:nth-child(4n + 2)::before { --gx: 60%; --gy: 40%; }
+.grid .card:nth-child(4n + 3)::before { --gx: 68%; --gy: 22%; }
+.grid .card:nth-child(4n + 4)::before { --gx: 22%; --gy: 50%; }
+
 .card > * { position: relative; z-index: 1; }
 .card:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
 .card:hover::before { opacity: 1; }
@@ -361,7 +384,11 @@ h3 { font-weight: 400; }
 /* The icon well. */
 .chip {
   width: 56px; height: 56px; border-radius: 50%;
-  background: var(--surface-high); border: 1px solid rgba(216, 248, 58, .5);
+  /* Translucent, so the glow behind it tints the well instead of being hidden
+     by it — in the reference the disc is olive wherever the light passes under
+     it, and neutral grey everywhere else. */
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(216, 248, 58, .55);
   display: flex; align-items: center; justify-content: center; color: var(--accent);
   transition: transform .2s ease;
 }
@@ -408,27 +435,29 @@ h3 { font-weight: 400; }
 
 .plans { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .plan {
-  position: relative; padding: 30px 28px; display: flex; flex-direction: column; gap: 4px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  position: relative; overflow: hidden;
+  padding: 30px 28px; display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(180deg, #1b1b1b, #121212 62%);
+  border: 1px solid var(--border); border-radius: var(--radius);
   transition: border-color .2s ease, box-shadow .2s ease;
 }
 .plan::before {
-  content: ""; position: absolute; z-index: 0;
-  /* Kept inside the card horizontally. Hanging past the side edge put a few
-     pixels of blurred gradient beyond the viewport at some widths, which is a
-     horizontal scrollbar nobody can see the cause of; the 18px blur still
-     carries the light into the corner. */
-  inset-inline-end: 2%; top: -58px; width: 74%; height: 150px;
+  content: ""; position: absolute; z-index: 0; inset: 0;
+  --gx: 78%; --gy: 8%;
   background:
-    radial-gradient(46% 52% at 50% 62%, rgba(245, 232, 150, .5), transparent 70%),
-    radial-gradient(64% 80% at 50% 64%, rgba(217, 176, 33, .3), transparent 74%);
-  filter: blur(18px); pointer-events: none; opacity: .9;
+    radial-gradient(26% 18% at var(--gx) var(--gy), rgba(236, 212, 14, .80), transparent 70%),
+    radial-gradient(54% 34% at var(--gx) var(--gy), rgba(202, 158, 18, .40), transparent 74%),
+    radial-gradient(94% 58% at var(--gx) var(--gy), rgba(124, 96, 20, .22), transparent 78%);
+  filter: blur(13px); pointer-events: none; opacity: .95;
 }
+.plans .plan:nth-child(2)::before { --gx: 46%; --gy: 10%; }
+.plans .plan:nth-child(3)::before { --gx: 22%; --gy: 8%; }
 .plan > * { position: relative; z-index: 1; }
 .plan:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
 .plan.best { border-color: rgba(216, 248, 58, .42); }
 /* The featured card is lit from underneath as well — the reference's one piece
    of asymmetry, and what makes it read as raised rather than merely outlined. */
+.plan.best { overflow: visible; }
 .plan.best::after {
   content: ""; position: absolute; z-index: 0;
   inset-inline: 6%; bottom: -34px; height: 90px;
