@@ -332,27 +332,43 @@ h3 { font-weight: 400; }
    check: this is the exact shape a page uses to say "seventy-two million
    users", and wearing that shape without the truth behind it is how a product
    starts lying before it has shipped. */
+/* Hairlines, not boxes.
+   This row was capitals at .18em beside a number, which wrapped to four ragged
+   lines on a phone; boxing each item fixed the wrap and brought its own problem,
+   three tall empty cards on a page that is already made of cards. So: no
+   surface, no radius, nothing but the rules that separate one fact from the
+   next. On a phone each is a single line — number, then caption — and on a wide
+   screen they turn into columns divided by a vertical hairline. */
 .proof {
-  display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin-top: 52px; text-align: start;
+  display: grid; gap: 0;
+  margin-top: 48px; text-align: start;
+  border-block: 1px solid var(--border);
 }
-/* Tiles, in the page's own material. These used to be a number beside a caption
-   set in wide-tracked capitals — which reads as a caption only while it stays on
-   one line. On a phone it wrapped to four ragged lines beside a number that had
-   nothing to line up with, so the row that is supposed to look checkable looked
-   like a mistake. Stacked in a card, in ordinary sentence case, it reads. */
+/* Number against one edge, caption against the other, the way a line in a
+   statement reads — so the row occupies its width instead of trailing off into
+   empty space after three words. */
 .proof-item {
-  display: flex; flex-direction: column; gap: 7px;
-  padding: 22px 24px;
-  border: 1px solid var(--border); border-radius: 20px;
-  background: var(--surface);
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  justify-content: space-between; gap: 4px 16px;
+  padding: 17px 0;
 }
+.proof-item + .proof-item { border-top: 1px solid var(--border); }
 .proof-item b {
-  font-size: clamp(26px, 4.2vw, 38px); font-weight: 300; letter-spacing: -.03em;
-  line-height: 1.15; text-wrap: balance;
+  font-size: clamp(23px, 3.6vw, 30px); font-weight: 300; letter-spacing: -.03em;
+  line-height: 1.15;
 }
-.proof-item span {
-  color: var(--dim); font-size: 13px; line-height: 1.6;
+.proof-item span { color: var(--dim); font-size: 13px; line-height: 1.6; }
+
+@media (min-width: 760px) {
+  /* Auto-flow by column rather than a fixed three, so a row of two or four
+     divides itself the same way without another rule here. */
+  .proof { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .proof-item {
+    flex-direction: column; justify-content: flex-start; gap: 7px; padding: 22px 26px;
+  }
+  .proof-item + .proof-item { border-top: 0; border-inline-start: 1px solid var(--border); }
+  .proof-item:first-child { padding-inline-start: 0; }
+  .proof-item:last-child { padding-inline-end: 0; }
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -442,7 +458,16 @@ h3 { font-weight: 400; }
 
 .split { display: grid; gap: 48px; grid-template-columns: 1fr; align-items: start; }
 @media (min-width: 861px) { .split { grid-template-columns: 1fr 1fr; gap: 64px; } }
-.split .proof { margin-top: 0; padding-top: 0; border-top: 0; grid-template-columns: 1fr; gap: 26px; }
+/* The same strip, but this one lives in a half-width column beside a paragraph,
+   so it stays a stacked list at every width — the wide-screen rule above would
+   divide it into three columns of about a hundred pixels and wrap every caption
+   to four lines. */
+.split .proof { margin-top: 0; grid-auto-flow: row; grid-template-columns: 1fr; }
+.split .proof-item {
+  flex-direction: row; align-items: baseline; justify-content: space-between;
+  gap: 4px 16px; padding: 17px 0;
+}
+.split .proof-item + .proof-item { border-top: 1px solid var(--border); border-inline-start: 0; }
 
 /* ------------------------------------------------------------ trust marks */
 
