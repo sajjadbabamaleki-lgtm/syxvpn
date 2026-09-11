@@ -183,9 +183,9 @@ img { max-width: 100%; display: block; }
   display: flex; align-items: center; justify-content: center;
   /* 20% up from 36. line-height: 0 so no stray text baseline can push the
      glyph off centre inside the square. */
-  /* The same tile as the mark beside it: 38px, and a radius of 10.26 because
-     the mark's rounded rect is rx 27 in a 100 viewBox drawn at 38. */
-  width: 38px; height: 38px; border-radius: 10.26px; line-height: 0;
+  /* The same tile as the mark beside it: 42px, and a radius of 11.34 because
+     the mark's rounded rect is rx 27 in a 100 viewBox drawn at 42. */
+  width: 42px; height: 42px; border-radius: 11.34px; line-height: 0;
   /* No outline on the tile — the same light the mark throws, in the same two
      shadows: a tight one for the edge, a wide one for the bloom. The border
      stays as a transparent hairline so the box keeps its measured size. */
@@ -193,7 +193,7 @@ img { max-width: 100%; display: block; }
   box-shadow: 0 0 4px rgba(216, 248, 58, .55), 0 0 13px rgba(216, 248, 58, .3);
   color: var(--accent); cursor: pointer; list-style: none; user-select: none;
 }
-.menubtn > summary svg { display: block; width: 24px; height: 24px; }
+.menubtn > summary svg { display: block; width: 26.5px; height: 26.5px; }
 .menubtn > summary::-webkit-details-marker { display: none; }
 .menubtn > summary:focus { outline: none; }
 .menubtn > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
