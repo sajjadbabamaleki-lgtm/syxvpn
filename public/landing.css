@@ -184,7 +184,11 @@ img { max-width: 100%; display: block; }
   /* 20% up from 36. line-height: 0 so no stray text baseline can push the
      glyph off centre inside the square. */
   width: 43px; height: 43px; border-radius: 14px; line-height: 0;
-  border: 1px solid var(--accent); background: var(--surface);
+  /* No outline on the tile — the same light the mark throws, in the same two
+     shadows: a tight one for the edge, a wide one for the bloom. The border
+     stays as a transparent hairline so the box keeps its measured size. */
+  border: 1px solid transparent; background: #0d0d0d;
+  box-shadow: 0 0 4px rgba(216, 248, 58, .55), 0 0 13px rgba(216, 248, 58, .3);
   color: var(--accent); cursor: pointer; list-style: none; user-select: none;
 }
 .menubtn > summary svg { display: block; width: 22px; height: 22px; }
@@ -192,7 +196,7 @@ img { max-width: 100%; display: block; }
 .menubtn > summary:focus { outline: none; }
 .menubtn > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .menubtn[open] > summary, .menubtn > summary:hover {
-  color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
+  box-shadow: 0 0 5px rgba(216, 248, 58, .7), 0 0 18px rgba(216, 248, 58, .42);
 }
 .menubtn > summary .ico-close { display: none; }
 .menubtn[open] > summary .ico-open { display: none; }
