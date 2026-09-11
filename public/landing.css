@@ -368,7 +368,7 @@ h3 { font-weight: 400; }
   /* Enough blur to lose the gradient's banding, not enough to eat the peak: at
      22px the core measured barely half the reference's brightness. */
   filter: blur(13px);
-  pointer-events: none; opacity: .95;
+  pointer-events: none; opacity: var(--lit);
   transition: opacity .25s ease;
 }
 .grid .card:nth-child(4n + 2)::before { --gx: 60%; --gy: 40%; }
@@ -377,7 +377,6 @@ h3 { font-weight: 400; }
 
 .card > * { position: relative; z-index: 1; }
 .card:hover { border-color: var(--faint); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
-.card:hover::before { opacity: 1; }
 .card h3 { margin: auto 0 10px; font-size: 20px; letter-spacing: -.01em; }
 .card p { margin: 0; color: var(--dim); font-size: 14px; }
 
@@ -448,7 +447,7 @@ h3 { font-weight: 400; }
     radial-gradient(26% 18% at var(--gx) var(--gy), rgba(236, 212, 14, .80), transparent 70%),
     radial-gradient(54% 34% at var(--gx) var(--gy), rgba(202, 158, 18, .40), transparent 74%),
     radial-gradient(94% 58% at var(--gx) var(--gy), rgba(124, 96, 20, .22), transparent 78%);
-  filter: blur(13px); pointer-events: none; opacity: .95;
+  filter: blur(13px); pointer-events: none; opacity: var(--lit);
 }
 .plans .plan:nth-child(2)::before { --gx: 46%; --gy: 10%; }
 .plans .plan:nth-child(3)::before { --gx: 22%; --gy: 8%; }
@@ -659,6 +658,90 @@ footer { border-top: 1px solid var(--border); padding: 68px 0 60px; color: var(-
   .arc::before { height: 130px; }
   .arc::after { height: 90px; }
   .callout { padding: 52px 22px; border-radius: 28px; }
+}
+
+/* ------------------------------------------------------------ the lamp
+ *
+ * In the reference the cards are not lit equally: a card low in the viewport is
+ * nearly dark and brightens as it rises, continuously, so the whole page feels
+ * like it is moving under a light rather than playing an animation.
+ *
+ * Measured off the recording, tracking one card's brightest pixel while the
+ * page scrolled: at 63% down the viewport its peak read #667327, at 51% #9a8e14,
+ * at 16% #c2b517. A smooth ramp, not a trigger — which is why a one-shot fade
+ * cannot reproduce it and why this uses a scroll timeline.
+ *
+ * `view()` ties the animation to the element's own travel through the viewport,
+ * runs off the main thread, and needs no scroll listener. Where it is not
+ * supported the glow simply sits at full strength, which is the state every
+ * frame of this animation is heading towards — so nothing is lost, and nothing
+ * is hidden waiting for a feature to exist.
+ */
+/* The value the light is turned up by. Registered, because an unregistered
+   custom property is a string and CSS cannot interpolate a string. */
+@property --lit {
+  syntax: "<number>";
+  inherits: true;
+  /* Full, so anything that never runs the animation shows a fully lit card. */
+  initial-value: 1;
+}
+@keyframes lamp {
+  from { --lit: .3; }
+  to   { --lit: 1; }
+}
+
+/* The sections themselves, likewise: a rise that tracks the scroll instead of
+   firing once. Short travel — far enough to feel like weight, not so far that
+   the page appears to assemble itself. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* The lamp goes on the card, not on its ::before. The card sets
+       `overflow: hidden` to clip the glow, which makes it a scroll container —
+       and `view()` resolves against the nearest one, so an animation on the
+       pseudo-element would be measuring its travel through the card it lives
+       in, which is none. The card's nearest scroller is the page, so the
+       timeline lives here and reaches the glow through an inherited property.
+
+       A card carries this instead of the rise below, and that is the honest
+       reading of the reference: its cards do not visibly travel. The light
+       coming up on them is the motion. */
+    /* Where the lamp runs, the observer's fade on a card is redundant and would
+       be a second, differently-timed motion on the same object. Neutralised, so
+       the light is the only thing moving. */
+    .js .card.reveal { opacity: 1; transform: none; transition: none; }
+
+    .card, .plan {
+      animation: lamp linear both;
+      animation-timeline: view();
+      /* Dim as it appears, full by the time it is a third of the way up. */
+      animation-range: entry 0% cover 26%;
+    }
+
+    /* A row of cards should not light as one slab. Each column comes up a
+       little later than the one before it — which on a phone, where they are
+       stacked, costs nothing, because they are already apart. */
+    .grid > .card:nth-child(2), .plans > .plan:nth-child(2) { animation-range: entry 5% cover 31%; }
+    .grid > .card:nth-child(3), .plans > .plan:nth-child(3) { animation-range: entry 10% cover 36%; }
+    .grid > .card:nth-child(4) { animation-range: entry 15% cover 41%; }
+
+    /* Everything that is not a card keeps a rise, now tracking the scroll
+       rather than firing once — so a reader who scrolls back up sees it again
+       instead of finding the page already assembled. `:not(.card)` matters:
+       cards match both rules, and the more specific one would take the
+       animation away from them. */
+    .js .reveal:not(.card) {
+      opacity: 1; transform: none;
+      animation: rise cubic-bezier(.22, .7, .3, 1) both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 26%;
+      transition: none;
+    }
+  }
 }
 
 /* Guarded by the `js` class the page sets on <html> before anything renders:
