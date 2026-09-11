@@ -118,8 +118,12 @@ img { max-width: 100%; display: block; }
   border-bottom: 1px solid var(--border);
 }
 .top .wrap { position: relative; display: flex; align-items: center; gap: 16px; height: 68px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 21px; letter-spacing: -.01em; }
+/* The mark alone: the name is no longer set as type beside it. The glow is the
+   one from the reference icon, in the site's accent rather than its blue. */
+.brand { display: flex; align-items: center; }
 .brand svg { display: block; }
+.brand .mark { filter: drop-shadow(0 0 11px rgba(216, 248, 58, .34)); }
+.brand:hover .mark { filter: drop-shadow(0 0 15px rgba(216, 248, 58, .5)); }
 .nav { display: flex; gap: 24px; margin-inline-start: auto; align-items: center; }
 .nav a { color: var(--dim); font-size: 14px; }
 .nav a:hover { color: var(--text); }
@@ -171,14 +175,19 @@ img { max-width: 100%; display: block; }
 .menubtn { position: static; border: 0; background: none; padding: 0; display: none; }
 .menubtn > summary {
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 12px;
-  border: 1px solid var(--border); background: var(--surface);
-  color: var(--dim); cursor: pointer; list-style: none; user-select: none;
+  /* 20% up from 36. line-height: 0 so no stray text baseline can push the
+     glyph off centre inside the square. */
+  width: 43px; height: 43px; border-radius: 14px; line-height: 0;
+  border: 1px solid var(--accent); background: var(--surface);
+  color: var(--accent); cursor: pointer; list-style: none; user-select: none;
 }
+.menubtn > summary svg { display: block; width: 22px; height: 22px; }
 .menubtn > summary::-webkit-details-marker { display: none; }
 .menubtn > summary:focus { outline: none; }
 .menubtn > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.menubtn[open] > summary, .menubtn > summary:hover { color: var(--text); border-color: var(--faint); }
+.menubtn[open] > summary, .menubtn > summary:hover {
+  color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
+}
 .menubtn > summary .ico-close { display: none; }
 .menubtn[open] > summary .ico-open { display: none; }
 .menubtn[open] > summary .ico-close { display: block; }

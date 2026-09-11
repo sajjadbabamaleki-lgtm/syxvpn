@@ -1,11 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="SyxVPN">
-  <!-- The mark: a C open to the right, with a square held in its centre. Still
-       the old product's initial — see the note in src/components/Logo.jsx.
-       Traced from the supplied artwork — outer radius 48, inner 27.8, a 62°
-       gap centred on due east, and a 20.6 × 17.8 block on the same centre. -->
+  <!-- The app-icon lockup: the mark over the name.
+       Not the previous product's C, and deliberately not a variation on any
+       other VPN's icon either — two arms converging into one stem, which is
+       what the app does with a route, drawn as the Y the name turns on. -->
   <title>SyxVPN</title>
-  <g fill="#5CD673">
-    <path d="M91.14 74.72 A48 48 0 1 1 91.14 25.28 L73.83 35.68 A27.8 27.8 0 1 0 73.83 64.32 Z"/>
-    <rect x="39.7" y="41.1" width="20.6" height="17.8"/>
+  <rect x="1.5" y="1.5" width="97" height="97" rx="26" fill="#101010" stroke="#d8f83a" stroke-width="3"/>
+  <g fill="none" stroke="#d8f83a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 24 50 44 68 24"/>
+    <path d="M50 44v18"/>
   </g>
+  <text x="50" y="86" text-anchor="middle" fill="#d8f83a"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="13" font-weight="700" letter-spacing="2.4">SYX VPN</text>
 </svg>
