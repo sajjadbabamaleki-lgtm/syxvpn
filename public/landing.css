@@ -122,8 +122,14 @@ img { max-width: 100%; display: block; }
    one from the reference icon, in the site's accent rather than its blue. */
 .brand { display: flex; align-items: center; }
 .brand svg { display: block; }
-.brand .mark { filter: drop-shadow(0 0 11px rgba(216, 248, 58, .34)); }
-.brand:hover .mark { filter: drop-shadow(0 0 15px rgba(216, 248, 58, .5)); }
+/* Light around the tile rather than a line drawn on it: two shadows, a tight
+   one for the edge and a wide one for the bloom. */
+.brand .mark {
+  filter: drop-shadow(0 0 4px rgba(216, 248, 58, .55)) drop-shadow(0 0 13px rgba(216, 248, 58, .3));
+}
+.brand:hover .mark {
+  filter: drop-shadow(0 0 5px rgba(216, 248, 58, .7)) drop-shadow(0 0 18px rgba(216, 248, 58, .42));
+}
 .nav { display: flex; gap: 24px; margin-inline-start: auto; align-items: center; }
 .nav a { color: var(--dim); font-size: 14px; }
 .nav a:hover { color: var(--text); }
