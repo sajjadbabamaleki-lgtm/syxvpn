@@ -28,6 +28,20 @@ syxvpn.pro, www.syxvpn.pro {
         reverse_proxy 127.0.0.1:8787
     }
 
+    # The Android build. It is a file on this host rather than something baked
+    # into the web image, so publishing a new one is a copy and not a redeploy.
+    # Alongside the apk goes its .sha256: an app installed from outside a store
+    # is one the user has no other way to verify, and a checksum they can check
+    # costs one line here.
+    @dl path /download/*
+    handle @dl {
+        root * /opt/cvpn/downloads
+        uri strip_prefix /download
+        header Cache-Control "public, max-age=300"
+        header ?Content-Type application/vnd.android.package-archive
+        file_server
+    }
+
     handle {
         reverse_proxy 127.0.0.1:8080
     }

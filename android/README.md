@@ -595,3 +595,27 @@ counters stay at zero.
 | `tools/PureLogicChecks.kt` | Checks the SDK-free logic; runs with only `kotlinc` |
 | `tools/XrayConfigCheck.kt`, `tools/UriStub.kt` | Prints the app's Xray config for `xray -test` |
 | `tools/stubs/` | The libXray API as gomobile exports it, for type-checking without the AAR |
+
+## Publishing the build
+
+The site's download buttons point at `/download/syxvpn.apk`, which Caddy serves
+from `/opt/cvpn/downloads` on the control-plane host — a directory, not part of
+the web image, so publishing a new build is a copy rather than a redeploy.
+
+```sh
+# on the host, once
+install -d -m 755 /opt/cvpn/downloads
+
+# every release
+scp app-release.apk root@<host>:/opt/cvpn/downloads/syxvpn.apk
+ssh root@<host> 'cd /opt/cvpn/downloads \
+  && sha256sum syxvpn.apk | cut -d" " -f1 > syxvpn.apk.sha256 \
+  && chmod 644 syxvpn.apk syxvpn.apk.sha256'
+```
+
+The checksum is published beside the file and is not decoration: an app
+installed from outside a store is one the user has no other way to verify. It is
+served at `/download/syxvpn.apk.sha256`.
+
+Until a build is in place that path is a 404, and the download buttons lead
+nowhere — which is the state the site is in as written.
