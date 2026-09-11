@@ -1,15 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="SyxVPN">
-  <!-- The app-icon lockup: the mark over the name.
-       Not the previous product's C, and deliberately not a variation on any
-       other VPN's icon either — two arms converging into one stem, which is
-       what the app does with a route, drawn as the Y the name turns on. -->
+  <!-- The supplied mark, traced from the artwork rather than redrawn by eye:
+       five shapes, 42 corners, every edge straight. The tile's ring is the
+       site's accent where the reference icon had blue. -->
   <title>SyxVPN</title>
-  <rect x="1.5" y="1.5" width="97" height="97" rx="26" fill="#101010" stroke="#d8f83a" stroke-width="3"/>
-  <g fill="none" stroke="#d8f83a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M32 24 50 44 68 24"/>
-    <path d="M50 44v18"/>
-  </g>
-  <text x="50" y="86" text-anchor="middle" fill="#d8f83a"
+  <rect x="1.5" y="1.5" width="97" height="97" rx="26" fill="#0d0d0d" stroke="#d8f83a" stroke-width="3"/>
+  <g fill="#ffffff" transform="translate(28 18) scale(0.44)"><path d="M20.15,14.16 32.30,34.48 90.38,52.09 92.20,55.54 92.20,75.32 91.29,77.68 79.49,85.84 67.51,65.52 12.52,49.36 9.44,47.91 7.80,45.37 7.80,23.96 9.98,21.05 19.96,14.34Z"/><path d="M42.11,0.00 58.62,0.18 70.05,7.62 50.82,27.95 49.91,28.68 29.76,7.62 39.38,1.09 41.92,0.18Z"/><path d="M49.73,71.51 70.05,92.38 59.71,99.46 57.89,100.00 41.02,99.82 29.95,92.56 49.55,71.69Z"/><path d="M79.67,14.16 91.47,22.69 92.20,24.68 92.20,36.84 66.42,36.84 79.49,14.34Z"/><path d="M7.99,63.16 33.39,63.34 20.69,85.48 19.96,85.84 8.35,77.31 7.80,76.04 7.80,63.34Z"/></g>
+  <text x="50" y="87" text-anchor="middle" fill="#ffffff"
         font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-        font-size="13" font-weight="700" letter-spacing="2.4">SYX VPN</text>
+        font-size="12.5" font-weight="700" letter-spacing="2.6">SYX VPN</text>
 </svg>
