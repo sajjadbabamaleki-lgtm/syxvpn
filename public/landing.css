@@ -120,7 +120,17 @@ img { max-width: 100%; display: block; }
 .top .wrap { position: relative; display: flex; align-items: center; gap: 16px; height: 68px; }
 /* The mark alone: the name is no longer set as type beside it. The glow is the
    one from the reference icon, in the site's accent rather than its blue. */
-.brand { display: flex; align-items: center; }
+.brand { display: flex; align-items: center; gap: 11px; }
+/* The name in capitals beside the mark, in white rather than the accent — the
+   mark is already the accent, and two of them side by side would leave nothing
+   for the eye to land on first. */
+.brand-name {
+  font-size: 17px; font-weight: 700; color: var(--text);
+  letter-spacing: .07em; white-space: nowrap;
+  /* Latin either way, so it keeps its own direction on the RTL page. */
+  direction: ltr;
+}
+@media (max-width: 359px) { .brand-name { font-size: 15px; } .brand { gap: 8px; } }
 .brand svg { display: block; }
 /* Light around the tile rather than a line drawn on it: two shadows, a tight
    one for the edge and a wide one for the bloom. */
