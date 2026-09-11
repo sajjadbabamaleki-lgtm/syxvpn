@@ -67,8 +67,70 @@ function ConfigLine({ profile }) {
   );
 }
 
+/**
+ * Linking this account to the support chat.
+ *
+ * Support is answered in Telegram, and a chat there is anonymous: the bot can
+ * talk about plans, but it cannot see whether *your* subscription expired
+ * until it knows which account is asking. The code is how it finds out — it
+ * lasts ten minutes, works once, and is bound to the session that asked for
+ * it, so it is safe to read out loud and useless to anybody else afterwards.
+ *
+ * Shown only when a bot is actually configured. Offering somebody a code for a
+ * chat that does not exist is worse than saying nothing.
+ */
+function SupportChat({ bot }) {
+  const [code, setCode] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(null);
+
+  const ask = async () => {
+    setBusy(true);
+    setFailed(null);
+    try {
+      setCode(await shop.linkCode());
+    } catch (err) {
+      setFailed(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="Support chat" hint="Answered day and night; a person takes over when it cannot help">
+      <Card>
+        <Row label="Bot" value={`@${bot.telegram}`} />
+        {code ? (
+          <>
+            <code className="token-box">/link {code.code}</code>
+            <div className="action-row">
+              <CopyButton value={`/link ${code.code}`} label="Copy" />
+              <a className="btn btn-ghost" href={`https://t.me/${bot.telegram}`} target="_blank" rel="noreferrer">
+                Open the chat
+              </a>
+            </div>
+            <p className="quiet">Send that to the bot within ten minutes. It works once.</p>
+          </>
+        ) : (
+          <>
+            <p className="quiet">
+              Get a code, send it to the bot as <code>/link 123456</code>, and it can answer about
+              this subscription instead of guessing.
+            </p>
+            <div className="action-row">
+              <Button onClick={ask} disabled={busy}>{busy ? 'Getting a code…' : 'Get a link code'}</Button>
+            </div>
+          </>
+        )}
+        {failed && <p className="quiet">{failed}</p>}
+      </Card>
+    </Section>
+  );
+}
+
 export function MyConfig() {
   const { data, error, loading, stale, updatedAt, refresh } = useResource('shop:me', shop.me, { intervalMs: 30000 });
+  const shopConfig = useResource('shop:config', shop.config, { intervalMs: 300000 });
   const [showQr, setShowQr] = useState(true);
   const [showConfigs, setShowConfigs] = useState(false);
 
@@ -200,6 +262,8 @@ export function MyConfig() {
           </div>
         </Card>
       )}
+
+      {shopConfig.data?.supportBot && <SupportChat bot={shopConfig.data.supportBot} />}
 
       <Section title="Orders">
         {data.orders.length === 0 ? (

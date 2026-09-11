@@ -96,6 +96,8 @@ export const shop = {
   },
 
   me: () => request('/me'),
+  // A short code that proves, once, which account a support chat belongs to.
+  linkCode: () => request('/link-code', { method: 'POST' }),
   createOrder: (planId) => request('/orders', { method: 'POST', body: { planId } }),
   orders: () => request('/orders'),
   order: (id) => request(`/orders/${id}`),

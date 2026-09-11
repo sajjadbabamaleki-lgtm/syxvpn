@@ -8,6 +8,8 @@ export const EVENT = {
   GATEWAY_DELETED: 'gateway.deleted',
   // An additional inbound protocol was added to a gateway; see domain/inbounds.js.
   GATEWAY_INBOUND_ADDED: 'gateway.inbound.added',
+  // A support chat the assistant could not finish; somebody is waiting.
+  SUPPORT_HANDOFF: 'support.handoff',
   AGENT_KEY_ROTATED: 'agent.key_rotated',
   AGENT_HEARTBEAT_MISSED: 'agent.heartbeat_missed',
   AGENT_RECOVERED: 'agent.recovered',

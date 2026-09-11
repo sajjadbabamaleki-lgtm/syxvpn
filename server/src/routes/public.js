@@ -40,6 +40,15 @@ export function gatewaysFor(db, subscriberId) {
   return routesForSubscriber(enabledGateways(db), usableGateways(db), subscriberId);
 }
 
+/**
+ * The same selection, in the shape the support assistant reads.
+ *
+ * Exported rather than reimplemented: which gateways a subscriber is told about
+ * is a rule with reasons behind it (see domain/fleet.js), and a second copy of
+ * it would eventually describe servers the subscriber was never given.
+ */
+export const usableGatewaysFor = (db, subscriberId) => gatewaysFor(db, subscriberId);
+
 export function publicRoutes({ db }) {
   const router = Router();
   const limiter = createRateLimiter({ ...config.rateLimit.subscription });

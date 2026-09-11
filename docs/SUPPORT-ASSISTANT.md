@@ -1,0 +1,135 @@
+# The support assistant
+
+Support is answered by a bot in Telegram. It reads the asker's own account and
+the real state of the fleet through a small set of read-only tools, answers in
+the language the question was asked in, and hands the conversation to a person
+the moment it cannot answer or money would have to change.
+
+Telegram, and not a support page, because the moment somebody needs support is
+the moment the app they would open a support page in is not working.
+
+## What it can see
+
+Six tools, all of them reads. None of them takes an argument that identifies
+somebody else: every account tool answers for the account the *chat* is linked
+to, so the worst a chat can learn is what its own owner could already see on
+the storefront.
+
+| Tool | Answers |
+| --- | --- |
+| `get_subscription` | active or not and why, data left, expiry, last fetch |
+| `get_servers` | the gateways this account is offered: health, latency, live protocols — names and regions, never addresses |
+| `get_orders` | recent orders: status, amount, confirmations so far, when the window closes |
+| `get_plans` | what is on sale, in USDT — works with no account at all |
+| `get_service_status` | the fleet as a whole, so a local problem can be told from an outage |
+| `escalate_to_human` | hands the chat to a person, with one line of why |
+
+What no tool returns, by construction: a token, a subscription URL, a
+credential UUID, a config line, a gateway address, or anything about traffic.
+State, not content. The bot is told in its prompt never to ask for a password,
+a subscription link or a payment receipt, because it never needs one.
+
+## Turning it on
+
+1. **A bot.** `@BotFather` → `/newbot` → a token. `TELEGRAM_BOT_TOKEN`.
+2. **A webhook secret.** `openssl rand -hex 24` → `TELEGRAM_WEBHOOK_SECRET`.
+   It is both the secret path segment and the `x-telegram-bot-api-secret-token`
+   header, and both are checked: a URL ends up in logs and proxies, a header
+   does not.
+3. **The bot's handle.** `TELEGRAM_BOT_USERNAME`, without the `@`. The
+   storefront shows the linking step only when this is set, so nobody is
+   offered a code for a chat that does not exist.
+4. **An operator chat.** Message the bot from the account that will answer, or
+   add it to a group, and read the numeric chat id off the update. That is
+   `TELEGRAM_OPERATOR_CHAT_ID` — where handovers are announced and the only
+   chat the operator commands work from.
+5. **A key.** `ANTHROPIC_API_KEY`, then `ASSISTANT_ENABLED=true`. Without the
+   key the flag does nothing: a support channel that cannot answer is worse
+   than no support channel.
+6. **Register the webhook** with Telegram:
+
+   ```sh
+   curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+     -H 'content-type: application/json' \
+     -d "{\"url\":\"$PUBLIC_BASE_URL/telegram/webhook/$TELEGRAM_WEBHOOK_SECRET\",
+          \"secret_token\":\"$TELEGRAM_WEBHOOK_SECRET\",
+          \"allowed_updates\":[\"message\"]}"
+   ```
+
+   Check it with `getWebhookInfo`; `last_error_message` is where a wrong path
+   or a certificate problem shows up.
+
+Restart the control plane. The startup line names the model when the assistant
+is on and says `off` when it is not.
+
+## Linking an account
+
+A chat starts anonymous, and an anonymous chat can be told about plans and
+nothing else. To link it the customer signs in on the storefront, which calls
+`POST /api/v1/shop/link-code` and shows a six-digit code. They send the bot
+`/link 481902`.
+
+The code lasts ten minutes, works once, and is bound to the account that asked
+for it — guessing one wins nothing but somebody else's unused code. Asking for
+a new one deletes the old one.
+
+## What a customer can type
+
+| | |
+| --- | --- |
+| `/start`, `/help` | what the bot can do |
+| `/link <code>` | connect this chat to an account |
+| `/status` | the subscription at a glance |
+| `/plans` | what is on sale |
+| `/human` | hand the conversation to a person, immediately |
+
+Anything that is not a command goes to the assistant.
+
+## What an operator can type
+
+Only from `TELEGRAM_OPERATOR_CHAT_ID`, and only when it is set.
+
+| | |
+| --- | --- |
+| `/waiting` | chats waiting on a person, longest first, with the reason |
+| `/reply <chatId> <text>` | send those words to that customer, as you |
+| `/bot <chatId>` | give the chat back to the assistant |
+
+A handover announcement carries the chat id, the reason, the account, and what
+the customer just said — with the two commands spelled out, so answering is a
+copy and an edit.
+
+## The rule about handovers
+
+Once a chat is `human`, the bot stops talking in it. Further messages are
+recorded and forwarded to the operator chat, and nothing is sent back
+automatically. Only `/bot <chatId>` puts it back.
+
+This is not a detail. A person who asked for a human and keeps getting a
+machine has been told their request does not count, and that is the point at
+which people stop trusting the handover and start opening a second ticket.
+
+The bot hands over when: it is asked to; the tools do not explain what
+happened; money or access would have to change; the model returns nothing; or
+it has gone six tool rounds without an answer. Every handover raises a
+`support.handoff` event, so it is visible in the dashboard as well as in
+Telegram.
+
+## Watching it
+
+- `support.handoff` events — the rate is the number that matters. A rising
+  share of chats ending with a person means the tools stopped covering
+  something, not that people got harder.
+- The startup log line: `assistant: claude-opus-5` or `assistant: off`.
+- `getWebhookInfo` → `pending_update_count`. A number that does not come back
+  down means the control plane is not answering Telegram.
+- The webhook replies `200` before it does any work, so Telegram never retries
+  into a duplicate answer; a failure shows up in the logs, not as a second
+  message to the customer.
+
+## Turning it off
+
+`ASSISTANT_ENABLED=false` and restart. The webhook then accepts and drops
+updates, which is quiet but not honest for long — also `deleteWebhook` if it is
+staying off, so the bot is plainly silent rather than seemingly ignoring
+people. Nothing else in the control plane depends on it.

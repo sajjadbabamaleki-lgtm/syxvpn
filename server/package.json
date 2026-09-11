@@ -10,6 +10,7 @@
     "bootstrap": "node scripts/bootstrap-admin.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "better-sqlite3": "13.0.3",
     "cors": "2.8.6",
     "express": "5.2.1",

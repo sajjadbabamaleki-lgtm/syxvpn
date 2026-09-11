@@ -18,9 +18,21 @@ import { adminObservabilityRoutes } from './routes/admin.observability.js';
 import { agentRoutes } from './routes/agent.js';
 import { shopRoutes } from './routes/shop.js';
 import { adminShopRoutes } from './routes/admin.shop.js';
-import { publicRoutes } from './routes/public.js';
+import { publicRoutes, usableGatewaysFor } from './routes/public.js';
+import { telegramRoutes, telegramSender } from './routes/telegram.js';
+import { createAssistant } from './services/assistant.js';
+import { useGatewaySelector } from './domain/assistant.js';
 
-export function createApp({ db, startedAt = Date.now(), cfg = config, watcher = null }) {
+/**
+ * @param assistant a support assistant, injected by tests so the bot can be
+ *   driven without a network; built from the config otherwise.
+ * @param sendMessage the bot's outbound transport, likewise.
+ * @param anthropic the Claude client the assistant talks to.
+ */
+export function createApp({
+  db, startedAt = Date.now(), cfg = config, watcher = null,
+  assistant = null, sendMessage = null, anthropic = null,
+}) {
   const app = express();
   app.disable('x-powered-by');
   if (cfg.trustProxy) app.set('trust proxy', 1);
@@ -62,6 +74,19 @@ export function createApp({ db, startedAt = Date.now(), cfg = config, watcher = 
 
   app.use(metaRoutes({ db, startedAt }));
   app.use(publicRoutes({ db }));
+
+  // The support assistant answers from the same view of a subscriber's
+  // gateways that the subscription endpoint serves, rather than a second
+  // implementation of the rule that would drift from it.
+  useGatewaySelector(usableGatewaysFor);
+  if (cfg.assistant.enabled || assistant) {
+    const send = sendMessage || telegramSender(cfg.assistant.telegram.botToken);
+    app.use(telegramRoutes({
+      db,
+      assistant: assistant || createAssistant({ db, client: anthropic }),
+      send,
+    }));
+  }
 
   app.use('/api/v1/auth', authRoutes({ db }));
   // Customer-facing storefront: its own session type, never admin credentials.

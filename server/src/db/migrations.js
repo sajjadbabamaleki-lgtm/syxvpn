@@ -629,4 +629,59 @@ export const migrations = [
       if (orphans.length) throw new Error(`inbound migration left ${orphans.length} orphaned rows`);
     },
   },
+  {
+    id: '008_assistant',
+    up(db) {
+      // Support that answers at three in the morning.
+      //
+      // One row per conversation, and `state` is the whole handoff mechanism:
+      // while it is 'bot' the assistant answers, and once it is 'human' the
+      // assistant stops answering that chat entirely until an operator hands it
+      // back. A person who has asked for a human and keeps getting a machine is
+      // worse off than one who was told to wait.
+      db.exec(`CREATE TABLE assistant_chats (
+        id TEXT PRIMARY KEY,
+        channel TEXT NOT NULL CHECK (channel IN ('telegram')),
+        channel_chat_id TEXT NOT NULL,
+        -- Null until the person links their account. An unlinked chat can still
+        -- ask what is on sale; it just has no account to look into.
+        customer_id TEXT REFERENCES customers(id) ON DELETE SET NULL,
+        state TEXT NOT NULL DEFAULT 'bot' CHECK (state IN ('bot','human')),
+        handoff_reason TEXT,
+        handoff_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (channel, channel_chat_id)
+      )`);
+      db.exec('CREATE INDEX idx_assistant_chats_state ON assistant_chats(state, updated_at DESC)');
+
+      // The transcript. It is what an operator reads when a chat reaches them,
+      // and it is what the assistant reads to know what was already said.
+      db.exec(`CREATE TABLE assistant_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('user','assistant','operator','system')),
+        body TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`);
+      db.exec('CREATE INDEX idx_assistant_messages_chat ON assistant_messages(chat_id, id)');
+
+      // How a Telegram chat proves whose account it is.
+      //
+      // The code is issued to a signed-in session on the storefront and typed
+      // into the bot. A password never travels through a chat app, and a code
+      // that has been used or has expired opens nothing.
+      db.exec(`CREATE TABLE link_codes (
+        code TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        used_at INTEGER
+      )`);
+      db.exec('CREATE INDEX idx_link_codes_customer ON link_codes(customer_id, expires_at)');
+
+      const orphans = db.pragma('foreign_key_check');
+      if (orphans.length) throw new Error(`assistant migration left ${orphans.length} orphaned rows`);
+    },
+  },
 ];

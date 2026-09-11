@@ -17,6 +17,7 @@ import { describePaymentConfig } from '../services/tron.js';
 import { clientProfile } from '../domain/xray.js';
 import { inboundProfile, offerableInbounds, inCohort } from '../domain/inbounds.js';
 import { gatewaysFor } from './public.js';
+import { issueLinkCode } from '../domain/chats.js';
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(160),
@@ -162,6 +163,12 @@ export function shopRoutes({ db }) {
   router.get('/config', (_req, res) => ok(res, {
     payment: describePaymentConfig(),
     supportContact: config.shop.supportContact || null,
+    // Named only when there is a bot to answer and a handle to reach it by.
+    // The storefront shows the linking step at all only when this is here, so
+    // nobody is offered a code for a chat that does not exist.
+    supportBot: config.assistant.enabled && config.assistant.telegram.botUsername
+      ? { telegram: config.assistant.telegram.botUsername }
+      : null,
   }));
 
   router.get('/plans', (_req, res) => ok(res, listPlans(db).map(planView)));
@@ -197,6 +204,17 @@ export function shopRoutes({ db }) {
     logoutCustomer(db, req.customerToken);
     return ok(res, { loggedOut: true });
   });
+
+  /**
+   * A one-time code that links a chat to this account.
+   *
+   * The bot never asks for a password: a chat app is not a place to type one,
+   * and a support conversation is not a place to have typed one. The code is
+   * issued to a session that is already signed in here, lasts ten minutes, and
+   * works once.
+   */
+  router.post('/link-code', requireCustomer(db), (req, res) =>
+    ok(res, issueLinkCode(db, req.customer.id)));
 
   // The single screen a customer lives on: their subscription and its state.
   router.get('/me', requireCustomer(db), (req, res) => ok(res, {

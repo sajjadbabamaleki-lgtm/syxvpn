@@ -74,6 +74,36 @@ export function loadConfig(env = process.env) {
       maxSkewSeconds: int(env.AGENT_MAX_SKEW_SECONDS, 300),
     },
 
+    /**
+     * The support assistant and the bot it answers through.
+     *
+     * Off by default and off entirely without an API key: a deployment that has
+     * not been given one must not start a support channel that cannot answer.
+     */
+    assistant: {
+      enabled: bool(env.ASSISTANT_ENABLED, false) && Boolean((env.ANTHROPIC_API_KEY || '').trim()),
+      model: env.ASSISTANT_MODEL || 'claude-opus-5',
+      /**
+       * How hard the model thinks per reply.
+       *
+       * A support chat is latency-sensitive and its questions are not hard; the
+       * depth that earns its cost on a coding task costs seconds here for
+       * nothing. Raise it if the answers start reading as shallow.
+       */
+      effort: env.ASSISTANT_EFFORT || 'medium',
+      telegram: {
+        botToken: (env.TELEGRAM_BOT_TOKEN || '').trim(),
+        // Secret path segment *and* header on the webhook. A URL reaches logs
+        // and proxies; a header does not.
+        webhookSecret: (env.TELEGRAM_WEBHOOK_SECRET || '').trim(),
+        // Where handovers are announced and where an operator answers from.
+        operatorChatId: (env.TELEGRAM_OPERATOR_CHAT_ID || '').trim(),
+        // The bot's public @name. Only the storefront needs it, to send a
+        // customer to the chat their link code is for.
+        botUsername: (env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, ''),
+      },
+    },
+
     // Additional inbound protocols per gateway. Off by default: the fleet has
     // to be able to take this build without taking the feature, and turning it
     // on is a decision with a date and a person attached to it.
