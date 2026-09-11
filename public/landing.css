@@ -171,6 +171,18 @@ img { max-width: 100%; display: block; }
   z-index: 30;
   transform-origin: top var(--menu-origin, right);
 }
+/* The header bar is not mirrored on the Persian page. Everything else in the
+   page flips, but the mark and the menu are the two things a reader reaches for
+   without looking, and moving them to the opposite corner buys nothing: both
+   are symbols, not text. So the bar itself stays LTR — mark on the left, menu
+   on the right — and only the words inside it come back to RTL. */
+[dir="rtl"] .top .wrap { direction: ltr; }
+[dir="rtl"] .top .langsel > summary,
+[dir="rtl"] .top .langsel .menu a,
+[dir="rtl"] .top .menubtn .menu a { direction: rtl; }
+/* With the bar upright again, its menus open from the right like the LTR page's. */
+[dir="rtl"] .top .langsel .menu, [dir="rtl"] .top .menubtn .menu { --menu-origin: right; }
+
 [dir="rtl"] .langsel .menu, [dir="rtl"] .menubtn .menu { --menu-origin: left; }
 .langsel[open] .menu, .menubtn[open] .menu { animation: menu-in .16s cubic-bezier(.2, .7, .3, 1); }
 @keyframes menu-in {
