@@ -283,13 +283,13 @@ h3 { font-weight: 400; }
    Two equal grid tracks hold them level at every width; the max-width keeps
    them from stretching across a desktop column. */
 .cta {
-  display: grid; gap: 14px; margin: 36px auto 0; max-width: 470px;
-  /* 224px is the widest label in either language ("Download for Android",
-     measured at 223) plus a pixel. Written as a floor rather than a breakpoint
-     so the row answers to the space it is actually in — full width inside the
-     callout's padding, narrower in a phone's gutter — and drops to one column
-     the moment two of them would no longer fit. Nothing here ever wraps. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 224px), 1fr));
+  display: grid; gap: 14px; margin: 36px auto 0; max-width: 430px;
+  /* Side by side, in two equal tracks. The 150px floor is the narrowest a
+     button gets before a pair stops being readable — at 360px the tracks come
+     out at 157 — and only below that does the row fall to one column. A long
+     label ("Download for Android") takes two lines inside its track rather than
+     breaking the row, which is how this pair already read and is fine. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
 }
 /* Narrower than a free-standing button: at 360px each track is about 160px, and
    the label needs the room more than the padding does. */
@@ -358,7 +358,6 @@ h3 { font-weight: 400; }
   line-height: 1.15; text-wrap: balance;
 }
 .proof-item span { color: var(--dim); font-size: 13px; line-height: 1.6; }
-}
 
 /* ------------------------------------------------------------------ cards */
 
