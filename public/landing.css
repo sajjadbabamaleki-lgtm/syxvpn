@@ -715,11 +715,17 @@ footer { border-top: 1px solid var(--border); padding: 64px 0 52px; color: var(-
 .soc {
   display: grid; place-items: center; width: 42px; height: 42px;
   border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--dim); transition: color .18s ease, border-color .18s ease, transform .18s ease;
+  color: var(--accent);
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
 }
 .soc svg { width: 18px; height: 18px; }
-a.soc:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
-.soc[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+a.soc:hover {
+  border-color: var(--accent); background: rgba(216, 248, 58, .08); transform: translateY(-2px);
+}
+/* The ones with no account behind them yet. They keep the colour — it is the
+   row's colour, not a promise — and say so on a long press rather than looking
+   broken. */
+.soc[aria-disabled="true"] { cursor: default; }
 
 /* The lead sits in the page's own material — the card surface and the light
    across its top — so the footer reads as part of the page rather than a
