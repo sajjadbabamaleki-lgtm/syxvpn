@@ -46,6 +46,7 @@ agent reports back (health, usage, deployment result).
 | `domain/usage.js` | Cumulative-counter accounting with dedup |
 | `domain/shop.js` | Customers, plans, orders |
 | `domain/xray.js` | All Xray configuration generation |
+| `domain/inbounds.js` | Additional inbound protocols per gateway, and their health |
 | `services/monitor.js` | Periodic probing, sweeps, entitlement enforcement |
 | `services/payments.js` | On-chain settlement |
 
@@ -121,6 +122,14 @@ Per gateway the control plane generates:
 
 Client profiles advertise `security=tls` only when something actually terminates
 TLS, and `tlsMode: "xray"` is rejected without certificate paths.
+
+A gateway may also carry **additional inbounds** — Shadowsocks, trojan, or a
+second REALITY on its own port — alongside the one its own columns describe.
+They are additive in every sense: the gateway's own inbound is generated exactly
+as before, the extra ones are skipped entirely while the feature is off, and a
+client is told about them only if it says it can read them. They exist because
+one protocol is one thing to block. See
+[`docs/ADAPTIVE-INBOUNDS.md`](ADAPTIVE-INBOUNDS.md).
 
 A REALITY gateway's X25519 pair is issued by the control plane, not on the box:
 `xray x25519` run by hand is a step that gets skipped or copied between
