@@ -743,24 +743,16 @@ a.soc:hover { color: var(--accent); border-color: var(--accent); transform: tran
 }
 .foot-panel > * { position: relative; z-index: 1; }
 
-/* Three across at every width, including a phone's. A column is about 100px
-   there, so the longer labels take two lines — which is what a footer column
-   does, and it beats three narrow lists stacked down the screen. */
-.foot-top {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 22px 10px; margin: 44px 0 0; text-align: center;
+/* One centred row rather than three columns of headings. Ten links do not need
+   to be filed under three titles, and at a phone's width the columns were about
+   a hundred pixels each — three narrow lists where one wrapping row reads. */
+.foot-row {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 4px 22px; margin: 42px 0 0; padding: 0 6px;
 }
-@media (min-width: 620px) { .foot-top { gap: 34px 24px; margin-top: 52px; } }
-.foot-col h4 {
-  margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--accent);
-  letter-spacing: .2em; text-transform: uppercase; direction: ltr;
-}
-/* `direction: ltr` above gives the Latin heading its tracking; on the RTL page
-   it would also drag the heading to the wrong edge, so it comes back here. */
-[dir="rtl"] .foot-col h4 { direction: rtl; letter-spacing: normal; text-transform: none; font-size: 13px; }
-.foot-col a { display: block; color: var(--dim); padding: 6px 2px; font-size: 12.5px; line-height: 1.5; }
-@media (min-width: 620px) { .foot-col a { font-size: 13px; } }
-.foot-col a:hover { color: var(--text); }
+.foot-row a { color: var(--dim); padding: 7px 2px; font-size: 13.5px; }
+.foot-row a:hover { color: var(--text); }
+@media (min-width: 620px) { .foot-row { gap: 6px 30px; margin-top: 50px; } }
 
 .foot {
   display: flex; gap: 10px 20px; flex-wrap: wrap; justify-content: center; text-align: center;
