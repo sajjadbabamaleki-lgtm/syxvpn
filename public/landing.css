@@ -125,12 +125,24 @@ img { max-width: 100%; display: block; }
    mark is already the accent, and two of them side by side would leave nothing
    for the eye to land on first. */
 .brand-name {
-  font-size: 17px; font-weight: 700; color: var(--text);
+  font-size: 13.6px; font-weight: 700; color: var(--text);
   letter-spacing: .07em; white-space: nowrap;
   /* Latin either way, so it keeps its own direction on the RTL page. */
   direction: ltr;
+  /* Centring the flex item centres its line box, not its ink. With the page's
+     inherited line-height that put the capitals well above the middle of the
+     tile; at 1 the line box is the em box, which is most of the difference. */
+  line-height: 1;
+  /* The rest is the em box's descender space, which all-capitals never use, so
+     the ink rides high. Nudged down by the amount actually measured against the
+     tile rather than a fraction of the size — the two do not track each other
+     closely enough at these sizes to share one value. */
+  transform: translateY(1.92px);
 }
-@media (max-width: 359px) { .brand-name { font-size: 15px; } .brand { gap: 8px; } }
+@media (max-width: 359px) {
+  .brand-name { font-size: 12px; transform: translateY(.33px); }
+  .brand { gap: 8px; }
+}
 .brand svg { display: block; }
 /* Light around the tile rather than a line drawn on it: two shadows, a tight
    one for the edge and a wide one for the bloom. */
