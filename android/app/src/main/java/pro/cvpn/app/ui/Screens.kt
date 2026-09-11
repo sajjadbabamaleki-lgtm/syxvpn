@@ -122,7 +122,7 @@ private enum class Tab { VPN, CONFIGS, PREMIUM, SUPPORT, ACCOUNT }
 @Composable
 fun cVPNRoot(
     app: CvpnApplication,
-    onConnect: (List<Server>, Boolean) -> Unit,
+    onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
     onDisconnect: () -> Unit,
     onOpenStore: () -> Unit = {},
 ) {
@@ -469,6 +469,67 @@ private fun BannerSlot(modifier: Modifier = Modifier) {
 }
 
 /**
+ * The first row in the config list: let the tunnel choose.
+ *
+ * Built to ConfigRow's measurements rather than reusing the VPN tab's country
+ * row, which is 2dp shorter and rounder — the list is capped at a whole number
+ * of rows, and a row of a different height is what turns that into a half-
+ * visible one.
+ *
+ * It carries no copy, share or delete: there is nothing here to copy. The dot
+ * follows the tunnel the same way the config rows' does, so the row that is
+ * chosen and the row that is running look the same whichever one it is.
+ */
+@Composable
+private fun AutomaticRow(
+    count: Int,
+    selected: Boolean,
+    connected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ConfigRowHeight)
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (selected) SurfaceHigh else Surface)
+            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        selected && connected -> Ok
+                        selected -> Pending
+                        else -> Border
+                    },
+                ),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Automatic", color = Color.White, fontSize = 14.sp, maxLines = 1)
+            Text(
+                when (count) {
+                    0 -> "nothing to choose from yet"
+                    1 -> "the one config there is"
+                    else -> "the fastest of $count configs"
+                },
+                color = TextDim,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        PathIcon(ICON_GLOBE, 18.dp, if (selected) Accent else TextFaint)
+    }
+}
+
+/**
  * One row in the config list.
  *
  * Copy and share hand out the profile itself. Delete hides the server locally:
@@ -669,7 +730,15 @@ private class ServerListState(private val session: SessionStore) {
         private set
     var hidden by mutableStateOf(session.hiddenConfigs)
         private set
-    var automatic by mutableStateOf(session.automaticServer)
+    /**
+     * Whether the Configs tab lets the tunnel choose among the configs.
+     *
+     * The Configs tab's alone. The VPN tab is automatic by construction — it
+     * has no way to name one server — so a single shared flag would let a
+     * country picked over there decide what the config list does, which is how
+     * a config someone chose by hand used to stop being the one used.
+     */
+    var configAutomatic by mutableStateOf(session.automaticServer)
         private set
 
     /** ISO code of the country the tunnel may choose from; null means anywhere. */
@@ -680,7 +749,12 @@ private class ServerListState(private val session: SessionStore) {
     var busy by mutableStateOf(false)
         private set
 
-    /** What the VPN tab is set to. Read by the tunnel, never by the config list. */
+    /**
+     * What the connection is for. Read by the tunnel whenever it is the one
+     * choosing — on either tab, since the config list has an Automatic mode of
+     * its own now. One setting, not one per tab: it says what this person is
+     * doing with the phone, which does not change with the screen they are on.
+     */
     var purpose by mutableStateOf(Purpose.of(session.purposeName))
         private set
 
@@ -764,8 +838,6 @@ private class ServerListState(private val session: SessionStore) {
     fun useCountry(code: String?) {
         country = code
         session.country = code
-        automatic = true
-        session.automaticServer = true
     }
 
     /** The servers automatic selection may use right now. */
@@ -774,8 +846,8 @@ private class ServerListState(private val session: SessionStore) {
             visible.filter { (countryOf(it)?.code ?: CountryGroup.OTHER) == code }
         } ?: visible
 
-    fun useAutomatic(value: Boolean) {
-        automatic = value
+    fun useConfigAutomatic(value: Boolean) {
+        configAutomatic = value
         session.automaticServer = value
         if (!value && chosen == null) chosen = visible.firstOrNull()
     }
@@ -865,7 +937,7 @@ private fun ColumnScope.TunnelSwitch(
     state: ServerListState,
     /** Which section this switch belongs to; it answers for that one alone. */
     source: TunnelService.Source,
-    onConnect: (List<Server>, Boolean) -> Unit,
+    onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
     onDisconnect: () -> Unit,
 ) {
     val tunnelState by TunnelService.state.collectAsState()
@@ -891,18 +963,26 @@ private fun ColumnScope.TunnelSwitch(
     // when pressed, and said nothing about why. Enabling and connecting now
     // read the same list, so "pressed it and nothing happened" is not a state
     // this screen has.
-    val candidates = if (source == TunnelService.Source.AUTOMATIC) {
+    //
+    // Whether the tunnel gets to choose is a separate question from whose
+    // tunnel it is, and both tabs can now answer yes: the VPN tab always, the
+    // Configs tab when its own Automatic row is the selected one. Each tab
+    // reads its own state — a country picked on one is not an instruction to
+    // the other.
+    val choosing = source == TunnelService.Source.VPN || state.configAutomatic
+    val candidates = when {
         // Every server in the chosen country — or all of them under Automatic.
         // The tunnel measures them, decides, and falls back through the rest if
-        // the first one refuses. Read from the section, not from a shared flag:
-        // choosing a config on the other tab used to flip this one into manual
-        // and leave it connecting to something nobody picked here.
-        state.pool
-    } else {
+        // the first one refuses.
+        source == TunnelService.Source.VPN -> state.pool
+        // The whole config list, for the tunnel to weigh the same way. These
+        // are the person's own configs, so this happens only because they asked
+        // for it on the row above the list.
+        state.configAutomatic -> state.visible
         // The config this person chose. Falling back to the first one keeps the
         // switch alive when nothing has been chosen yet, which is the state a
         // fresh install is in.
-        listOfNotNull(state.chosen ?: state.visible.firstOrNull())
+        else -> listOfNotNull(state.chosen ?: state.visible.firstOrNull())
     }
 
     // Above the switch: nothing of the app's own. The screen's spare height
@@ -926,7 +1006,7 @@ private fun ColumnScope.TunnelSwitch(
                     // One tunnel exists, so turning this on while the other
                     // section holds it moves it here rather than opening a
                     // second one — which Android does not allow in any case.
-                    onConnect(candidates, source == TunnelService.Source.AUTOMATIC)
+                    onConnect(candidates, choosing, source)
                 }
             },
         )
@@ -966,7 +1046,7 @@ private fun ColumnScope.TunnelSwitch(
     if (elsewhere) {
         Spacer(Modifier.height(8.dp))
         Text(
-            if (source == TunnelService.Source.AUTOMATIC) {
+            if (source == TunnelService.Source.VPN) {
                 "The tunnel is running on a config from the Configs tab. " +
                     "Turning this on moves it to a server from your plan."
             } else {
@@ -1006,13 +1086,22 @@ private fun ColumnScope.TunnelSwitch(
     Spacer(Modifier.height(20.dp))
 }
 
-/** The server in use, as both tabs work it out: the tunnel's choice under
- *  Automatic, the person's choice otherwise. */
+/**
+ * The server in use: the tunnel's choice while the tunnel is the one choosing,
+ * the person's choice otherwise.
+ *
+ * @param choosing whether this tab lets the tunnel decide. Always true on the
+ *   VPN tab; on Configs it follows that tab's own Automatic row.
+ */
 @Composable
-private fun currentServer(state: ServerListState): Server? {
+private fun currentServer(state: ServerListState, choosing: Boolean): Server? {
     val activeServer by TunnelService.activeServer.collectAsState()
-    return if (state.automatic) {
-        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
+    return if (choosing) {
+        // The tunnel's pick, and nothing when it has not picked yet. Falling
+        // back to the last hand-picked config would put a server's name on a
+        // card that is set to choose one — a promise about which server is
+        // coming up that nothing has made.
+        state.visible.firstOrNull { it.key == activeServer }
     } else {
         state.chosen
     }
@@ -1037,7 +1126,9 @@ private fun ColumnScope.ServerAndPlanCard(
     val activity by TunnelService.activity.collectAsState()
     val activeLabel by TunnelService.activeLabel.collectAsState()
     val connected = tunnelState == TunnelService.State.CONNECTED
-    val current = currentServer(state)
+    // This tab never names a server, so the tunnel is always the one choosing
+    // here — including while the Configs tab is set to one config by hand.
+    val current = currentServer(state, choosing = true)
     val selected = current?.profile
 
     // What is left of the plan. Real figures or nothing: the line is drawn only
@@ -1069,9 +1160,9 @@ private fun ColumnScope.ServerAndPlanCard(
             Column(Modifier.weight(1f)) {
                 Text(
                     when {
-                        state.automatic && connected && activeLabel != null -> activeLabel!!
-                        state.automatic && current == null -> "Automatic"
-                        else -> current?.label ?: "No server available"
+                        connected && activeLabel != null -> activeLabel!!
+                        current == null -> "Automatic"
+                        else -> current.label
                     },
                     color = Color.White,
                     fontWeight = FontWeight.Medium,
@@ -1093,8 +1184,8 @@ private fun ColumnScope.ServerAndPlanCard(
                 )
             }
             Text(
-                if (state.automatic) "AUTO" else "MANUAL",
-                color = if (state.automatic) Accent else TextFaint,
+                "AUTO",
+                color = Accent,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
@@ -1167,7 +1258,7 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
     val activeLabel by TunnelService.activeLabel.collectAsState()
     val traffic by TunnelService.traffic.collectAsState()
     val connected = tunnelState == TunnelService.State.CONNECTED
-    val current = currentServer(state)
+    val current = currentServer(state, choosing = state.configAutomatic)
     val selected = current?.profile
 
     var pingMs by remember { mutableStateOf<Long?>(null) }
@@ -1187,8 +1278,8 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
             Column(Modifier.weight(1f)) {
                 Text(
                     when {
-                        state.automatic && connected && activeLabel != null -> activeLabel!!
-                        state.automatic && current == null -> "Automatic"
+                        state.configAutomatic && connected && activeLabel != null -> activeLabel!!
+                        state.configAutomatic && current == null -> "Automatic"
                         else -> current?.label ?: "No server available"
                     },
                     color = Color.White,
@@ -1333,15 +1424,22 @@ private fun ColumnScope.TunnelError() {
  * is up re-picks immediately, because a setting that only takes effect next
  * time is a setting people think is broken.
  *
- * It belongs to the VPN tab alone. A config someone imported is theirs, and no
- * weighting is ever applied to it.
+ * It steers a choice, so it appears wherever a choice is being made: always on
+ * the VPN tab, and on the Configs tab while that tab's Automatic row is the
+ * selected one. A config picked by hand is never weighed, reordered or replaced
+ * — the chips are not shown at all in that state, because a control that
+ * changes nothing is worse than no control.
  */
 @Composable
 private fun ColumnScope.PurposeRow(
     state: ServerListState,
     live: Boolean,
-    onConnect: (List<Server>, Boolean) -> Unit,
+    /** The section the chips are on; it decides what they re-pick out of. */
+    source: TunnelService.Source,
+    onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
 ) {
+    val candidates =
+        if (source == TunnelService.Source.VPN) state.pool else state.visible
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1363,7 +1461,7 @@ private fun ColumnScope.PurposeRow(
                         state.usePurpose(option)
                         // Already up: re-pick now under the new weights rather
                         // than leaving the old choice in place.
-                        if (live && state.pool.isNotEmpty()) onConnect(state.pool, true)
+                        if (live && candidates.isNotEmpty()) onConnect(candidates, true, source)
                     },
                 contentAlignment = Alignment.Center,
             ) {
@@ -1383,7 +1481,7 @@ private fun ColumnScope.PurposeRow(
 private fun VpnScreen(
     app: CvpnApplication,
     state: ServerListState,
-    onConnect: (List<Server>, Boolean) -> Unit,
+    onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
     onDisconnect: () -> Unit,
     onOpenConfigs: () -> Unit,
     onOpenPremium: () -> Unit,
@@ -1393,17 +1491,22 @@ private fun VpnScreen(
     // This screen's own connection. A tunnel the Configs tab is holding is not
     // this section being on, and Purpose — which only steers an automatic
     // choice — must not read as live because of it.
-    val mine = tunnelSource == TunnelService.Source.AUTOMATIC
+    val mine = tunnelSource == TunnelService.Source.VPN
     val connected = mine && tunnelState == TunnelService.State.CONNECTED
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelSwitch(state, TunnelService.Source.AUTOMATIC, onConnect, onDisconnect)
+        TunnelSwitch(state, TunnelService.Source.VPN, onConnect, onDisconnect)
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
 
         Spacer(Modifier.height(12.dp))
-        PurposeRow(state, live = connected || connecting, onConnect = onConnect)
+        PurposeRow(
+            state,
+            live = connected || connecting,
+            source = TunnelService.Source.VPN,
+            onConnect = onConnect,
+        )
 
         Spacer(Modifier.height(12.dp))
 
@@ -1430,7 +1533,9 @@ private fun VpnScreen(
                     connected = connected && state.country == null,
                     onClick = {
                         state.useCountry(null)
-                        if (connected || connecting) onConnect(state.visible, true)
+                        if (connected || connecting) {
+                            onConnect(state.visible, true, TunnelService.Source.VPN)
+                        }
                     },
                 )
             }
@@ -1454,7 +1559,9 @@ private fun VpnScreen(
                         state.useCountry(group.key)
                         // Already up: move onto this country now rather than
                         // waiting for the next time someone flips the switch.
-                        if (connected || connecting) onConnect(group.servers, true)
+                        if (connected || connecting) {
+                            onConnect(group.servers, true, TunnelService.Source.VPN)
+                        }
                     },
                 )
             }
@@ -1627,7 +1734,7 @@ private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
 private fun ConfigsScreen(
     app: CvpnApplication,
     state: ServerListState,
-    onConnect: (List<Server>, Boolean) -> Unit,
+    onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
     onDisconnect: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -1635,18 +1742,13 @@ private fun ConfigsScreen(
     val context = LocalContext.current
     val tunnelState by TunnelService.state.collectAsState()
     val tunnelSource by TunnelService.source.collectAsState()
-    val activeServer by TunnelService.activeServer.collectAsState()
 
     // Likewise this screen's own: tapping a row moves a running tunnel onto
     // that config, and it should only do that to a tunnel this section owns.
-    val mine = tunnelSource == TunnelService.Source.MANUAL
+    val mine = tunnelSource == TunnelService.Source.CONFIGS
     val connected = mine && tunnelState == TunnelService.State.CONNECTED
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
-    val current = if (state.automatic) {
-        state.visible.firstOrNull { it.key == activeServer } ?: state.chosen
-    } else {
-        state.chosen
-    }
+    val current = currentServer(state, choosing = state.configAutomatic)
 
     // Measured once when the list is first shown, and again on a pull. Not on a
     // timer: a sweep is real traffic to real servers, and a screen nobody is
@@ -1662,9 +1764,22 @@ private fun ConfigsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        TunnelSwitch(state, TunnelService.Source.MANUAL, onConnect, onDisconnect)
+        TunnelSwitch(state, TunnelService.Source.CONFIGS, onConnect, onDisconnect)
         ConnectionCard(state)
         TunnelError()
+
+        // Only under Automatic: with one config named by hand there is nothing
+        // for a weighting to choose between, and a row of chips that changes
+        // nothing is a lie about what the app does.
+        if (state.configAutomatic) {
+            Spacer(Modifier.height(12.dp))
+            PurposeRow(
+                state,
+                live = connected || connecting,
+                source = TunnelService.Source.CONFIGS,
+                onConnect = onConnect,
+            )
+        }
 
         Spacer(Modifier.height(14.dp))
 
@@ -1726,12 +1841,48 @@ private fun ConfigsScreen(
                         }
                     }
                 } else {
+                    // The same offer the VPN tab makes, over this tab's own
+                    // list: hand the lot to the tunnel and let it weigh them.
+                    // It is a row rather than a toggle somewhere else because
+                    // it is one of the choices in this list — "any of them" —
+                    // and it is selected exactly the way the others are.
+                    item {
+                        AutomaticRow(
+                            count = state.visible.size,
+                            selected = state.configAutomatic,
+                            connected = connected && state.configAutomatic,
+                            onSelect = {
+                                if (!state.configAutomatic) {
+                                    state.useConfigAutomatic(true)
+                                    // Already up on a config chosen by hand:
+                                    // re-pick now, the same as the VPN tab does
+                                    // when a country changes under a live
+                                    // tunnel.
+                                    if (connected || connecting) {
+                                        onConnect(
+                                            state.visible,
+                                            true,
+                                            TunnelService.Source.CONFIGS,
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
                     items(state.visible, key = { "${it.key}:${it.profile.uuid}" }) { server ->
                         val profile = server.profile
-                        val isSelected = server.key == current?.key
+                        // Two different things, and only one of them is a
+                        // ring: the row in use, which under Automatic is the
+                        // tunnel's own pick, and the row this person chose.
+                        // Under Automatic nothing here is chosen — the row
+                        // above is — and the card already names what is
+                        // running, so the rows keep their health dots and the
+                        // ring stays on the choice, as on the VPN tab.
+                        val inUse = server.key == current?.key
+                        val pinned = !state.configAutomatic && inUse
                         ConfigRow(
                             server = server,
-                            selected = isSelected,
+                            selected = pinned,
                             connected = connected,
                             health = state.health(server),
                             pingMs = state.ping(server),
@@ -1739,14 +1890,28 @@ private fun ConfigsScreen(
                                 // Choosing a row by hand is a statement:
                                 // automatic mode ends here rather than quietly
                                 // overriding the choice on the next connection.
-                                state.useAutomatic(false)
-                                if (!isSelected) {
+                                val wasAutomatic = state.configAutomatic
+                                state.useConfigAutomatic(false)
+                                if (!inUse) {
                                     state.chosen = server
                                     // Switching server while connected
                                     // re-establishes the tunnel on the new one
                                     // rather than silently keeping traffic on
                                     // the old.
-                                    if (connected || connecting) onConnect(listOf(server), false)
+                                    if (connected || connecting) {
+                                        onConnect(
+                                            listOf(server),
+                                            false,
+                                            TunnelService.Source.CONFIGS,
+                                        )
+                                    }
+                                } else if (wasAutomatic) {
+                                    // Already the config carrying the traffic,
+                                    // chosen for them a moment ago: pin it, and
+                                    // leave the tunnel where it is. Tearing a
+                                    // working connection down to rebuild it on
+                                    // the same server would be theatre.
+                                    state.chosen = server
                                 }
                             },
                             onCopy = {

@@ -80,12 +80,15 @@ class SessionStore(context: Context) {
         set(value) = prefs.edit().putStringSet(KEY_HIDDEN, value).apply()
 
     /**
-     * Whether the tunnel chooses the server, rather than the person.
+     * Whether the tunnel chooses the config, rather than the person.
+     *
+     * The Configs tab's setting. The VPN tab has no manual mode to store — it
+     * never names a server — so nothing there reads or writes this.
      *
      * On by default: someone who has just bought a plan has no way to know
      * which gateway is best for their network, and the tunnel can measure it.
-     * Choosing a server by hand turns it off, and it stays off until they ask
-     * for automatic again.
+     * Choosing a config by hand turns it off, and it stays off until they pick
+     * the Automatic row again.
      */
     var automaticServer: Boolean
         get() = prefs.getBoolean(KEY_AUTOMATIC, true)

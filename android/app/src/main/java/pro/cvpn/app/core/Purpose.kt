@@ -10,8 +10,10 @@ package pro.cvpn.app.core
  * once this week, Social takes the gateway that has never failed even when it
  * is 60 ms further away.
  *
- * It applies to the VPN side only. A config the person imported is theirs, and
- * nothing here ever reorders, replaces or re-picks it.
+ * It applies wherever the tunnel is the one choosing: always on the VPN side,
+ * and on the config list while its Automatic row is selected. A config the
+ * person named themselves is never weighed — with one candidate there is
+ * nothing to score, and the app does not go looking for a second one.
  *
  * Adding a purpose is adding an entry: nothing else in the engine knows the
  * names, only the weights.

@@ -57,9 +57,14 @@ class TunnelService : VpnService() {
     enum class State { DISCONNECTED, CONNECTING, CONNECTED, FAILED }
 
 
-    /** Which of the app's two sections asked for the tunnel that is running. */
-
-    enum class Source { NONE, AUTOMATIC, MANUAL }
+    /**
+     * Which of the app's two sections asked for the tunnel that is running.
+     *
+     * Whose tunnel it is, not how the server was picked: both sections can ask
+     * the tunnel to choose for them, so this cannot be read off [EXTRA_AUTOMATIC]
+     * and is sent separately. A switch that owns nothing shows itself off.
+     */
+    enum class Source { NONE, VPN, CONFIGS }
 
     /**
      * One thread owns the tunnel's lifecycle.
@@ -98,6 +103,7 @@ class TunnelService : VpnService() {
             else -> connect(
                 intent?.getStringExtra(EXTRA_SERVERS),
                 intent?.getBooleanExtra(EXTRA_AUTOMATIC, false) ?: false,
+                sourceOf(intent?.getStringExtra(EXTRA_SOURCE)),
                 intent?.getStringArrayExtra(EXTRA_CONTROL_HOST)?.toList().orEmpty(),
                 Purpose.of(intent?.getStringExtra(EXTRA_PURPOSE)),
             )
@@ -111,10 +117,14 @@ class TunnelService : VpnService() {
      *   the list holds the one the person chose.
      * @param automatic when true the tunnel measures the candidates and decides;
      *   when false it uses the first entry and does not wander off it.
+     * @param from which section asked. Independent of [automatic]: the Configs
+     *   tab can hand over its whole list to be chosen from and still be the
+     *   section that owns what comes up.
      */
     private fun connect(
         serversJson: String?,
         automatic: Boolean,
+        from: Source,
         controlPlaneHosts: List<String>,
         wanted: Purpose,
     ) {
@@ -127,7 +137,7 @@ class TunnelService : VpnService() {
         automaticMode = automatic
         // Set here rather than at CONNECTED, so a screen watching this knows
         // whose connection attempt is in flight and not only whose succeeded.
-        source.value = if (automatic) Source.AUTOMATIC else Source.MANUAL
+        source.value = from
         controlHosts = controlPlaneHosts
         purpose = wanted
         // A fresh request from the app is not a recovery attempt: someone is
@@ -506,6 +516,9 @@ class TunnelService : VpnService() {
         /** True to let the tunnel measure and choose; false to use the first entry. */
         const val EXTRA_AUTOMATIC = "automatic"
 
+        /** Which section is asking; the name of a [Source]. */
+        const val EXTRA_SOURCE = "source"
+
         /** Hostname of the control plane, kept off the tunnel. */
         const val EXTRA_CONTROL_HOST = "controlHost"
 
@@ -521,6 +534,18 @@ class TunnelService : VpnService() {
         /** Consecutive one-second checks reporting a stopped core before the
          *  watchdog treats the tunnel as gone. */
         private const val WATCHDOG_STRIKES = 3
+
+        /**
+         * The section named in an intent.
+         *
+         * An unreadable or missing name falls back to the VPN section rather
+         * than to NONE: something is connecting, and a tunnel that belongs to
+         * no section would leave both switches showing themselves off while it
+         * carries traffic.
+         */
+        private fun sourceOf(value: String?): Source =
+            Source.entries.firstOrNull { it.name.equals(value, ignoreCase = true) && it != Source.NONE }
+                ?: Source.VPN
 
         /** The JSON the app hands over, built where the servers are known. */
         fun serversPayload(servers: List<Server>): String = JSONArray().apply {

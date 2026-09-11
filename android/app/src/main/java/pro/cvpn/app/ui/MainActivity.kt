@@ -22,8 +22,20 @@ import pro.cvpn.app.vpn.TunnelService
  */
 class MainActivity : ComponentActivity() {
 
-    /** The connection waiting for the VPN consent dialog to come back. */
-    private val pendingServers = mutableStateOf<Pair<String, Boolean>?>(null)
+    /**
+     * The connection waiting for the VPN consent dialog to come back.
+     *
+     * @param serversJson the candidates, already encoded.
+     * @param automatic whether the tunnel may choose among them.
+     * @param source which section asked; it owns whatever comes up.
+     */
+    private data class PendingConnect(
+        val serversJson: String,
+        val automatic: Boolean,
+        val source: TunnelService.Source,
+    )
+
+    private val pendingServers = mutableStateOf<PendingConnect?>(null)
 
     /**
      * Android requires an explicit user consent dialog before an app may create
@@ -74,10 +86,17 @@ class MainActivity : ComponentActivity() {
      *
      * @param automatic true to let the tunnel measure the candidates and
      *   decide; false when the person chose one and it is not to wander off it.
+     * @param source the section that asked. Not the same question as
+     *   [automatic]: either section may hand over a list to be chosen from, and
+     *   the tunnel still belongs to the one that asked.
      */
-    private fun requestTunnel(servers: List<Server>, automatic: Boolean) {
+    private fun requestTunnel(
+        servers: List<Server>,
+        automatic: Boolean,
+        source: TunnelService.Source,
+    ) {
         if (servers.isEmpty()) return
-        val request = TunnelService.serversPayload(servers) to automatic
+        val request = PendingConnect(TunnelService.serversPayload(servers), automatic, source)
         val consentIntent = VpnService.prepare(this)
         if (consentIntent != null) {
             pendingServers.value = request
@@ -87,9 +106,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTunnel(request: Pair<String, Boolean>?) {
+    private fun startTunnel(request: PendingConnect?) {
         if (request == null) return
-        val (serversJson, automatic) = request
+        val (serversJson, automatic, source) = request
         // Every address, not only the one in use: the routing rule that keeps
         // the control plane off the tunnel has to cover the spare too, or the
         // fallback is routed into the tunnel it exists to survive.
@@ -101,10 +120,12 @@ class MainActivity : ComponentActivity() {
                 .setAction(TunnelService.ACTION_CONNECT)
                 .putExtra(TunnelService.EXTRA_SERVERS, serversJson)
                 .putExtra(TunnelService.EXTRA_AUTOMATIC, automatic)
+                .putExtra(TunnelService.EXTRA_SOURCE, source.name)
                 .putExtra(TunnelService.EXTRA_CONTROL_HOST, controlHosts)
-                // What the VPN tab is set to. The tunnel weighs its candidates
-                // by it; the Configs tab never sends one, because a config the
-                // person imported is not chosen by anything but them.
+                // What the app is set to. The tunnel weighs its candidates by
+                // it whenever it is the one choosing -- on either tab, since
+                // the config list has an Automatic row of its own now. With one
+                // candidate there is nothing to weigh and it changes nothing.
                 .putExtra(
                     TunnelService.EXTRA_PURPOSE,
                     (application as CvpnApp).session.purposeName,
