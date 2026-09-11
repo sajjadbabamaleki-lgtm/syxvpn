@@ -15,7 +15,22 @@
 # ------------------------------------------------------------------ public site
 syxvpn.pro, www.syxvpn.pro {
     encode zstd gzip
-    reverse_proxy 127.0.0.1:8080
+
+    # The landing page reads live prices from the control plane, and it asks its
+    # own origin for them — there is no hostname typed into the page, so that a
+    # deployment which serves the site and the API together needs no config at
+    # all. This block is the case where they are not together: without this
+    # matcher /api/* reaches the web container, the page is handed HTML where it
+    # expected JSON, and the pricing section reports that plans are unavailable
+    # while the control plane is serving them perfectly well.
+    @api path /api/*
+    handle @api {
+        reverse_proxy 127.0.0.1:8787
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:8080
+    }
 
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"

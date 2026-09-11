@@ -283,8 +283,13 @@ h3 { font-weight: 400; }
    Two equal grid tracks hold them level at every width; the max-width keeps
    them from stretching across a desktop column. */
 .cta {
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-  gap: 14px; margin: 36px auto 0; max-width: 430px;
+  display: grid; gap: 14px; margin: 36px auto 0; max-width: 470px;
+  /* 224px is the widest label in either language ("Download for Android",
+     measured at 223) plus a pixel. Written as a floor rather than a breakpoint
+     so the row answers to the space it is actually in — full width inside the
+     callout's padding, narrower in a phone's gutter — and drops to one column
+     the moment two of them would no longer fit. Nothing here ever wraps. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 224px), 1fr));
 }
 /* Narrower than a free-standing button: at 360px each track is about 160px, and
    the label needs the room more than the padding does. */
