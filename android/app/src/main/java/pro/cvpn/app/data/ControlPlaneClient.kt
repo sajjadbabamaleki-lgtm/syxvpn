@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import pro.cvpn.app.core.ControlPlaneEndpoints
+import pro.cvpn.app.core.TunnelProfile
 import pro.cvpn.app.core.XrayConfigBuilder
 import java.io.IOException
 
@@ -292,7 +293,10 @@ class ControlPlaneClient(
             String(android.util.Base64.decode(text, android.util.Base64.DEFAULT))
         }.getOrElse { text }
         val servers = decoded.lines().map(String::trim)
-            .filter { it.startsWith("vless://") }
+            // Every scheme the app can dial. A filter that names one protocol
+            // would throw away the other doors of a subscription served as a
+            // plain list — the form used by every client that is not this one.
+            .filter { TunnelProfile.looksLikeProfile(it) }
             .map { SubscriptionServer(uri = it, routeState = null, gatewayName = null, region = null) }
         return servers.ifEmpty { null }
     }

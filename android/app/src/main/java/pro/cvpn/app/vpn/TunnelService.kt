@@ -32,7 +32,7 @@ import pro.cvpn.app.core.RouteState
 import pro.cvpn.app.core.Server
 import pro.cvpn.app.core.ServerPicker
 import pro.cvpn.app.core.SmartConnect
-import pro.cvpn.app.core.VlessProfile
+import pro.cvpn.app.core.TunnelProfile
 import pro.cvpn.app.core.XrayConfigBuilder
 import org.json.JSONArray
 import org.json.JSONObject
@@ -340,7 +340,11 @@ class TunnelService : VpnService() {
         val array = runCatching { JSONArray(json) }.getOrNull() ?: return emptyList()
         return (0 until array.length()).mapNotNull { index ->
             val entry = array.optJSONObject(index) ?: return@mapNotNull null
-            val profile = VlessProfile.parse(entry.optString("uri")) ?: return@mapNotNull null
+            // Every kind, not only vless: this is the boundary the app hands
+            // its candidates across, and a parser that knows one protocol here
+            // would quietly drop the other doors after the screen had already
+            // ranked them and decided one of them was the best.
+            val profile = TunnelProfile.parse(entry.optString("uri")) ?: return@mapNotNull null
             Server(
                 profile = profile,
                 routeState = RouteState.of(entry.optString("routeState").takeIf { it.isNotEmpty() }),

@@ -1672,9 +1672,9 @@ private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
         text = {
             Column {
                 Text(
-                    "Paste a vless:// link, a whole list of them, or what a " +
-                        "subscription link gives you. Configs you bought elsewhere " +
-                        "work here and need no plan.",
+                    "Paste a vless://, ss:// or trojan:// link, a whole list of " +
+                        "them, or what a subscription link gives you. Configs you " +
+                        "bought elsewhere work here and need no plan.",
                     color = TextDim,
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
@@ -1684,7 +1684,9 @@ private fun AddConfigSheet(onDismiss: () -> Unit, onAdd: (String) -> String) {
                     value = text,
                     onValueChange = { text = it; outcome = null },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
-                    placeholder = { Text("vless://…", color = TextFaint, fontSize = 13.sp) },
+                    placeholder = {
+                        Text("vless:// · ss:// · trojan://", color = TextFaint, fontSize = 13.sp)
+                    },
                     textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = Color.White),
                     singleLine = false,
                 )
