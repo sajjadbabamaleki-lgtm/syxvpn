@@ -346,6 +346,9 @@ h3 { font-weight: 400; }
 .bar-head b { color: var(--gold); font-size: 14px; font-weight: 500; letter-spacing: .18em; direction: ltr; }
 .bar-track { height: 9px; border-radius: 999px; background: var(--surface-high); overflow: hidden; }
 .bar-fill {
+  /* An <i> is inline, and width does nothing to an inline box: the JS was
+     setting the width all along and the track stayed empty. */
+  display: block;
   height: 100%; border-radius: 999px; width: 0;
   background: linear-gradient(90deg, var(--gold), var(--gold-soft));
   transition: width 1.4s cubic-bezier(.2, .7, .3, 1);
@@ -498,7 +501,12 @@ footer { border-top: 1px solid var(--border); padding: 68px 0 60px; color: var(-
 .signup .btn { align-self: flex-start; }
 .signup .said { color: var(--accent); font-size: 13px; min-height: 20px; }
 .foot-col h4 { margin: 0 0 16px; font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: .2em; text-transform: uppercase; direction: ltr; }
-[dir="rtl"] .foot-col h4 { letter-spacing: normal; text-transform: none; font-size: 13px; }
+/* `direction: ltr` above is there to give the Latin heading its tracking. On
+   the RTL page it also drags the heading to the left edge while its own links
+   stay right-aligned, so the direction has to come back with the rest. */
+[dir="rtl"] .foot-col h4 {
+  direction: rtl; letter-spacing: normal; text-transform: none; font-size: 13px;
+}
 .foot-col a { display: block; color: var(--dim); padding: 6px 0; }
 .foot-col a:hover { color: var(--text); }
 .foot { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; padding-top: 28px; border-top: 1px solid var(--border); }
