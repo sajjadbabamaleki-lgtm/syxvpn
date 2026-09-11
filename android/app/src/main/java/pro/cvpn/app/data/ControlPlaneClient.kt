@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import pro.cvpn.app.core.ControlPlaneEndpoints
+import pro.cvpn.app.core.XrayConfigBuilder
 import java.io.IOException
 
 /**
@@ -242,8 +243,19 @@ class ControlPlaneClient(
             servers
         }
 
-    private fun withFormatJson(url: String) =
-        if ('?' in url) "$url&format=json" else "$url?format=json"
+    /**
+     * Asks for JSON, and says which protocols this build can actually dial.
+     *
+     * The protocol list is the whole of the compatibility contract in the other
+     * direction: a control plane that knows about these answers with them, one
+     * that does not ignores an unknown query parameter, and a *client* that
+     * never asks — every version of this app already on a phone — keeps being
+     * answered with vless alone. Nobody is handed a line they cannot use.
+     */
+    private fun withFormatJson(url: String): String {
+        val query = "format=json&protocols=" + XrayConfigBuilder.PROTOCOLS.joinToString(",")
+        return if ('?' in url) "$url&$query" else "$url?$query"
+    }
 
     private fun fetchSubscription(url: String): String {
         // The link is absolute and carries whichever address issued it. Every

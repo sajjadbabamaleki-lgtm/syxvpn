@@ -96,6 +96,15 @@ class TunnelService : VpnService() {
 
     /** Which resolver this tunnel answers with. Set with the request. */
     private var dns: PrivateDns = PrivateDns.STANDARD
+
+    /**
+     * The resolver the interface that is currently up was built with.
+     *
+     * The DNS addresses are part of the interface, not of the core, so changing
+     * the mode is the one change that cannot be applied by restarting Xray over
+     * the descriptor already open.
+     */
+    private var establishedDns: PrivateDns? = null
     private val recovery = RecoveryPolicy()
 
     /** What this phone has learned about these gateways. Worker thread only. */
@@ -172,9 +181,23 @@ class TunnelService : VpnService() {
         // not belong on the main thread. The switch already shows CONNECTING,
         // and it stays grey until this succeeds.
         scope.launch {
-            // Switching server while connected: tear the old tunnel down first,
-            // so traffic cannot keep flowing through the server just left.
-            tearDown()
+            // Switching server while connected: stop the core first, so traffic
+            // cannot keep flowing through the server just left.
+            //
+            // The interface stays up across that. It is the same descriptor,
+            // the same address and the same routes, so the system does not show
+            // the VPN dropping, no app sees the network disappear and come
+            // back, and nothing asks for permission again. The connections that
+            // were running through the old gateway still end — they were
+            // terminated there and nothing can carry them over — but the switch
+            // itself is now a pause rather than a disconnection, which is what
+            // makes moving between protocols something the app can do while
+            // somebody is using it.
+            //
+            // The exception is a resolver change: the DNS addresses belong to
+            // the interface, so that one has to be rebuilt.
+            val reusable = tun != null && establishedDns == dns
+            tearDown(keepInterface = reusable)
             memory = ConnectionMemory.decode(session()?.connectionMemory)
                 .keepOnly(servers.map { it.key }.toSet())
             try {
@@ -187,8 +210,9 @@ class TunnelService : VpnService() {
                 // tunnel it is trying to choose.
                 val order = if (automatic) chooseOrder(servers, runtime) else servers
 
-                val descriptor = establish() ?: return@launch
+                val descriptor = tun ?: establish() ?: return@launch
                 tun = descriptor
+                establishedDns = dns
 
                 var lastFailure: Throwable? = null
                 for (server in order) {
@@ -455,15 +479,25 @@ class TunnelService : VpnService() {
     }
 
     /** Stops the core and releases the interface, in that order. */
-    private fun tearDown() {
+    /**
+     * Stops the core, and by default takes the interface down with it.
+     *
+     * @param keepInterface true while switching to another server or another
+     *   protocol, where the descriptor is handed straight to the next core and
+     *   the tunnel never leaves the system's VPN state. Disconnecting, failing
+     *   and being revoked all close it.
+     */
+    private fun tearDown(keepInterface: Boolean = false) {
         statsJob?.cancel()
         statsJob = null
         bridge?.let { runtime -> runCatching { runtime.stop() } }
         bridge = null
+        if (keepInterface) return
         // Only after the core has let go: it works on this descriptor by
         // number, and closing it first would pull the floor out from under it.
         runCatching { tun?.close() }
         tun = null
+        establishedDns = null
     }
 
     override fun onRevoke() {

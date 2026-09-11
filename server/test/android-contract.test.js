@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestServer } from './helpers.js';
 import { clientProfile } from '../src/domain/xray.js';
+import { inboundProfile } from '../src/domain/inbounds.js';
 
 /**
  * The Android client reads these responses by hand (HttpURLConnection plus
@@ -142,4 +143,78 @@ test('a REALITY profile carries the parameters the Android parser reads', () => 
   // The two the parser refuses to guess at.
   assert.equal(params.get('security'), 'reality');
   assert.equal(params.get('type'), 'tcp');
+});
+
+/**
+ * The same pinning, for the profiles of the other doors.
+ *
+ * `ShadowsocksProfile.parse` and `TrojanProfile.parse` are the client side of
+ * this, and they live in a repository this test cannot import. What they need
+ * is small and exact, and every one of these assertions is a line of that
+ * parser: get one wrong and the app reads a profile it was handed as garbage,
+ * on a phone, at the moment its usual door stopped working.
+ */
+test('the extra-inbound profiles carry what the Android parsers read', async (t) => {
+  const gateway = {
+    id: 'gw_x', name: 'Edge A', region: 'de', host: '203.0.113.4', port: 443,
+    sni: 'edge.example.net',
+  };
+  const uuid = '11111111-2222-3333-4444-555555555555';
+
+  await t.test('shadowsocks is SIP002: base64url userinfo, explicit port', () => {
+    const inbound = {
+      id: 'ib_ss', kind: 'shadowsocks', port: 8388,
+      method: '2022-blake3-aes-256-gcm', server_key: Buffer.alloc(32, 7).toString('base64'),
+    };
+    const uri = inboundProfile(gateway, inbound, uuid);
+    assert.match(uri, /^ss:\/\//);
+    const [userinfo, address] = uri.slice('ss://'.length).split('#')[0].split('@');
+    // Base64url, because the standard alphabet's '+' and '/' do not survive a
+    // URL, and the client decodes both but is written this one.
+    assert.ok(!/[+/]/.test(userinfo), 'userinfo must be base64url');
+    const decoded = Buffer.from(userinfo, 'base64url').toString('utf8');
+    // method:serverKey:userKey — the client splits on the FIRST colon and
+    // treats the rest as the password, which is what Xray wants.
+    const [method, ...rest] = decoded.split(':');
+    assert.equal(method, '2022-blake3-aes-256-gcm');
+    assert.equal(rest.length, 2, 'a 2022 password is both keys, joined');
+    for (const key of rest) assert.equal(Buffer.from(key, 'base64').length, 32);
+    // The port is never implied: the parser refuses a line without one.
+    assert.match(address, /^203\.0\.113\.4:8388$/);
+  });
+
+  await t.test('trojan says it is TLS and which name to claim', () => {
+    const uri = inboundProfile(gateway, { id: 'ib_tj', kind: 'trojan', port: 8443 }, uuid);
+    const parsed = new URL(uri);
+    assert.equal(parsed.protocol, 'trojan:');
+    assert.ok(parsed.username, 'the password is the userinfo');
+    // security=none is refused by the client outright, so it must never be
+    // written: trojan without TLS cannot work at all.
+    assert.equal(parsed.searchParams.get('security'), 'tls');
+    assert.equal(parsed.searchParams.get('sni'), 'edge.example.net');
+  });
+
+  await t.test('a second REALITY door is a vless line the existing parser reads', () => {
+    const inbound = {
+      id: 'ib_re', kind: 'reality', port: 8444,
+      reality_server_names: 'www.microsoft.com',
+      reality_short_ids: 'a1b2c3d4',
+      reality_public_key: 'uNm292XHIOI0wHLfn5fiOOquk47pn6kjiYhqwermDjA',
+      reality_fingerprint: 'chrome',
+    };
+    const params = new URL(inboundProfile(gateway, inbound, uuid)).searchParams;
+    for (const key of ['security', 'type', 'flow', 'sni', 'fp', 'pbk', 'sid']) {
+      assert.ok(params.get(key), `a REALITY profile must carry "${key}"`);
+    }
+    assert.equal(params.get('security'), 'reality');
+    assert.equal(params.get('type'), 'tcp');
+  });
+
+  await t.test('a label keeps the region ahead of the protocol', () => {
+    // The client reads the country off the label when a subscription is fetched
+    // as a plain list, because that form carries no region field at all.
+    const uri = inboundProfile(gateway, { id: 'ib_re2', kind: 'reality', port: 8445 }, uuid);
+    const label = decodeURIComponent(uri.split('#')[1]);
+    assert.equal(label, 'Edge A · de · reality');
+  });
 });

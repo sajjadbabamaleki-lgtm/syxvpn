@@ -10,11 +10,11 @@ package pro.cvpn.app.core
  */
 data class VlessProfile(
     /** The original `vless://` line, kept so it can be copied or shared. */
-    val uri: String,
+    override val uri: String,
     val uuid: String,
-    val host: String,
-    val port: Int,
-    val label: String,
+    override val host: String,
+    override val port: Int,
+    override val label: String,
     val tls: Boolean,
     val sni: String?,
     val wsPath: String,
@@ -25,7 +25,14 @@ data class VlessProfile(
      * every profile issued before this existed.
      */
     val reality: Reality? = null,
-) {
+) : TunnelProfile {
+
+    override val protocolLabel: String get() = when {
+        reality != null -> "vless · tcp · reality"
+        tls -> "vless · ws · tls"
+        else -> "vless · ws"
+    }
+
     /**
      * What a client needs to be recognised by a REALITY gateway.
      *

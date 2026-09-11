@@ -1305,12 +1305,10 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
             selected?.let { profile ->
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    if (profile.reality != null) {
-                        listOf("vless", "tcp", "reality").joinToString("  ·  ")
-                    } else {
-                        listOfNotNull("vless", "ws", if (profile.tls) "tls" else null)
-                            .joinToString("  ·  ")
-                    },
+                    // Whatever this connection turned out to be. The profile
+                    // says so itself, so a protocol added later is named here
+                    // rather than quietly labelled as the old one.
+                    profile.protocolLabel.replace(" · ", "  ·  "),
                     color = TextFaint,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -1870,7 +1868,10 @@ private fun ConfigsScreen(
                             },
                         )
                     }
-                    items(state.visible, key = { "${it.key}:${it.profile.uuid}" }) { server ->
+                    // Keyed on the line itself: two profiles can share a host
+                    // and port and be different doors into it, and a key that
+                    // is only the address would collapse them into one row.
+                    items(state.visible, key = { it.profile.uri }) { server ->
                         val profile = server.profile
                         // Two different things, and only one of them is a
                         // ring: the row in use, which under Automatic is the

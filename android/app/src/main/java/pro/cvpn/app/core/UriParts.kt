@@ -88,6 +88,15 @@ internal data class UriParts(
             return host to port
         }
 
+        /**
+         * Percent-decoding on its own.
+         *
+         * For the schemes that are not URIs: a Shadowsocks line's label is
+         * percent-encoded in the same way, but everything before it is base64
+         * and has no business going through a URI parser.
+         */
+        fun decode(value: String): String = percentDecode(value)
+
         /** First value wins, which is what android.net.Uri returns. */
         private fun parseQuery(raw: String): Map<String, String> {
             val out = LinkedHashMap<String, String>()

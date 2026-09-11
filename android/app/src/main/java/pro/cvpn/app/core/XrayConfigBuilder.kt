@@ -33,6 +33,15 @@ object XrayConfigBuilder {
      */
     val DNS_SERVERS = PrivateDns.STANDARD.addresses
 
+    /**
+     * What this build can dial, in the names the subscription endpoint uses.
+     *
+     * It is asked for rather than assumed: the list travels with the request so
+     * a control plane only sends lines this client can turn into a tunnel. Add
+     * an outbound below and add its name here — never the other way round.
+     */
+    val PROTOCOLS = listOf("vless", "shadowsocks", "trojan", "reality")
+
     const val TUN_NAME = "cvpn0"
     const val MTU = 1500
 
@@ -50,7 +59,7 @@ object XrayConfigBuilder {
      * That is the only measurement the phone can make of the *whole* path: a
      * TCP handshake to the gateway proves the first hop and nothing else.
      */
-    fun outboundOnly(profile: VlessProfile): String =
+    fun outboundOnly(profile: TunnelProfile): String =
         JSONObject().put("outbounds", JSONArray().put(proxyOutbound(profile))).toString()
 
     /**
@@ -61,7 +70,7 @@ object XrayConfigBuilder {
      *   are encrypted to the resolver and invisible to the gateway as DNS.
      */
     fun build(
-        profile: VlessProfile,
+        profile: TunnelProfile,
         controlPlaneHosts: List<String>,
         tunFd: Int,
         metricsPort: Int,
@@ -107,7 +116,75 @@ object XrayConfigBuilder {
         )
         .toString()
 
-    private fun proxyOutbound(profile: VlessProfile): JSONObject {
+    /**
+     * The outbound for one profile, whatever kind it is.
+     *
+     * One tag, `proxy`, on every kind: the routing rules name it, and they do
+     * not care what is behind it. Adding a protocol is adding a branch here and
+     * changes nothing else in the generated configuration.
+     */
+    private fun proxyOutbound(profile: TunnelProfile): JSONObject = when (profile) {
+        is VlessProfile -> vlessOutbound(profile)
+        is ShadowsocksProfile -> shadowsocksOutbound(profile)
+        is TrojanProfile -> trojanOutbound(profile)
+    }
+
+    private fun shadowsocksOutbound(profile: ShadowsocksProfile): JSONObject = JSONObject()
+        .put("tag", "proxy")
+        .put("protocol", "shadowsocks")
+        .put(
+            "settings",
+            JSONObject().put(
+                "servers",
+                JSONArray().put(
+                    JSONObject()
+                        .put("address", profile.host)
+                        .put("port", profile.port)
+                        .put("method", profile.method)
+                        // For a 2022 method this is the inbound's key and this
+                        // subscriber's, joined — one opaque string here.
+                        .put("password", profile.password)
+                        .put("level", 0),
+                ),
+            ),
+        )
+        // No streamSettings: Shadowsocks carries its own encryption over plain
+        // TCP, and wrapping it in something else is how a profile stops working.
+        .put("streamSettings", JSONObject().put("network", "tcp"))
+
+    private fun trojanOutbound(profile: TrojanProfile): JSONObject {
+        val tls = JSONObject()
+            .put("serverName", profile.sni)
+            // Never waved past. A trojan gateway that cannot prove its name is
+            // either broken or is not the gateway.
+            .put("allowInsecure", false)
+        profile.fingerprint?.let { tls.put("fingerprint", it) }
+        return JSONObject()
+            .put("tag", "proxy")
+            .put("protocol", "trojan")
+            .put(
+                "settings",
+                JSONObject().put(
+                    "servers",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("address", profile.host)
+                            .put("port", profile.port)
+                            .put("password", profile.password)
+                            .put("level", 0),
+                    ),
+                ),
+            )
+            .put(
+                "streamSettings",
+                JSONObject()
+                    .put("network", "tcp")
+                    .put("security", "tls")
+                    .put("tlsSettings", tls),
+            )
+    }
+
+    private fun vlessOutbound(profile: VlessProfile): JSONObject {
         val reality = profile.reality
         val stream = if (reality != null) {
             // TCP, and the TLS is the borrowed site's. The fingerprint makes
@@ -179,7 +256,7 @@ object XrayConfigBuilder {
     }
 
     private fun routingRules(
-        profile: VlessProfile,
+        profile: TunnelProfile,
         controlPlaneHosts: List<String>,
         dns: PrivateDns,
     ): JSONArray {

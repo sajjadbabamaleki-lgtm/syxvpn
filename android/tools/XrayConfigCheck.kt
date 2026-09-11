@@ -1,5 +1,6 @@
 import org.json.JSONObject
 import pro.cvpn.app.core.PrivateDns
+import pro.cvpn.app.core.TunnelProfile
 import pro.cvpn.app.core.VlessProfile
 import pro.cvpn.app.core.XrayConfigBuilder
 
@@ -33,16 +34,19 @@ fun main(args: Array<String>) {
         "vless://11111111-2222-3333-4444-555555555555@gw1.example.net:443" +
             "?type=ws&security=tls&path=%2Fws&host=gw1.example.net&sni=gw1.example.net#Frankfurt%20Edge"
     }
-    val profile = requireNotNull(VlessProfile.parse(uri)) { "the profile did not parse" }
+    // Any kind: the point of the tool is what Xray is handed, and the app now
+    // hands it vless, shadowsocks or trojan depending on which door is best.
+    val profile = requireNotNull(TunnelProfile.parse(uri)) { "the profile did not parse" }
     // Only for the profile this tool ships with. A profile passed in is
     // somebody checking a real one, and asserting the example's values against
     // it turns a working config into a crash.
     if (args.isEmpty()) {
-        check(profile.host == "gw1.example.net") { "host: ${profile.host}" }
-        check(profile.port == 443) { "port: ${profile.port}" }
-        check(profile.tls) { "tls flag" }
-        check(profile.wsPath == "/ws") { "path: ${profile.wsPath}" }
-        check(profile.label == "Frankfurt Edge") { "label: ${profile.label}" }
+        val vless = profile as VlessProfile
+        check(vless.host == "gw1.example.net") { "host: ${vless.host}" }
+        check(vless.port == 443) { "port: ${vless.port}" }
+        check(vless.tls) { "tls flag" }
+        check(vless.wsPath == "/ws") { "path: ${vless.wsPath}" }
+        check(vless.label == "Frankfurt Edge") { "label: ${vless.label}" }
     }
 
     val json = XrayConfigBuilder.build(
@@ -98,7 +102,11 @@ fun main(args: Array<String>) {
     // The probe config libXray's pingBatch is given: outbounds only, by design.
     val probe = XrayConfigBuilder.outboundOnly(profile)
     check("inbounds" !in probe) { "the probe config must carry no inbound" }
-    check("\"protocol\":\"vless\"" in probe.replace(" ", "")) { "the probe config lost its outbound" }
+    // Whichever protocol this profile turned out to be: the probe has to be
+    // able to dial the same door the tunnel would, or it measures nothing.
+    val proxy = JSONObject(probe).getJSONArray("outbounds").getJSONObject(0)
+    check(proxy.getString("tag") == "proxy") { "the probe config lost its outbound" }
+    check(proxy.getString("protocol").isNotEmpty()) { "the probe outbound has no protocol" }
     if (args.getOrNull(1) == "--probe") { print(probe); return }
 
     print(json)

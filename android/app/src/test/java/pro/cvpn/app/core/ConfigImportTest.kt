@@ -116,14 +116,34 @@ class ConfigImportTest {
     }
 
     @Test
-    fun `other protocols are refused rather than half-accepted`() {
-        // The app runs Xray with a VLESS outbound. Taking a vmess line and
-        // failing at connect time is worse than saying so now.
-        val result = ConfigImport.parse(
-            "vmess://eyJ2IjoiMiJ9\ntrojan://password@h.example.net:443\nss://YWVzOnB3@h:8388",
-        )
+    fun `a protocol the tunnel cannot run is refused rather than half-accepted`() {
+        // Taking a line and failing at connect time is worse than saying so
+        // now. vmess is not one of the three the core is built to dial here.
+        val result = ConfigImport.parse("vmess://eyJ2IjoiMiJ9\nhttp://example.net\nnot a config")
         assertTrue(result.isEmpty)
         assertEquals(3, result.rejected)
+    }
+
+    @Test
+    fun `the other two protocols the app speaks are read like any other line`() {
+        // Shadowsocks and trojan arrive in the same places vless does: a
+        // subscription, a channel, a friend. A person pasting one is not
+        // pasting a mistake.
+        val result = ConfigImport.parse(
+            "ss://YWVzLTI1Ni1nY206c2VjcmV0@h.example.net:8388#SS\n" +
+                "trojan://password@h.example.net:443?sni=h.example.net#TJ",
+        )
+        assertEquals(2, result.added.size)
+        assertEquals(0, result.rejected)
+
+        val ss = result.added[0] as ShadowsocksProfile
+        assertEquals("aes-256-gcm", ss.method)
+        assertEquals("secret", ss.password)
+        assertEquals(8388, ss.port)
+
+        val trojan = result.added[1] as TrojanProfile
+        assertEquals("password", trojan.password)
+        assertEquals("h.example.net", trojan.sni)
     }
 
     @Test
@@ -154,7 +174,8 @@ class ConfigImportTest {
         // Nothing here is specific to configs this control plane issued.
         val result = ConfigImport.parse(reality)
         assertEquals(1, result.added.size)
-        assertEquals("uNm292XHIOI0wHLfn5fiOOquk47pn6kjiYhqwermDjA", result.added[0].reality!!.publicKey)
+        val profile = result.added[0] as VlessProfile
+        assertEquals("uNm292XHIOI0wHLfn5fiOOquk47pn6kjiYhqwermDjA", profile.reality!!.publicKey)
     }
 
     @Test

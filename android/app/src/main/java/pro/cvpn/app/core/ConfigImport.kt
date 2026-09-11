@@ -21,7 +21,7 @@ object ConfigImport {
 
     data class Result(
         /** Parsed and not already held, in the order they were pasted. */
-        val added: List<VlessProfile>,
+        val added: List<TunnelProfile>,
         /** Lines that looked like configs and could not be read. */
         val rejected: Int,
         /** Lines that were already in the list. */
@@ -51,12 +51,12 @@ object ConfigImport {
      */
     fun parse(pasted: String, existing: Collection<String> = emptyList()): Result {
         val held = existing.toMutableSet()
-        val added = mutableListOf<VlessProfile>()
+        val added = mutableListOf<TunnelProfile>()
         var rejected = 0
         var duplicates = 0
 
         for (line in candidates(pasted)) {
-            val profile = VlessProfile.parse(line)
+            val profile = TunnelProfile.parse(line)
             if (profile == null) {
                 rejected += 1
                 continue
@@ -81,11 +81,14 @@ object ConfigImport {
      */
     private fun candidates(pasted: String): List<String> {
         val direct = lines(pasted)
-        if (direct.any { it.startsWith(SCHEME) }) return direct
+        if (direct.any { TunnelProfile.looksLikeProfile(it) }) return direct
 
-        val decoded = decodeBase64(pasted.filterNot { it.isWhitespace() }) ?: return direct
-        val fromBlob = lines(decoded)
-        return if (fromBlob.any { it.startsWith(SCHEME) }) fromBlob else direct
+        val blob = pasted.filterNot { it.isWhitespace() }
+        // Short strings decode into noise as readily as into a list, and a
+        // subscription answer is never eight characters long.
+        val decoded = if (blob.length < 8) null else Base64Text.decode(blob)
+        val fromBlob = lines(decoded ?: return direct)
+        return if (fromBlob.any { TunnelProfile.looksLikeProfile(it) }) fromBlob else direct
     }
 
     private fun lines(text: String): List<String> = text
@@ -95,30 +98,4 @@ object ConfigImport {
         // after a '#' *within* the line, so only a leading one is a comment.
         .filter { it.isNotEmpty() && !it.startsWith("#") && !it.startsWith("//") }
 
-    /**
-     * Standard or URL-safe base64, padded or not — subscription endpoints
-     * disagree about all three and a person pasting one has no idea which.
-     */
-    private fun decodeBase64(text: String): String? {
-        if (text.length < 8) return null
-        val normalised = text.replace('-', '+').replace('_', '/').trimEnd('=')
-        if (normalised.any { it !in BASE64_ALPHABET }) return null
-        val bytes = ArrayList<Byte>(normalised.length * 3 / 4 + 3)
-        var buffer = 0
-        var bits = 0
-        for (char in normalised) {
-            buffer = (buffer shl 6) or BASE64_ALPHABET.indexOf(char)
-            bits += 6
-            if (bits >= 8) {
-                bits -= 8
-                bytes.add(((buffer shr bits) and 0xFF).toByte())
-            }
-        }
-        if (bytes.isEmpty()) return null
-        return String(bytes.toByteArray(), Charsets.UTF_8)
-    }
-
-    private const val SCHEME = "vless://"
-    private const val BASE64_ALPHABET =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 }

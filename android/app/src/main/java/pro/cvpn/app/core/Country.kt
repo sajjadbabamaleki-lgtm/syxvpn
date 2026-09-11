@@ -46,10 +46,17 @@ fun countryOfRegion(region: String?): Country? {
  * The same, but also willing to read the label the control plane writes into a
  * profile — `Frankfurt Edge · de-fra` — because a subscription fetched as a
  * plain base64 list carries no region field at all.
+ *
+ * Every segment is tried, from the right, rather than only the last one. A
+ * gateway that offers more than one protocol names which one at the end of the
+ * label — `Frankfurt Edge · de-fra · shadowsocks` — and a reader that looked
+ * only at the last segment filed all of those under "other servers", on exactly
+ * the clients that have no region field to fall back on.
  */
 fun countryOf(server: Server): Country? =
     countryOfRegion(server.region)
-        ?: countryOfRegion(server.profile.label.substringAfterLast('·').trim())
+        ?: server.profile.label.split('·').asReversed()
+            .firstNotNullOfOrNull { countryOfRegion(it.trim()) }
 
 /** One country, and the gateways in it. */
 data class CountryGroup(

@@ -28,7 +28,7 @@ enum class RouteState(val rank: Int) {
 
 /** A gateway the subscription is currently offering, with what is known about it. */
 data class Server(
-    val profile: VlessProfile,
+    val profile: TunnelProfile,
     val routeState: RouteState = RouteState.UNKNOWN,
     val gatewayName: String? = null,
     val region: String? = null,

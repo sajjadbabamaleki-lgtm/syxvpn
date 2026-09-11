@@ -2,7 +2,7 @@ package pro.cvpn.app.data
 
 import pro.cvpn.app.core.RouteState
 import pro.cvpn.app.core.Server
-import pro.cvpn.app.core.VlessProfile
+import pro.cvpn.app.core.TunnelProfile
 
 /**
  * Turns a subscription into something the tunnel can run.
@@ -25,7 +25,7 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
         // are added to every answer below rather than being an answer of their
         // own, because a person with both should see both.
         val imported = session.importedLines.mapNotNull { line ->
-            VlessProfile.parse(line)?.let { Server(profile = it, imported = true) }
+            TunnelProfile.parse(line)?.let { Server(profile = it, imported = true) }
         }
 
         val url = session.subscriptionUrl
@@ -75,7 +75,7 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
 
     private fun convert(servers: List<ControlPlaneClient.SubscriptionServer>): List<Server> =
         servers.mapNotNull { server ->
-            val profile = VlessProfile.parse(server.uri) ?: return@mapNotNull null
+            val profile = TunnelProfile.parse(server.uri) ?: return@mapNotNull null
             Server(
                 profile = profile,
                 routeState = RouteState.of(server.routeState),
