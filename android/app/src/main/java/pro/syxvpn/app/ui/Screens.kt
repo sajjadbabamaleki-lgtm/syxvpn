@@ -1132,7 +1132,10 @@ private fun ColumnScope.TunnelSwitch(
         )
     }
 
-    Spacer(Modifier.height(20.dp))
+    // Half what it was. The timer under CONNECTED and the card naming the server
+    // are one thought — which server you are on, and for how long — and 20dp set
+    // them far enough apart to read as two.
+    Spacer(Modifier.height(10.dp))
 }
 
 /**
