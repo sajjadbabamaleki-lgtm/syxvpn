@@ -280,18 +280,16 @@ fun cVPNRoot(
  *     thumb    92 x 48,  radius 24 (half its height)
  *
  * The inset equals the difference between the two radii (36 - 24), which is
- * what makes the curves concentric rather than merely close. Nothing drawn
- * around the thumb may be measured with it, or the inset stops being the same
- * on all four sides — see the orbit light below.
+ * what makes the curves concentric rather than merely close.
  *
  * Both labels stay visible, as on a segmented control; the thumb slides over
  * the active one. A switch also represents a state that is held, which is what
  * a tunnel is, and it is harder to trigger by accident than a large button.
  *
- * The thumb turns green only when the tunnel is actually up. While it is coming
- * up the thumb stays grey and a green light travels around it: the switch has
- * moved, the connection has not happened yet, and the colour should not say
- * otherwise.
+ * The thumb turns lime only when the tunnel is actually up. While it is coming
+ * up the thumb stays grey and a lime line travels around the pill's own edge:
+ * the switch has moved, the connection has not happened yet, and the colour
+ * should not say otherwise.
  */
 @Composable
 private fun ConnectSwitch(
@@ -339,11 +337,6 @@ private fun ConnectSwitch(
                 .size(thumbWidth, thumbHeight),
             contentAlignment = Alignment.Center,
         ) {
-            OrbitLight(
-                width = thumbWidth + 8.dp,
-                height = thumbHeight + 8.dp,
-                spinning = connecting,
-            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -365,6 +358,13 @@ private fun ConnectSwitch(
             SwitchLabel("OFF", active = !on, onGreen = false, modifier = Modifier.weight(1f))
             SwitchLabel("ON", active = on, onGreen = connected, modifier = Modifier.weight(1f))
         }
+
+        // Last, so it runs over the pill's own border and over the labels
+        // rather than under them. On the pill, not on the thumb: while the
+        // tunnel is coming up the thumb has already moved, and a light that
+        // travels the whole outline says the switch is waiting on something
+        // rather than that the far half of it is busy.
+        OrbitLight(width = pillWidth, height = pillHeight, spinning = connecting)
     }
 }
 
@@ -425,12 +425,14 @@ private fun OrbitLight(
         label = "orbit-angle",
     )
 
-    // requiredSize, not size: the light is bigger than the thumb it rings and
-    // must overflow it evenly rather than stretch the layout around it.
+    // requiredSize, not size: the light lies over the pill it runs around and
+    // must not take part in measuring it.
     Canvas(Modifier.requiredSize(width, height)) {
         if (!spinning) return@Canvas
         val radius = size.height / 2
-        val stroke = Stroke(width = 2.5f.dp.toPx())
+        // The pill clips the outer half of this stroke, so it is drawn wide
+        // enough that the half which survives still reads as a line.
+        val stroke = Stroke(width = 5f.dp.toPx())
 
         // Most of the sweep is transparent, so a single bright arc chases the
         // outline instead of the whole ring glowing.

@@ -94,14 +94,19 @@
 
   /* A single bright arc chasing the thumb outline while connecting. It sits
      2px inside the pill, so it never touches the outer edge. */
+  /* The light runs along the pill's own edge, not around the thumb: while the
+     tunnel is coming up the thumb has already moved, and a line that travels
+     the whole outline says the switch is waiting on something rather than that
+     the far half of it is busy. Masked to a 2px band so what shows is a line on
+     the edge rather than a disc behind the whole control. */
   .orbit {
-    position: absolute; top: 8px; z-index: 0;
-    left: 8px; width: 100px; height: 56px;
-    border-radius: 999px; overflow: hidden;
-    opacity: 0;
-    transition: transform .3s ease;
+    position: absolute; inset: 0; z-index: 3;
+    border-radius: 999px; overflow: hidden; opacity: 0; pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    padding: 2px;
   }
-  .switch.on .orbit { transform: translateX(92px); }
   .orbit::before {
     content: ""; position: absolute; inset: -60%;
     background: conic-gradient(from 0deg,
