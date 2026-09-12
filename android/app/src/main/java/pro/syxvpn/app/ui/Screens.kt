@@ -2306,12 +2306,11 @@ private fun PlanCard(
             .border(1.dp, if (selected) Accent else Border, shape)
             .clickable(onClick = onSelect)
             .padding(18.dp),
-        // Packed from the top, not spread to both ends. A card is taller than
-        // its shortest possible text on purpose, and spreading put all of that
-        // slack in one hole between the description and the first spec. Held
-        // together, the slack sits under the last line, where it reads as the
-        // card's own padding.
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        // The same step between the description and the first spec as between
+        // one spec and the next. A wider one there made the specs read as a
+        // separate block that happened to be on the card, rather than as the
+        // rest of the sentence the description starts.
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
