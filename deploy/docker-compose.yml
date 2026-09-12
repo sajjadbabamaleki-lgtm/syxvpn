@@ -36,6 +36,20 @@ services:
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-6}
       BACKUP_KEEP: ${BACKUP_KEEP:-28}
       SHOP_ENABLED: ${SHOP_ENABLED:-true}
+      # The by-the-gigabyte shelf, and the ceiling on one order from it. Off by
+      # default: those plans are settled by hand, and selling something nobody
+      # is watching is worse than not selling it. Setting it in .env did
+      # nothing until it was listed here — this block is the whole of what the
+      # container sees.
+      SHOP_VOLUME_SALES: ${SHOP_VOLUME_SALES:-false}
+      SHOP_MAX_ORDER_UNITS: ${SHOP_MAX_ORDER_UNITS:-100}
+      # Addresses carried on both products without buying them. Written out
+      # rather than left to the code's own default: compose always passes a
+      # value, and an empty one would read as "carry nobody" rather than as
+      # "not set". Emptying it in .env switches the whole thing off, which is
+      # what emptying it should mean.
+      SHOP_COMPED_EMAILS: ${SHOP_COMPED_EMAILS-sajjadbabamaleki@gmail.com,fazialighob@gmail.com}
+      SHOP_COMPED_DAYS: ${SHOP_COMPED_DAYS:-365}
       SUPPORT_CONTACT: ${SUPPORT_CONTACT:-}
       TRON_ADDRESS: ${TRON_ADDRESS:-}
       TRON_API_KEY: ${TRON_API_KEY:-}
