@@ -3113,14 +3113,17 @@ private fun SignInScreen(
                     Box(
                         Modifier
                             .padding(end = 8.dp)
-                            .height(32.dp)
+                            // A seventh larger than it was, in every dimension
+                            // at once: height, side padding, corner and type,
+                            // so it grows rather than stretches.
+                            .height(36.8.dp)
                             // Curved like the rest of the app, not a capsule and
-                            // not a corner: a 32-high pill would be a lozenge
-                            // sitting inside a field that is merely rounded.
-                            .clip(RoundedCornerShape(12.dp))
+                            // not a corner: a pill would be a lozenge sitting
+                            // inside a field that is merely rounded.
+                            .clip(RoundedCornerShape(13.8.dp))
                             .background(if (canSend) Accent else Border)
                             .clickable(enabled = canSend) { sendCode() }
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 13.8.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -3130,7 +3133,7 @@ private fun SignInScreen(
                                 else -> "Send code"
                             },
                             color = if (canSend) OnAccent else TextFaint,
-                            fontSize = 12.sp,
+                            fontSize = 13.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
