@@ -129,9 +129,6 @@ private val ServerAndPlanCardHeight = 138.dp
 
 // A tenth taller than the text alone came to, so every subscription card is
 // the same size whatever its description says.
-// The lit pill in the switcher, against the half it sits in.
-private const val SwitcherPillScale = 0.85f
-
 // A tenth closer than the 14 the column started at.
 private val PlanListStep = 12.6.dp
 
@@ -2272,30 +2269,20 @@ private fun SwitcherSegment(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    // The tappable half is the whole half; the lit pill inside it is smaller
-    // than that, so the marked tab reads as something sitting in the track
-    // rather than as the track's other half changing colour.
     Box(
         modifier
             .fillMaxHeight()
+            .clip(RoundedCornerShape(19.dp))
+            .background(if (active) Accent.copy(alpha = 0.14f) else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .fillMaxWidth(SwitcherPillScale)
-                .fillMaxHeight(SwitcherPillScale)
-                .clip(RoundedCornerShape(16.dp))
-                .background(if (active) Accent.copy(alpha = 0.14f) else Color.Transparent),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                label,
-                color = if (active) Accent else TextFaint,
-                fontSize = 13.sp,
-                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-            )
-        }
+        Text(
+            label,
+            color = if (active) Accent else TextFaint,
+            fontSize = 13.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+        )
     }
 }
 
@@ -2338,10 +2325,22 @@ private fun PlanCard(
                 plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
             }
             Spacer(Modifier.width(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(4.dp))
-                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+            // The size sits under the price, in the corner the price leaves
+            // empty, rather than as another bullet in the list. It is the
+            // figure being paid for, so it belongs beside what is being paid.
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(4.dp))
+                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+                }
+                if (plan.isConfigs) {
+                    Text(
+                        if (plan.quotaBytes > 0) formatBytes(plan.quotaBytes) else "Unmetered",
+                        color = TextDim,
+                        fontSize = 12.sp,
+                    )
+                }
             }
         }
 
@@ -2349,9 +2348,8 @@ private fun PlanCard(
         // buying" without the person opening anything.
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (plan.isConfigs) {
-                // A config bundle is its size and its life. It is bought beside
-                // a picker that builds any other size, so it earns less room.
-                SpecLine(if (plan.quotaBytes > 0) "${formatBytes(plan.quotaBytes)} of traffic" else "Unmetered")
+                // A config bundle is its size and its life, and the size is
+                // already up beside the price.
                 SpecLine("${plan.durationDays} days")
             } else {
                 SpecLine("${plan.durationDays} days")
@@ -2388,45 +2386,54 @@ private fun CustomSizeCard(
             .border(1.dp, if (selected) Accent else Border, shape)
             .clickable(onClick = onSelect)
             .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text("Your own size", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Pick the traffic, pay for that much.",
-                    color = TextDim,
-                    fontSize = 12.sp,
-                )
+                Text("Pick the traffic, pay for that much.", color = TextDim, fontSize = 12.sp)
             }
             Spacer(Modifier.width(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    formatUsdt(unit.priceMicro * units),
-                    color = Accent,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        formatUsdt(unit.priceMicro * units),
+                        color = Accent,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+                }
+                Text(formatBytes(unit.quotaBytes * units), color = TextDim, fontSize = 12.sp)
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        SpecLine("${unit.durationDays} days, delivered once the payment settles")
+
+        // One control, the width of its own three parts. Two large circles at
+        // the card's edges with the figure stranded between them made the
+        // picker the biggest thing on the screen, which it is not.
+        Row(
+            Modifier
+                .padding(top = 8.dp)
+                .height(36.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceHigh)
+                .border(1.dp, Border, RoundedCornerShape(18.dp)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             StepButton("−", units > 1) { onUnits(units - 1) }
             Text(
                 formatBytes(unit.quotaBytes * units),
                 color = Color.White,
-                fontSize = 18.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.width(74.dp),
             )
             StepButton("+", units < MaxCustomUnits) { onUnits(units + 1) }
         }
-
-        SpecLine("${unit.durationDays} days, from the day it is delivered")
-        SpecLine("Delivered as configs once the payment settles")
     }
 }
 
@@ -2434,17 +2441,14 @@ private fun CustomSizeCard(
 private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(SurfaceHigh)
-            .border(1.dp, if (enabled) Border else Border.copy(alpha = 0.5f), CircleShape)
+            .size(36.dp)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
             color = if (enabled) Accent else TextFaint,
-            fontSize = 20.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
         )
     }

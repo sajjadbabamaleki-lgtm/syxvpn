@@ -277,20 +277,11 @@
     display: flex; gap: 4px; padding: 4px; height: 46px; flex: none;
     background: #1b1b1b; border: 1px solid #262626; border-radius: 23px;
   }
-  /* The tappable half is the whole half; the lit pill inside it is 85% of that,
-     so the marked tab reads as something sitting in the track rather than as
-     the track's other half changing colour. */
   .seg-btn {
-    position: relative; flex: 1;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 500; color: #6a6a6a;
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 19px; font-size: 13px; font-weight: 500; color: #6a6a6a;
   }
-  .seg-btn.active { color: #d8f83a; font-weight: 600; }
-  .seg-btn.active::before {
-    content: ""; position: absolute; inset: 7.5%;
-    border-radius: 16px; background: rgba(216, 248, 58, .14);
-  }
-  .seg-btn span { position: relative; }
+  .seg-btn.active { background: rgba(216, 248, 58, .14); color: #d8f83a; font-weight: 600; }
 
   /* A subscription card is a set height, a tenth taller than its text alone
      came to, so a two-word description and a two-line one make the same card. */
@@ -303,15 +294,22 @@
   .panel.plan {
     display: flex; flex-direction: column; gap: 4px;
   }
-  .stepper { display: flex; align-items: center; gap: 12px; }
-  .step {
-    width: 44px; height: 44px; border-radius: 50%; flex: none;
-    background: #1b1b1b; border: 1px solid #262626;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; color: #d8f83a;
+  /* One control, the width of its own three parts. Two large circles at the
+     card's edges with the figure stranded between them made the picker the
+     biggest thing on the screen, which it is not. */
+  .stepper {
+    display: inline-flex; align-items: center; height: 36px; align-self: flex-start;
+    background: #1b1b1b; border: 1px solid #262626; border-radius: 18px;
   }
-  .step.off { color: #6a6a6a; border-color: rgba(38, 38, 38, .5); }
-  .amount-big { flex: 1; text-align: center; font-size: 18px; font-weight: 600; color: #fff; }
+  .step {
+    width: 36px; height: 36px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: #d8f83a;
+  }
+  .step.off { color: #6a6a6a; }
+  .amount-big { width: 74px; text-align: center; font-size: 14px; font-weight: 600; color: #fff; }
+  .panel.custom { display: flex; flex-direction: column; gap: 4px; }
+  .card-size { font-size: 12px; color: #909090; }
   .panel.plan.sel { border-color: #d8f83a; }
   .spec-list { display: flex; flex-direction: column; gap: 4px; }
   .spec { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #909090; }
@@ -323,6 +321,7 @@
   .plan-head { display: flex; align-items: flex-start; gap: 12px; }
   .plan-head b { display: block; font-size: 16px; font-weight: 600; color: #fff; }
   .plan-head p { font-size: 12px; color: #909090; margin-top: 2px; }
+  .price-col { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
   .price { margin-left: auto; display: flex; align-items: flex-end; gap: 4px; white-space: nowrap; }
   .price b { font-size: 22px; font-weight: 700; color: #d8f83a; }
   .price small { font-size: 11px; color: #6a6a6a; padding-bottom: 3px; }
@@ -851,46 +850,54 @@
         <div class="panel plan bundle sel">
           <div class="plan-head">
             <div><b>Configs · 30 GB</b><p>A week of configs, to try them somewhere else.</p></div>
-            <div class="price"><b>2.5</b><small>USDT</small></div>
+            <div class="price-col">
+              <div class="price"><b>2.5</b><small>USDT</small></div>
+              <div class="card-size">30 GB</div>
+            </div>
           </div>
           <div class="spec-list">
-            <div class="spec"><i></i>30 GB of traffic</div>
             <div class="spec"><i></i>7 days</div>
           </div>
         </div>
         <div class="panel plan bundle">
           <div class="plan-head">
             <div><b>Configs · 120 GB</b><p>A month of configs, for everyday use.</p></div>
-            <div class="price"><b>7</b><small>USDT</small></div>
+            <div class="price-col">
+              <div class="price"><b>7</b><small>USDT</small></div>
+              <div class="card-size">120 GB</div>
+            </div>
           </div>
           <div class="spec-list">
-            <div class="spec"><i></i>120 GB of traffic</div>
             <div class="spec"><i></i>30 days</div>
           </div>
         </div>
         <div class="panel plan bundle">
           <div class="plan-head">
             <div><b>Configs · 400 GB</b><p>Three months of configs, one payment.</p></div>
-            <div class="price"><b>17</b><small>USDT</small></div>
+            <div class="price-col">
+              <div class="price"><b>17</b><small>USDT</small></div>
+              <div class="card-size">400 GB</div>
+            </div>
           </div>
           <div class="spec-list">
-            <div class="spec"><i></i>400 GB of traffic</div>
             <div class="spec"><i></i>90 days</div>
           </div>
         </div>
         <div class="panel custom">
           <div class="plan-head">
             <div><b>Your own size</b><p>Pick the traffic, pay for that much.</p></div>
-            <div class="price"><b>2.8</b><small>USDT</small></div>
+            <div class="price-col">
+              <div class="price"><b>2.8</b><small>USDT</small></div>
+              <div class="card-size">40 GB</div>
+            </div>
           </div>
-          <div class="stepper" style="margin-top:14px">
+          <div class="spec-list">
+            <div class="spec"><i></i>30 days, delivered once the payment settles</div>
+          </div>
+          <div class="stepper" style="margin-top:8px">
             <div class="step">−</div>
             <div class="amount-big">40 GB</div>
             <div class="step">+</div>
-          </div>
-          <div class="spec-list" style="margin-top:14px">
-            <div class="spec"><i></i>30 days, from the day it is delivered</div>
-            <div class="spec"><i></i>Delivered as configs once the payment settles</div>
           </div>
         </div>
         <div class="btn upgrade">Upgrade</div>
