@@ -213,6 +213,7 @@ async function main() {
     controlPlane: cfg.controlPlaneUrl,
     reloadMode: cfg.reloadMode,
     configPath: cfg.configPath,
+    configSeconds: cfg.configSeconds,
   });
   state.xrayVersion = await xray.version();
 
@@ -227,6 +228,10 @@ async function main() {
 
   const timers = [
     setInterval(() => safely('heartbeat', heartbeat), cfg.heartbeatSeconds * 1000),
+    // Reconciliation, not notification. The heartbeat asks for a sync when the
+    // control plane says one is due; this asks anyway, so a gateway cannot sit
+    // on a stale client list because that one signal went missing.
+    setInterval(() => safely('config poll', () => syncConfig()), cfg.configSeconds * 1000),
     setInterval(() => safely('egress probe', probeEgress), cfg.healthSeconds * 1000),
     setInterval(() => safely('usage report', reportUsage), cfg.usageSeconds * 1000),
   ];

@@ -24,6 +24,7 @@ import kotlinx.coroutines.coroutineScope
 import pro.syxvpn.app.R
 import pro.syxvpn.app.core.ConnectionMemory
 import pro.syxvpn.app.core.Latency
+import pro.syxvpn.app.core.PathEvidence
 import pro.syxvpn.app.core.PrivateDns
 import pro.syxvpn.app.core.Probe
 import pro.syxvpn.app.core.Purpose
@@ -109,6 +110,15 @@ class TunnelService : VpnService() {
 
     /** What this phone has learned about these gateways. Worker thread only. */
     private var memory: ConnectionMemory = ConnectionMemory.EMPTY
+
+    /**
+     * End-to-end measurements taken during this attempt, by server key.
+     *
+     * Kept so the connect loop does not re-measure what [chooseOrder] already
+     * measured a moment earlier, and cleared per attempt because a result from
+     * the last network the phone was on proves nothing about this one.
+     */
+    private var pathEvidence: Map<String, Long?> = emptyMap()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -200,6 +210,10 @@ class TunnelService : VpnService() {
             tearDown(keepInterface = reusable)
             memory = ConnectionMemory.decode(session()?.connectionMemory)
                 .keepOnly(servers.map { it.key }.toSet())
+            // Measurements belong to one attempt on one network. Carrying them
+            // across would let a gateway that failed on the last Wi-Fi be
+            // refused on this one without being tried.
+            pathEvidence = emptyMap()
             try {
                 val metricsPort = freeLoopbackPort()
                 val runtime = createXrayBridge({ fd -> protect(fd) }, metricsPort)
@@ -210,12 +224,34 @@ class TunnelService : VpnService() {
                 // tunnel it is trying to choose.
                 val order = if (automatic) chooseOrder(servers, runtime) else servers
 
+                // Prove the far half of the path before claiming it.
+                //
+                // `start` only reports whether the core accepted the
+                // configuration. A gateway that no longer knows this
+                // subscriber, or whose handshake the network is cutting,
+                // starts exactly as cleanly as a working one and then carries
+                // nothing — which is how this app came to sit on CONNECTED
+                // with both counters at zero and nothing anywhere saying why.
+                //
+                // It happens here, above `establish`, for the same reason
+                // [chooseOrder] measures where it does: once the TUN is up it
+                // carries everything, and a probe would be measuring the
+                // tunnel it is trying to test.
+                val usable = qualify(runtime, order)
+                if (usable.isEmpty()) {
+                    // What was learned is worth keeping even when none of it
+                    // was good news: tomorrow's ranking starts from it.
+                    rememberMeasurements()
+                    fail("No gateway answered through the tunnel")
+                    return@launch
+                }
+
                 val descriptor = tun ?: establish() ?: return@launch
                 tun = descriptor
                 establishedDns = dns
 
                 var lastFailure: Throwable? = null
-                for (server in order) {
+                for (server in usable) {
                     activity.value = "Connecting to ${server.label}"
                     updateNotification("Connecting to ${server.label}")
                     try {
@@ -253,7 +289,7 @@ class TunnelService : VpnService() {
                 rememberMeasurements()
                 fail(
                     lastFailure?.message
-                        ?: "No server accepted the connection (${order.size} tried)",
+                        ?: "No server accepted the connection (${usable.size} tried)",
                 )
             } catch (error: Throwable) {
                 fail(error.message ?: "Could not start the tunnel")
@@ -299,6 +335,9 @@ class TunnelService : VpnService() {
             shortlist.indices.filter { it < delays.size }
                 .associate { shortlist[it].key to delays[it] }
         }
+        // Kept for the connect loop, which will not start a gateway this says
+        // did not answer.
+        pathEvidence = pathEvidence + endToEnd
 
         return SmartConnect.connectOrder(
             servers = servers,
@@ -308,6 +347,58 @@ class TunnelService : VpnService() {
             purpose = purpose,
             current = activeServer.value,
         )
+    }
+
+    /**
+     * Drops the candidates that are known not to carry traffic, keeping the
+     * order otherwise untouched.
+     *
+     * Only the candidate about to be used is worth measuring: the ones behind
+     * it are fallbacks, and a fallback is measured by being tried. So this
+     * probes until it has one it can use and then keeps the rest on whatever
+     * [chooseOrder] already learned — which costs one measurement on a manual
+     * connection and none at all when the ranking has already done it.
+     */
+    private suspend fun qualify(runtime: XrayBridge, order: List<Server>): List<Server> {
+        val kept = mutableListOf<Server>()
+        for (server in order) {
+            val evidence = if (kept.isEmpty()) {
+                provenPath(runtime, server)
+            } else {
+                PathEvidence.of(pathEvidence, server.key)
+            }
+            if (evidence.usable) {
+                kept += server
+            } else {
+                memory = memory.recordOutcome(server.key, success = false, now = System.currentTimeMillis())
+            }
+        }
+        return kept
+    }
+
+    /**
+     * What is known about traffic actually reaching the internet through one
+     * gateway, measuring it now if nothing measured it already.
+     *
+     * [PathEvidence.UNKNOWN] is a pass, not a failure. A refused batch — no
+     * runtime bundled, or a core that would not build the temporary instance —
+     * is no evidence rather than bad evidence, and a phone whose probe is being
+     * blocked this minute must still be allowed to try the tunnel.
+     */
+    private suspend fun provenPath(runtime: XrayBridge, server: Server): PathEvidence {
+        val known = PathEvidence.of(pathEvidence, server.key)
+        if (known != PathEvidence.UNKNOWN) return known
+
+        activity.value = "Testing ${server.label} end to end…"
+        val delays = withContext(Dispatchers.IO) {
+            runCatching {
+                runtime.probe(listOf(XrayConfigBuilder.outboundOnly(server.profile)))
+            }.getOrElse { emptyList() }
+        }
+        if (delays.isEmpty()) return PathEvidence.UNKNOWN
+
+        pathEvidence = pathEvidence + (server.key to delays.first())
+        return PathEvidence.of(pathEvidence, server.key)
     }
 
     /** The app's own store, when the service is running inside the app's process. */

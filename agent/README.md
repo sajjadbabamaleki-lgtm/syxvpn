@@ -9,6 +9,7 @@ data-plane secrets, and the only one that touches the Xray configuration file.
 | --- | --- |
 | `HEARTBEAT_SECONDS` (30s) | Reports liveness/version, learns whether a newer config version exists |
 | on change | Fetches, validates, tests and deploys the Xray configuration |
+| `CONFIG_SECONDS` (120s) | Re-reads the configuration whether or not it was asked to, so a missed `needsConfig` cannot strand a gateway on a stale client list |
 | `HEALTH_SECONDS` (60s) | Probes every assigned egress path end to end and reports the result |
 | `USAGE_SECONDS` (60s) | Reads cumulative per-user counters from the Xray stats API and reports them |
 

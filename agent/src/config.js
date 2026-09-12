@@ -35,6 +35,20 @@ export function loadAgentConfig(env = process.env) {
 
     apiPort: int(env.XRAY_API_PORT, 10085),
     heartbeatSeconds: int(env.HEARTBEAT_SECONDS, 30),
+    /**
+     * How often the gateway re-reads its configuration regardless of being
+     * asked to.
+     *
+     * The heartbeat's `needsConfig` is the fast path and stays the fast path.
+     * This is the one that does not depend on it: if that flag is ever wrong —
+     * lost with a failed heartbeat, or never set because the control plane did
+     * not notice a subscriber was added — the gateway would otherwise keep an
+     * out-of-date client list until somebody restarted it, and every new
+     * customer's app would connect to a gateway that has never heard of them.
+     * A poll costs one request and applies nothing when the version and hash
+     * are unchanged, which is almost always.
+     */
+    configSeconds: int(env.CONFIG_SECONDS, 120),
     healthSeconds: int(env.HEALTH_SECONDS, 60),
     usageSeconds: int(env.USAGE_SECONDS, 60),
     probeTimeoutMs: int(env.PROBE_TIMEOUT_MS, 8000),
