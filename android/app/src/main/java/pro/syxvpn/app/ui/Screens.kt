@@ -3041,7 +3041,10 @@ private fun SignInScreen(
             // The keyboard must not cover the button that submits the form.
             .imePadding()
             .padding(horizontal = 16.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.Center,
+        // The form sits at the foot of the screen, not at the head of it. What
+        // is above it is explanation, and explanation does not need the thumb's
+        // half of the screen.
+        verticalArrangement = Arrangement.Bottom,
     ) {
         Text("SYX VPN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
         Text("Your account", color = TextDim, fontSize = 13.sp)
@@ -3060,7 +3063,18 @@ private fun SignInScreen(
             Text("Your session ended. Sign in again.", color = Pending, fontSize = 13.sp)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
+        // The three fields and the button are one object on the glass, the way
+        // the public page sets its own form on a card rather than loose on the
+        // ground behind it.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .litCard()
+                .border(1.dp, Border, RoundedCornerShape(28.dp))
+                .padding(18.dp),
+        ) {
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -3153,6 +3167,7 @@ private fun SignInScreen(
         error?.let {
             Spacer(Modifier.height(8.dp))
             Text(it, color = Bad, fontSize = 13.sp)
+        }
         }
         Text(
             "An account on its own carries no data — a plan is bought on the Premium tab.",

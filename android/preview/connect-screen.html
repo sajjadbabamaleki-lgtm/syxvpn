@@ -242,6 +242,10 @@
   .nav svg { display: block; }
 
   /* ---- account ---- */
+  /* The form sits at the foot of the screen, on the glass, the way the public
+     page sets its own form on a card rather than loose on the ground. */
+  .stack.bottom { margin-top: auto; justify-content: flex-end; }
+  .panel.account { display: flex; flex-direction: column; gap: 12px; }
   .field {
     border: 1px solid #262626; border-radius: 16px; background: #141414;
     padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex: none;
@@ -931,27 +935,29 @@
     <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
     <div class="screen">
       <h2>Your account</h2>
-      <div class="stack">
+      <div class="stack bottom">
         <p class="fine">An account is only needed to buy a plan and to carry it between devices.
         The tunnel itself does not ask for one.</p>
-        <div class="field">
-          <div class="col"><span class="lab">Email</span><span class="val">you@example.net</span></div>
+        <div class="panel account">
+          <div class="field">
+            <div class="col"><span class="lab">Email</span><span class="val">you@example.net</span></div>
+          </div>
+          <div class="field">
+            <div class="col"><span class="lab">Password</span><span class="val">••••••••••</span></div>
+            <span class="show">Show</span>
+            <div class="send">Send code</div>
+          </div>
+          <p class="hint">The code sent to you@example.net</p>
+          <div class="code-row">
+            <div class="code-cell"><span class="dash"></span></div>
+            <div class="code-cell"><span class="dash"></span></div>
+            <div class="code-cell"><span class="dash"></span></div>
+            <div class="code-cell"><span class="dash"></span></div>
+            <div class="code-cell"><span class="dash"></span></div>
+            <div class="code-cell"><span class="dash"></span></div>
+          </div>
+          <div class="btn upgrade">Continue</div>
         </div>
-        <div class="field">
-          <div class="col"><span class="lab">Password</span><span class="val">••••••••••</span></div>
-          <span class="show">Show</span>
-          <div class="send">Send code</div>
-        </div>
-        <p class="hint">The code sent to you@example.net</p>
-        <div class="code-row">
-          <div class="code-cell"><span class="dash"></span></div>
-          <div class="code-cell"><span class="dash"></span></div>
-          <div class="code-cell"><span class="dash"></span></div>
-          <div class="code-cell"><span class="dash"></span></div>
-          <div class="code-cell"><span class="dash"></span></div>
-          <div class="code-cell"><span class="dash"></span></div>
-        </div>
-        <div class="btn upgrade">Continue</div>
         <p class="fine">An account on its own carries no data — a plan is bought on the Premium tab.</p>
       </div>
     </div>
