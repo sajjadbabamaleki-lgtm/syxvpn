@@ -482,14 +482,25 @@
     // keeps the shield, so renaming a plan never leaves a card with a hole in
     // it.
     var METALS = ['bronze', 'silver', 'gold'];
-    var mark = function (p) {
+    var mark = function (p, all) {
+      // Named for a metal, or priced like one. The name wins, so an operator
+      // can put any plan on any metal by saying so; failing that the ladder is
+      // read off the prices, because a plan list with no metals in it is still
+      // cheapest to dearest and that is what the three marks mean.
       var name = String(p.name || '').toLowerCase();
       for (var i = 0; i < METALS.length; i += 1) {
-        if (name.indexOf(METALS[i]) !== -1) {
-          return '<img class="tier" src="/tier-' + METALS[i] + '.png" alt="" loading="lazy" />';
-        }
+        if (name.indexOf(METALS[i]) !== -1) return art(METALS[i]);
+      }
+      if (all.length >= 2) {
+        var ranked = all.slice().sort(function (a, b) { return a.priceMicro - b.priceMicro; });
+        if (p === ranked[0]) return art('bronze');
+        if (p === ranked[ranked.length - 1]) return art('gold');
+        return art('silver');
       }
       return '<span class="chip chip-sq">' + ICON + '</span>';
+    };
+    var art = function (metal) {
+      return '<img class="tier" src="/tier-' + metal + '.png" alt="" loading="lazy" />';
     };
     var ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
       + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
@@ -531,7 +542,7 @@
             : '<div class="per"></div>';
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
             + '<div class="plan-head">'
-            + mark(p)
+            + mark(p, plans)
             + '<span><span class="term">' + term(p.durationDays) + '</span>'
             + '<br /><span class="for">' + forWhom(p.durationDays) + '</span></span>'
             + '</div>'
