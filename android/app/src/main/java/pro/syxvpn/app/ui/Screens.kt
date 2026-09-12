@@ -3114,6 +3114,10 @@ private fun SignInScreen(
                         Modifier
                             .padding(end = 8.dp)
                             .height(32.dp)
+                            // Curved like the rest of the app, not a capsule and
+                            // not a corner: a 32-high pill would be a lozenge
+                            // sitting inside a field that is merely rounded.
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (canSend) Accent else Border)
                             .clickable(enabled = canSend) { sendCode() }
                             .padding(horizontal = 12.dp),
