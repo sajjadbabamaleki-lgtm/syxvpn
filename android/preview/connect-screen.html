@@ -138,16 +138,14 @@
   }
   .card::before {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
-    inset: 0 0 auto 0; height: 84px;
+    inset: 0 0 auto 0; height: 150px;
     border-radius: 27px 27px 0 0;
-    /* Centred over the top edge, not pushed into the right corner, where it
-       landed on whatever sits at the top right and lit the words instead of
-       the card. Kept high, so it is spent before the first line of text. */
+    /* Smaller than it was, and sat in the one part of a card that holds
+       nothing: under the price, on the right. Centred on the top edge it
+       crossed the title; in the corner it lit the price itself. */
     background:
-      radial-gradient(30% 62% at 50% 20px, rgba(240, 224, 122, .58), transparent 72%),
-      radial-gradient(58% 116% at 50% 20px, rgba(217, 176, 33, .22), transparent 76%);
-    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 26%, transparent 86%);
-    mask-image: linear-gradient(180deg, #000 0, #000 26%, transparent 86%);
+      radial-gradient(66px 52px at 85% 60px, rgba(240, 224, 122, .52), transparent 72%),
+      radial-gradient(104px 88px at 85% 60px, rgba(217, 176, 33, .20), transparent 76%);
     filter: blur(13px);
   }
   .card > * { position: relative; z-index: 1; }
@@ -259,16 +257,14 @@
   }
   .panel::before {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
-    inset: 0 0 auto 0; height: 84px;
+    inset: 0 0 auto 0; height: 150px;
     border-radius: 27px 27px 0 0;
-    /* Centred over the top edge, not pushed into the right corner, where it
-       landed on whatever sits at the top right and lit the words instead of
-       the card. Kept high, so it is spent before the first line of text. */
+    /* Smaller than it was, and sat in the one part of a card that holds
+       nothing: under the price, on the right. Centred on the top edge it
+       crossed the title; in the corner it lit the price itself. */
     background:
-      radial-gradient(30% 62% at 50% 20px, rgba(240, 224, 122, .58), transparent 72%),
-      radial-gradient(58% 116% at 50% 20px, rgba(217, 176, 33, .22), transparent 76%);
-    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 26%, transparent 86%);
-    mask-image: linear-gradient(180deg, #000 0, #000 26%, transparent 86%);
+      radial-gradient(66px 52px at 85% 60px, rgba(240, 224, 122, .52), transparent 72%),
+      radial-gradient(104px 88px at 85% 60px, rgba(217, 176, 33, .20), transparent 76%);
     filter: blur(13px);
   }
   .panel > * { position: relative; z-index: 1; }

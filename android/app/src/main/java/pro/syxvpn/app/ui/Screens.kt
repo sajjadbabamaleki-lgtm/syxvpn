@@ -143,19 +143,20 @@ private fun Modifier.glassCard(): Modifier =
 private fun Modifier.litCard(): Modifier = this
     .background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
     .drawBehind {
-        val band = minOf(size.height, 84.dp.toPx())
+        // Smaller than it was, and sat in the one part of a card that holds
+        // nothing: under the price, on the right, below the figure and above
+        // whatever the specs run to. Centred on the top edge it crossed the
+        // card's title; in the corner it lit the price itself. Between the two
+        // it is light falling on an empty part of the glass, which is what it
+        // was always meant to be.
+        val band = minOf(size.height, 150.dp.toPx())
         drawRect(
             brush = Brush.radialGradient(
                 0.00f to GoldSoft.copy(alpha = 0.30f),
                 0.42f to Gold.copy(alpha = 0.12f),
                 1.00f to Color.Transparent,
-                // Centred over the card's top edge rather than pushed into its
-                // right corner. In the corner it landed on whatever sits at the
-                // top right — a price, a chevron — and lit the words instead of
-                // the card. Centred and kept high, it is spent before the first
-                // line of text begins.
-                center = Offset(size.width * 0.5f, 20.dp.toPx()),
-                radius = 130.dp.toPx(),
+                center = Offset(size.width * 0.85f, 60.dp.toPx()),
+                radius = 88.dp.toPx(),
             ),
             topLeft = Offset.Zero,
             size = Size(size.width, band),
