@@ -2349,9 +2349,11 @@ private fun PlanCard(
                 SpecLine("${plan.durationDays} days")
             } else {
                 SpecLine("${plan.durationDays} days")
-                // Only the plan that actually has no cap gets to say so; one
-                // with a size has it printed across from its name.
-                if (plan.quotaBytes <= 0) SpecLine("No data cap")
+                // Four lines, always. The slot says what the traffic is: a
+                // figure when the plan has one, and no cap when it has none.
+                SpecLine(
+                    if (plan.quotaBytes > 0) "${formatBytes(plan.quotaBytes)} of traffic" else "No data cap",
+                )
                 SpecLine("Every gateway on the list, one switch")
                 SpecLine("Comes back on its own when a route dies")
             }
