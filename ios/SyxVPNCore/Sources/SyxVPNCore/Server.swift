@@ -52,4 +52,8 @@ public struct Server {
 
     /// Stable identity of a server across refreshes.
     public var key: String { "\(profile.host):\(profile.port)" }
+
+    /// What to call it on screen: the control plane's name for the gateway when
+    /// there is one, otherwise whatever the profile labelled itself.
+    public var label: String { gatewayName ?? profile.label }
 }
