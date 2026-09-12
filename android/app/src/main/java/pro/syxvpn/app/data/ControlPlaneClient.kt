@@ -140,8 +140,23 @@ class ControlPlaneClient(
         }
     }
 
-    suspend fun createOrder(planId: String): Order = withContext(Dispatchers.IO) {
-        orderOf(request("POST", "/api/v1/shop/orders", "{\"planId\":" + quote(planId) + "}"))
+    /**
+     * Open an order.
+     *
+     * `units` is how many of the plan to buy at once, and only a plan sold by
+     * the gigabyte has a unit to multiply. The price is the published plan's,
+     * multiplied by the control plane rather than by this app: what the app
+     * shows while someone is picking a size is an estimate of the same sum, and
+     * the amount that has to be paid is the one the order comes back with.
+     */
+    suspend fun createOrder(planId: String, units: Int = 1): Order = withContext(Dispatchers.IO) {
+        orderOf(
+            request(
+                "POST",
+                "/api/v1/shop/orders",
+                "{\"planId\":" + quote(planId) + ",\"units\":" + units + "}",
+            ),
+        )
     }
 
     suspend fun order(id: String): Order = withContext(Dispatchers.IO) {

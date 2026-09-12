@@ -250,7 +250,9 @@
   /* Mirrors Compose: the Premium and Support cards carry the public page's
      surface and its light, same as .card. */
   .panel {
-    position: relative; overflow: hidden; padding: 18px;
+    /* flex:none, or the stack's flex column shrinks a card below its own
+       content and clips the last line off it. */
+    position: relative; overflow: hidden; padding: 18px; flex: none;
     background: linear-gradient(180deg, #1b1b1b, #121212 62%);
     border: 1px solid #262626; border-radius: 28px;
   }
@@ -283,8 +285,20 @@
   /* A subscription card is a set height, a tenth taller than its text alone
      came to, so a two-word description and a two-line one make the same card. */
   .panel.plan {
-    height: 188px; display: flex; flex-direction: column; justify-content: space-between;
+    height: 210px; display: flex; flex-direction: column; justify-content: space-between;
   }
+  /* A config bundle is its size and its life, bought beside a picker that
+     builds any other size, so it earns less room than a subscription. */
+  .panel.plan.bundle { height: auto; }
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .step {
+    width: 44px; height: 44px; border-radius: 50%; flex: none;
+    background: #1b1b1b; border: 1px solid #262626;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; color: #d8f83a;
+  }
+  .step.off { color: #6a6a6a; border-color: rgba(38, 38, 38, .5); }
+  .amount-big { flex: 1; text-align: center; font-size: 18px; font-weight: 600; color: #fff; }
   .panel.plan.sel { border-color: #d8f83a; }
   .spec-list { display: flex; flex-direction: column; gap: 4px; }
   .spec { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #909090; }
@@ -730,6 +744,7 @@
             <div class="spec"><i></i>30 days</div>
             <div class="spec"><i></i>No data cap</div>
             <div class="spec"><i></i>Every gateway on the list, one switch</div>
+            <div class="spec"><i></i>Comes back on its own when a route dies</div>
           </div>
         </div>
         <div class="panel plan">
@@ -741,6 +756,7 @@
             <div class="spec"><i></i>30 days</div>
             <div class="spec"><i></i>No data cap</div>
             <div class="spec"><i></i>Every gateway on the list, one switch</div>
+            <div class="spec"><i></i>Comes back on its own when a route dies</div>
           </div>
         </div>
         <div class="panel plan">
@@ -752,6 +768,7 @@
             <div class="spec"><i></i>90 days</div>
             <div class="spec"><i></i>No data cap</div>
             <div class="spec"><i></i>Every gateway on the list, one switch</div>
+            <div class="spec"><i></i>Comes back on its own when a route dies</div>
           </div>
         </div>
         <div class="btn upgrade">Upgrade</div>
@@ -798,6 +815,69 @@
           </div>
           <div style="margin-top:12px; font-size:13px; color:#909090">Cancel this order</div>
         </div>
+      </div>
+    </div>
+    <div class="navwrap"><div class="nav"><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1 -12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a4.5 4.5 0 0 1 4.5-4.5h6a4.5 4.5 0 0 1 4.5 4.5v1"/></svg>Account</div></div></div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="caption"><b>Premium — configs</b>the same lengths by volume, and a size you build</div>
+  <div class="phone">
+    <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h2>Premium</h2>
+      <div class="stack">
+        <div class="switcher">
+          <div class="seg-btn">Subscription</div>
+          <div class="seg-btn active">Configs</div>
+        </div>
+        <div class="panel plan bundle sel">
+          <div class="plan-head">
+            <div><b>Configs · 30 GB</b><p>A week of configs, to try them somewhere else.</p></div>
+            <div class="price"><b>2.5</b><small>USDT</small></div>
+          </div>
+          <div class="spec-list">
+            <div class="spec"><i></i>30 GB of traffic</div>
+            <div class="spec"><i></i>7 days</div>
+          </div>
+        </div>
+        <div class="panel plan bundle">
+          <div class="plan-head">
+            <div><b>Configs · 120 GB</b><p>A month of configs, for everyday use.</p></div>
+            <div class="price"><b>7</b><small>USDT</small></div>
+          </div>
+          <div class="spec-list">
+            <div class="spec"><i></i>120 GB of traffic</div>
+            <div class="spec"><i></i>30 days</div>
+          </div>
+        </div>
+        <div class="panel plan bundle">
+          <div class="plan-head">
+            <div><b>Configs · 400 GB</b><p>Three months of configs, one payment.</p></div>
+            <div class="price"><b>17</b><small>USDT</small></div>
+          </div>
+          <div class="spec-list">
+            <div class="spec"><i></i>400 GB of traffic</div>
+            <div class="spec"><i></i>90 days</div>
+          </div>
+        </div>
+        <div class="panel custom">
+          <div class="plan-head">
+            <div><b>Your own size</b><p>Pick the traffic, pay for that much.</p></div>
+            <div class="price"><b>2.8</b><small>USDT</small></div>
+          </div>
+          <div class="stepper" style="margin-top:14px">
+            <div class="step">−</div>
+            <div class="amount-big">40 GB</div>
+            <div class="step">+</div>
+          </div>
+          <div class="spec-list" style="margin-top:14px">
+            <div class="spec"><i></i>30 days, from the day it is delivered</div>
+            <div class="spec"><i></i>Delivered as configs once the payment settles</div>
+          </div>
+        </div>
+        <div class="btn upgrade">Upgrade</div>
       </div>
     </div>
     <div class="navwrap"><div class="nav"><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1 -12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a4.5 4.5 0 0 1 4.5-4.5h6a4.5 4.5 0 0 1 4.5 4.5v1"/></svg>Account</div></div></div>

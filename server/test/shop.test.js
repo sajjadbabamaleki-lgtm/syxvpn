@@ -131,6 +131,69 @@ test('storefront: accounts, plans and USDT orders', async (t) => {
   });
 });
 
+test('storefront: a by-the-gigabyte plan is bought by the unit', async (t) => {
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const adminToken = await ctx.login();
+  await usableGateway(ctx, adminToken);
+
+  // Payments on, and the by-the-gigabyte shelf open, for this suite only.
+  const { config } = await import('../src/config.js');
+  const originalShop = { ...config.shop };
+  Object.assign(config.shop, shopConfig({ volumeSales: true, maxOrderUnits: 50 }));
+  t.after(() => Object.assign(config.shop, originalShop));
+
+  // The unit being sold: 10 GB, priced per unit rather than per plan.
+  const created = await ctx.request('POST', '/api/v1/plans', {
+    token: adminToken,
+    body: {
+      name: 'Configs · by the gigabyte',
+      quotaGb: 10,
+      durationDays: 30,
+      priceUsdt: 1,
+      product: 'configs',
+      billing: 'volume',
+    },
+  });
+  assert.equal(created.status, 201);
+  const unit = created.body.data;
+
+  const register = await ctx.request('POST', '/api/v1/shop/register', {
+    body: { email: 'sizes@example.com', password: 'a-good-password' },
+  });
+  const token = register.body.data.token;
+
+  await t.test('a size multiplies both the quota and the price', async () => {
+    const res = await ctx.request('POST', '/api/v1/shop/orders', {
+      token, body: { planId: unit.id, units: 12 },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.data.quotaBytes, 120 * 1024 ** 3);
+    assert.equal(res.body.data.priceUsdt, 12);
+    // The order names the size, not the plan it was built from.
+    assert.match(res.body.data.planName, /12/);
+    await ctx.request('POST', `/api/v1/shop/orders/${res.body.data.id}/cancel`, { token });
+  });
+
+  await t.test('a size past the ceiling is refused', async () => {
+    const res = await ctx.request('POST', '/api/v1/shop/orders', {
+      token, body: { planId: unit.id, units: 400 },
+    });
+    assert.equal(res.status, 400);
+  });
+
+  await t.test('a plan sold by time cannot be bought in multiples', async () => {
+    const monthly = await ctx.request('POST', '/api/v1/plans', {
+      token: adminToken,
+      body: { name: 'Monthly', quotaGb: 0, durationDays: 30, priceUsdt: 6 },
+    });
+    const res = await ctx.request('POST', '/api/v1/shop/orders', {
+      token, body: { planId: monthly.body.data.id, units: 3 },
+    });
+    assert.equal(res.status, 400);
+  });
+});
+
 test('storefront: on-chain settlement', async (t) => {
   const ctx = await startTestServer();
   t.after(() => ctx.close());

@@ -159,7 +159,18 @@ function uniqueAmount(db, priceMicro, now) {
   throw conflict('Too many payments are pending; try again in a few minutes');
 }
 
-export function createOrder(db, customerId, planId) {
+/**
+ * Open an order.
+ *
+ * `units` is how many of the plan to buy at once, and it exists for one thing:
+ * a by-the-gigabyte plan whose quota is the unit being sold. Twelve units of a
+ * 10 GB plan is a 120 GB order at twelve times the price — the customer picks a
+ * size, and the price follows from the published plan rather than from anything
+ * the app worked out on its own. A plan sold by time has nothing to multiply,
+ * so it takes units of 1 and refuses anything else: two months is a second
+ * order, not one order counted twice.
+ */
+export function createOrder(db, customerId, planId, units = 1) {
   if (!config.shop.payAddress) {
     throw badRequest('Payments are not configured on this deployment');
   }
@@ -170,6 +181,22 @@ export function createOrder(db, customerId, planId) {
   // secret; it was in the response the last time the shelf was up.
   if (!plan || plan.enabled !== 1) throw notFound('Plan');
   if (plan.billing === 'volume' && !config.shop.volumeSales) throw notFound('Plan');
+
+  const count = Number(units);
+  if (!Number.isInteger(count) || count < 1 || count > config.shop.maxOrderUnits) {
+    throw badRequest(`A size has to be between 1 and ${config.shop.maxOrderUnits} units`);
+  }
+  if (count !== 1 && plan.billing !== 'volume') {
+    throw badRequest('Only a plan sold by the gigabyte can be bought in multiples');
+  }
+  if (count !== 1 && plan.quota_bytes <= 0) {
+    throw badRequest('That plan has no unit to multiply');
+  }
+  const quotaBytes = plan.quota_bytes * count;
+  const priceMicro = plan.price_micro * count;
+  // The order is the record of what was bought, so it names the size rather
+  // than the plan it was built from.
+  const planName = count === 1 ? plan.name : `${plan.name} × ${count}`;
 
   const now = Date.now();
   expireStaleOrders(db, now);
@@ -182,21 +209,21 @@ export function createOrder(db, customerId, planId) {
   }
 
   const id = newId('ord');
-  const payAmount = uniqueAmount(db, plan.price_micro, now);
+  const payAmount = uniqueAmount(db, priceMicro, now);
   db.prepare(`INSERT INTO orders
       (id,customer_id,plan_id,plan_name,quota_bytes,duration_days,status,price_micro,pay_amount_micro,
        pay_address,chain,asset,created_at,expires_at,product)
       VALUES (?,?,?,?,?,?, 'pending', ?,?,?,?,?,?,?,?)`)
-    .run(id, customerId, plan.id, plan.name, plan.quota_bytes, plan.duration_days,
-      plan.price_micro, payAmount, config.shop.payAddress, 'tron', 'USDT-TRC20',
+    .run(id, customerId, plan.id, planName, quotaBytes, plan.duration_days,
+      priceMicro, payAmount, config.shop.payAddress, 'tron', 'USDT-TRC20',
       // The plan carries the product, but a plan can be edited or deleted after
       // the sale, and an order is the record of what was actually bought.
       now, now + config.shop.paymentWindowMinutes * 60000, plan.product);
 
   recordEvent(db, {
     type: 'order.created', targetType: 'order', targetId: id,
-    message: `Order for ${plan.name} awaiting ${fromMicro(payAmount)} USDT`,
-    data: { planId: plan.id, amountMicro: payAmount },
+    message: `Order for ${planName} awaiting ${fromMicro(payAmount)} USDT`,
+    data: { planId: plan.id, units: count, amountMicro: payAmount },
   });
   return getOrder(db, id);
 }

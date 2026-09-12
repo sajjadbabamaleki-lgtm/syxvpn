@@ -129,7 +129,12 @@ private val ServerAndPlanCardHeight = 138.dp
 
 // A tenth taller than the text alone came to, so every subscription card is
 // the same size whatever its description says.
-private val SubscriptionCardHeight = 188.dp
+private val SubscriptionCardHeight = 210.dp
+
+// The size picker is a choice among the plans without being one of them, so it
+// needs an id no plan can have.
+private const val CUSTOM_SIZE = "custom-size"
+private const val MaxCustomUnits = 50
 
 private fun Modifier.glassCard(): Modifier =
     background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
@@ -2046,6 +2051,8 @@ private fun PremiumScreen(
     var busyPlan by remember { mutableStateOf<String?>(null) }
     var showConfigs by remember { mutableStateOf(false) }
     var selectedPlanId by remember { mutableStateOf<String?>(null) }
+    // How many units of the by-the-gigabyte plan the size picker is set to.
+    var customUnits by remember { mutableStateOf(4) }
 
     LaunchedEffect(signedIn) {
         // Plans and payment settings are public; an open order belongs to an
@@ -2076,7 +2083,10 @@ private fun PremiumScreen(
     // plan is the one to land on rather than the one nobody picked.
     LaunchedEffect(plans, showConfigs) {
         val side = plans.filter { it.isConfigs == showConfigs }
-        if (side.none { it.id == selectedPlanId }) selectedPlanId = side.firstOrNull()?.id
+        if (selectedPlanId == CUSTOM_SIZE) return@LaunchedEffect
+        if (side.none { it.id == selectedPlanId }) {
+            selectedPlanId = side.firstOrNull { it.billing != "volume" }?.id ?: side.firstOrNull()?.id
+        }
     }
 
     val payments = shopConfig
@@ -2122,6 +2132,11 @@ private fun PremiumScreen(
             // A card that does not say which of the two it buys is a refund
             // request, so the switcher answers it for the whole list at once.
             val shown = plans.filter { it.isConfigs == showConfigs }
+            // The by-the-gigabyte plan is the unit a size is built from, not a
+            // bundle anybody buys as it stands, so it is the picker at the foot
+            // of the list rather than a card in it.
+            val unit = shown.firstOrNull { it.billing == "volume" && it.quotaBytes > 0 }
+            val bundles = shown.filter { it.id != unit?.id }
             if (!loading) {
                 ProductSwitcher(showConfigs) { showConfigs = it }
             }
@@ -2129,11 +2144,20 @@ private fun PremiumScreen(
             // The choice is the card, not a button on it. Three buy buttons on
             // one screen is three decisions; one button under a chosen card is
             // the one decision there actually is.
-            shown.forEach { plan ->
+            bundles.forEach { plan ->
                 PlanCard(
                     plan = plan,
                     selected = plan.id == selectedPlanId,
                     onSelect = { selectedPlanId = plan.id },
+                )
+            }
+            if (unit != null) {
+                CustomSizeCard(
+                    unit = unit,
+                    units = customUnits,
+                    selected = selectedPlanId == CUSTOM_SIZE,
+                    onSelect = { selectedPlanId = CUSTOM_SIZE },
+                    onUnits = { customUnits = it.coerceIn(1, MaxCustomUnits) },
                 )
             }
             if (!loading && shown.isEmpty() && error == null) {
@@ -2148,7 +2172,8 @@ private fun PremiumScreen(
                 )
             }
 
-            val chosen = shown.firstOrNull { it.id == selectedPlanId }
+            val custom = selectedPlanId == CUSTOM_SIZE && unit != null
+            val chosen = if (custom) unit else shown.firstOrNull { it.id == selectedPlanId }
             if (shown.isNotEmpty()) {
                 val busy = busyPlan != null
                 Button(
@@ -2167,7 +2192,7 @@ private fun PremiumScreen(
                         scope.launch {
                             busyPlan = plan.id
                             error = null
-                            runCatching { app.api.createOrder(plan.id) }
+                            runCatching { app.api.createOrder(plan.id, if (custom) customUnits else 1) }
                                 .onSuccess { order = it }
                                 .onFailure { error = it.message }
                             busyPlan = null
@@ -2300,15 +2325,105 @@ private fun PlanCard(
         // What the plan is, line by line, so the card answers "what am I
         // buying" without the person opening anything.
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            SpecLine("${plan.durationDays} days")
             if (plan.isConfigs) {
+                // A config bundle is its size and its life. It is bought beside
+                // a picker that builds any other size, so it earns less room.
                 SpecLine(if (plan.quotaBytes > 0) "${formatBytes(plan.quotaBytes)} of traffic" else "Unmetered")
-                SpecLine("Works in any client that reads a config")
+                SpecLine("${plan.durationDays} days")
             } else {
+                SpecLine("${plan.durationDays} days")
                 SpecLine("No data cap")
                 SpecLine("Every gateway on the list, one switch")
+                SpecLine("Comes back on its own when a route dies")
             }
         }
+    }
+}
+
+/**
+ * A size the buyer builds, priced from the published by-the-gigabyte plan.
+ *
+ * The sum here is an estimate of the control plane's own: the app multiplies
+ * the plan it was given, and the amount that actually has to be paid is the one
+ * the order comes back with. Nothing is priced on this device that the server
+ * does not price again.
+ */
+@Composable
+private fun CustomSizeCard(
+    unit: ControlPlaneClient.Plan,
+    units: Int,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onUnits: (Int) -> Unit,
+) {
+    val shape = RoundedCornerShape(28.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .litCard()
+            .border(1.dp, if (selected) Accent else Border, shape)
+            .clickable(onClick = onSelect)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text("Your own size", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Pick the traffic, pay for that much.",
+                    color = TextDim,
+                    fontSize = 12.sp,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    formatUsdt(unit.priceMicro * units),
+                    color = Accent,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepButton("−", units > 1) { onUnits(units - 1) }
+            Text(
+                formatBytes(unit.quotaBytes * units),
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            StepButton("+", units < MaxCustomUnits) { onUnits(units + 1) }
+        }
+
+        SpecLine("${unit.durationDays} days, from the day it is delivered")
+        SpecLine("Delivered as configs once the payment settles")
+    }
+}
+
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(SurfaceHigh)
+            .border(1.dp, if (enabled) Border else Border.copy(alpha = 0.5f), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (enabled) Accent else TextFaint,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 

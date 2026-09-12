@@ -56,6 +56,55 @@ const WANTED = [
     billing: 'duration',
     sortOrder: 30,
   },
+
+  // The Configs tab sells the same three lengths, by volume rather than by the
+  // month: a config list is carried to another client, where nothing of ours is
+  // metering anything, so the cap is the product.
+  {
+    name: 'Configs · 30 GB',
+    description: 'A week of configs, to try them somewhere else.',
+    quotaBytes: 30 * GB,
+    durationDays: 7,
+    priceMicro: toMicro(2.5),
+    product: 'configs',
+    billing: 'duration',
+    sortOrder: 40,
+  },
+  {
+    name: 'Configs · 120 GB',
+    description: 'A month of configs, for everyday use.',
+    quotaBytes: 120 * GB,
+    durationDays: 30,
+    priceMicro: toMicro(7),
+    product: 'configs',
+    billing: 'duration',
+    sortOrder: 50,
+  },
+  {
+    name: 'Configs · 400 GB',
+    description: 'Three months of configs, one payment.',
+    quotaBytes: 400 * GB,
+    durationDays: 90,
+    priceMicro: toMicro(17),
+    product: 'configs',
+    billing: 'duration',
+    sortOrder: 60,
+  },
+
+  // Not a bundle anybody buys as it stands: the unit a built-to-order size is
+  // multiplied from. The app shows it as a size picker rather than a card, and
+  // the control plane multiplies both the quota and the price by the number of
+  // units the order asks for. On the shelf only while SHOP_VOLUME_SALES is on.
+  {
+    name: 'Configs · by the gigabyte',
+    description: 'Ten gigabytes at a time, any size you like.',
+    quotaBytes: 10 * GB,
+    durationDays: 30,
+    priceMicro: toMicro(0.7),
+    product: 'configs',
+    billing: 'volume',
+    sortOrder: 70,
+  },
 ];
 
 const db = openDatabase(process.env.DB_PATH || '/data/cvpn.db');
@@ -65,7 +114,10 @@ console.log(`\n  ${existing.length} plan(s) already in the database.\n`);
 
 let made = 0;
 for (const want of WANTED) {
-  const already = existing.find((p) => p.duration_days === want.durationDays);
+  // Matched by name, not by length: the two products now sell the same three
+  // lengths, and a Configs plan is not "already there" because a VPN plan runs
+  // for the same number of days.
+  const already = existing.find((p) => p.name === want.name);
   if (already) {
     console.log(`  kept    ${want.durationDays.toString().padStart(3)} days  ${already.name}`
       + `  (${(already.price_micro / 1e6).toFixed(2)} USDT, already there)`);

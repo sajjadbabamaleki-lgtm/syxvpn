@@ -24,7 +24,12 @@ const credentialsSchema = z.object({
   password: z.string().min(8, 'use at least 8 characters').max(256),
 });
 
-const orderSchema = z.object({ planId: z.string().trim().min(3).max(64) });
+const orderSchema = z.object({
+  planId: z.string().trim().min(3).max(64),
+  // How many of the plan to buy at once. Only a by-the-gigabyte plan has a
+  // unit to multiply; see createOrder.
+  units: z.number().int().min(1).max(1000).optional(),
+});
 
 function bearer(req) {
   const header = req.get('authorization') || '';
@@ -234,7 +239,7 @@ export function shopRoutes({ db }) {
 
   router.post('/orders', requireCustomer(db), validate(orderSchema), (req, res, next) => {
     try {
-      const order = createOrder(db, req.customer.id, req.body.planId);
+      const order = createOrder(db, req.customer.id, req.body.planId, req.body.units ?? 1);
       return created(res, orderView(order));
     } catch (err) {
       return next(err);

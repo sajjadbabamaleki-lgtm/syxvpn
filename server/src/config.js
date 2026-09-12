@@ -147,6 +147,10 @@ export function loadConfig(env = process.env) {
        * worse than not selling it.
        */
       volumeSales: bool(env.SHOP_VOLUME_SALES, false),
+      // The ceiling on a single by-the-gigabyte order. A size picker with no
+      // ceiling is an invitation to open a six-figure order by holding a
+      // button down.
+      maxOrderUnits: int(env.SHOP_MAX_ORDER_UNITS, 100),
       sessionTtlSeconds: int(env.SHOP_SESSION_TTL_SECONDS, 30 * 24 * 3600),
       // TRC-20 USDT address that receives customer payments. Without it the
       // storefront still lists plans but refuses to open an order.
