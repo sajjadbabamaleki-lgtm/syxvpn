@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The mark is artwork, not geometry: white shapes with a lime glow behind
+  them. A VectorDrawable cannot blur, so the foreground is the supplied image
+  with its black turned into transparency rather than a set of paths that
+  would have to leave the glow out.
+
+  The background stays a flat colour. It is what the launcher parallaxes
+  against, and the artwork's own black is the same #0D0D0D, so the seam does
+  not show when a launcher shifts the two layers apart.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>
