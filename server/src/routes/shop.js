@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
 import { ok, created } from '../lib/respond.js';
-import { unauthorized, notFound, badRequest } from '../lib/errors.js';
+import {
+  unauthorized, notFound, badRequest, tooManyRequests, internal,
+} from '../lib/errors.js';
 import { createRateLimiter, clientIp } from '../lib/ratelimit.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
@@ -18,10 +20,20 @@ import { clientProfile } from '../domain/xray.js';
 import { inboundProfile, offerableInbounds, inCohort } from '../domain/inbounds.js';
 import { gatewaysFor } from './public.js';
 import { issueLinkCode } from '../domain/chats.js';
+import { issueEmailCode, verifyEmailCode, clearEmailCode } from '../domain/authcodes.js';
+import { mailEnabled, sendLoginCode } from '../services/mailer.js';
+
+const emailSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(160),
+});
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(160),
   password: z.string().min(8, 'use at least 8 characters').max(256),
+  // The code from the message, when the caller has one. Optional on the older
+  // two routes so the storefront keeps working; required on /auth/session
+  // whenever this deployment can actually send one.
+  code: z.string().trim().regex(/^\d{6}$/, 'a six-digit code').optional(),
 });
 
 const orderSchema = z.object({
@@ -168,6 +180,9 @@ export function shopRoutes({ db }) {
   router.get('/config', (_req, res) => ok(res, {
     payment: describePaymentConfig(),
     supportContact: config.shop.supportContact || null,
+    // Whether the sign-in form should offer to send a code. An app that offers
+    // it against a deployment with no relay configured offers nothing.
+    emailCodes: mailEnabled(),
     // Named only when there is a bot to answer and a handle to reach it by.
     // The storefront shows the linking step at all only when this is here, so
     // nobody is offered a code for a chat that does not exist.
@@ -178,7 +193,94 @@ export function shopRoutes({ db }) {
 
   router.get('/plans', (_req, res) => ok(res, listPlans(db).map(planView)));
 
+  /**
+   * Send the code to the address, whether or not it has an account.
+   *
+   * The reply says nothing about the address: the same 200 comes back for one
+   * that has an account and one that never has, because this route is open to
+   * the internet and the difference is the customer list. What it does say is
+   * whether the message was accepted by the relay — a code field that opens for
+   * a code that is never coming is the failure worth being loud about.
+   */
+  router.post('/auth/code', authLimiter, validate(emailSchema), async (req, res, next) => {
+    if (!mailEnabled()) {
+      return next(badRequest('This deployment cannot send email codes yet'));
+    }
+    const { email } = req.body;
+    const issued = issueEmailCode(db, email);
+    if (issued.retryAfterSeconds) return next(tooManyRequests(issued.retryAfterSeconds));
+    try {
+      await sendLoginCode(email, issued.code);
+    } catch (err) {
+      // The code is dropped rather than left sitting behind a resend cooldown
+      // that would make the next attempt wait for a code nobody received.
+      clearEmailCode(db, email);
+      logger.warn('sign-in code could not be sent', { to: email, error: err.message });
+      return next(internal('The code could not be sent. Try again in a moment.'));
+    }
+    return ok(res, { sent: true, expiresInSeconds: Math.round((issued.expiresAt - Date.now()) / 1000) });
+  });
+
+  /**
+   * One way in: sign in, or create the account, decided here.
+   *
+   * The app asks for an address, a password and a code, and never asks which
+   * of the two this is — the question has one right answer that the person
+   * typing cannot be expected to know, and asking it beforehand would tell
+   * anyone with a list of addresses which of them are customers. The code is
+   * what makes settling it here safe: it proves the address belongs to whoever
+   * is typing, so an unknown address is registered rather than refused.
+   */
+  router.post('/auth/session', authLimiter, validate(credentialsSchema), (req, res, next) => {
+    const { email, password, code } = req.body;
+    if (mailEnabled() || config.mail.requireCode) {
+      if (!code) return next(badRequest('Ask for the code first'));
+      if (!verifyEmailCode(db, email, code)) {
+        logger.info('sign-in code rejected', { ip: clientIp(req) });
+        return next(unauthorized('That code is wrong or has expired'));
+      }
+    }
+
+    const known = db.prepare('SELECT id FROM customers WHERE email = ?').get(email);
+    if (!known) {
+      try {
+        registerCustomer(db, { email, password });
+      } catch (err) {
+        return next(err);
+      }
+    }
+
+    const session = loginCustomer(db, { email, password, userAgent: req.get('user-agent') });
+    if (!session) {
+      logger.info('customer login failed', { ip: clientIp(req) });
+      // Said plainly: the address is known to the person holding the code
+      // already, so there is nothing left to protect by being vague.
+      return next(unauthorized('This address has an account, and that is not its password'));
+    }
+    return ok(res, {
+      token: session.token,
+      expiresAt: new Date(session.expiresAt).toISOString(),
+      customer: session.customer,
+      created: !known,
+    });
+  });
+
+  /**
+   * A code, when one was given, is always checked.
+   *
+   * Optional rather than required so the storefront and older builds keep
+   * working; AUTH_REQUIRE_EMAIL_CODE closes that door once nothing in the
+   * field needs it open.
+   */
+  function codeRefused(req) {
+    const { email, code } = req.body;
+    if (!code) return config.mail.requireCode ? badRequest('Ask for the code first') : null;
+    return verifyEmailCode(db, email, code) ? null : unauthorized('That code is wrong or has expired');
+  }
+
   router.post('/register', authLimiter, validate(credentialsSchema), (req, res, next) => {
+    const refused = codeRefused(req);
+    if (refused) return next(refused);
     try {
       registerCustomer(db, req.body);
     } catch (err) {
@@ -193,6 +295,8 @@ export function shopRoutes({ db }) {
   });
 
   router.post('/login', authLimiter, validate(credentialsSchema), (req, res, next) => {
+    const refused = codeRefused(req);
+    if (refused) return next(refused);
     const session = loginCustomer(db, { ...req.body, userAgent: req.get('user-agent') });
     if (!session) {
       logger.info('customer login failed', { ip: clientIp(req) });

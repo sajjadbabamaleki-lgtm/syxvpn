@@ -192,18 +192,47 @@ class ControlPlaneClient(
 
     private fun encode(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
+    /**
+     * Asks the control plane to send the six-digit code to an address.
+     *
+     * It says nothing about whether the address has an account — the reply is
+     * the same either way, deliberately — only whether the message went.
+     */
+    suspend fun sendCode(email: String) = withContext(Dispatchers.IO) {
+        val body = buildString { append("{\"email\":").append(quote(email)).append('}') }
+        request("POST", "/api/v1/shop/auth/code", body, authenticated = false)
+        Unit
+    }
+
+    /**
+     * One call for both ways in.
+     *
+     * Whether this address is new is the control plane's to work out, and the
+     * code is what makes working it out safe. Two calls — sign in, and register
+     * when that failed — would spend the code on the first of them.
+     */
+    suspend fun authenticate(email: String, password: String, code: String): String =
+        authenticate("/api/v1/shop/auth/session", email, password, code)
+
     suspend fun signIn(email: String, password: String): String =
-        authenticate("/api/v1/shop/login", email, password)
+        authenticate("/api/v1/shop/login", email, password, null)
 
     /** Creates the account and signs it in; the API returns a session either way. */
     suspend fun register(email: String, password: String): String =
-        authenticate("/api/v1/shop/register", email, password)
+        authenticate("/api/v1/shop/register", email, password, null)
 
-    private suspend fun authenticate(path: String, email: String, password: String): String =
+    private suspend fun authenticate(
+        path: String,
+        email: String,
+        password: String,
+        code: String?,
+    ): String =
         withContext(Dispatchers.IO) {
             val body = buildString {
                 append("{\"email\":").append(quote(email))
-                append(",\"password\":").append(quote(password)).append('}')
+                append(",\"password\":").append(quote(password))
+                if (code != null) append(",\"code\":").append(quote(code))
+                append('}')
             }
             val response = request("POST", path, body, authenticated = false)
             val token = response["token"]!!.jsonPrimitive.content

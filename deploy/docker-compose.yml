@@ -51,6 +51,20 @@ services:
       SHOP_COMPED_EMAILS: ${SHOP_COMPED_EMAILS-sajjadbabamaleki@gmail.com,fazialighob@gmail.com}
       SHOP_COMPED_DAYS: ${SHOP_COMPED_DAYS:-365}
       SUPPORT_CONTACT: ${SUPPORT_CONTACT:-}
+      # The relay that carries sign-in codes. Nothing is sent until both a host
+      # and a From address are set, and the app is told so rather than opening a
+      # code field for a code nobody is sending. 465 is implicit TLS, 587 is
+      # STARTTLS; with a Gmail account SMTP_PASS is an app password, not the
+      # account password. See docs/EMAIL-CODES.md.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # Once nothing in the field still signs in without a code, this closes
+      # the older routes that accept none.
+      AUTH_REQUIRE_EMAIL_CODE: ${AUTH_REQUIRE_EMAIL_CODE:-false}
       TRON_ADDRESS: ${TRON_ADDRESS:-}
       TRON_API_KEY: ${TRON_API_KEY:-}
       PAYMENT_CONFIRMATIONS: ${PAYMENT_CONFIRMATIONS:-19}

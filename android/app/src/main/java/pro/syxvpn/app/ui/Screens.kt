@@ -2863,11 +2863,13 @@ private fun AccountScreen(
 /**
  * What this phone keeps, and who answers its DNS.
  *
- * Both halves belong together and both belong on a screen someone can reach
- * without an account: the tunnel has never needed one, and neither does any of
- * this. The first line is a statement about storage that the code has to keep
- * true — the token, the imported configs, the chosen resolver and what the app
- * has measured about each gateway live in EncryptedSharedPreferences under a
+ * Both halves belong together, on the account screen and nowhere else. It used
+ * to stand on the sign-in screen too, on the reasoning that the tunnel needs no
+ * account and neither does a resolver — which put four radio buttons about DNS
+ * above the form, in front of somebody whose question was how to sign in. The
+ * first line is a statement about storage that the code has to keep true — the
+ * token, the imported configs, the chosen resolver and what the app has
+ * measured about each gateway live in EncryptedSharedPreferences under a
  * key held by the platform keystore, and none of it is ever sent anywhere.
  *
  * The resolver picker is here rather than in a settings screen of its own
@@ -2995,10 +2997,11 @@ private fun SignInScreen(
         scope.launch {
             sending = true
             error = null
-            // The code itself is the control plane's to send; until that route
-            // exists the field opens so the rest of the form can be used and
-            // judged. See the note under the button.
-            codeSent = true
+            // The field opens only once the control plane says the message
+            // went. Opening it first would ask for a code that is not coming.
+            runCatching { app.api.sendCode(email.trim()) }
+                .onSuccess { codeSent = true }
+                .onFailure { error = it.message }
             sending = false
         }
     }
@@ -3009,26 +3012,19 @@ private fun SignInScreen(
             busy = true
             error = null
             val address = email.trim()
-            // Which of the two this is, worked out rather than asked. Sign in
-            // first, because most people signing in already have an account;
-            // only an address the control plane does not know gets registered.
-            runCatching { app.api.signIn(address, password) }
+            // Which of the two this is, worked out on the other side and in one
+            // call. Trying to sign in first and registering when that failed
+            // would spend the code on the attempt that failed.
+            runCatching { app.api.authenticate(address, password, code) }
                 .onSuccess { onSignedIn() }
-                .onFailure { first ->
-                    val unknown = (first as? ControlPlaneClient.ApiException)?.status == 401
-                    if (!unknown) {
-                        error = first.message
-                    } else {
-                        runCatching { app.api.register(address, password) }
-                            .onSuccess { onSignedIn() }
-                            .onFailure { second ->
-                                val taken = (second as? ControlPlaneClient.ApiException)?.status == 409
-                                error = if (taken) {
-                                    "This address already has an account, and that is not its password."
-                                } else {
-                                    second.message
-                                }
-                            }
+                .onFailure {
+                    error = it.message
+                    // A code is good once. Whatever went wrong, the one just
+                    // typed is gone, so the form asks for another rather than
+                    // leaving six digits on screen that cannot work again.
+                    if ((it as? ControlPlaneClient.ApiException)?.status == 401) {
+                        code = ""
+                        codeSent = false
                     }
                 }
             busy = false
@@ -3058,8 +3054,6 @@ private fun SignInScreen(
             fontSize = 12.sp,
             lineHeight = 17.sp,
         )
-        Spacer(Modifier.height(16.dp))
-        PrivacyCard(app)
         if (expired) {
             Spacer(Modifier.height(10.dp))
             Text("Your session ended. Sign in again.", color = Pending, fontSize = 13.sp)

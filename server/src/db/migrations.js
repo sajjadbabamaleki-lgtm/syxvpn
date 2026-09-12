@@ -684,4 +684,30 @@ export const migrations = [
       if (orphans.length) throw new Error(`assistant migration left ${orphans.length} orphaned rows`);
     },
   },
+  {
+    id: '009_email_codes',
+    up(db) {
+      // The code that proves an address is reachable by the person typing it.
+      //
+      // Keyed by address rather than by account: it is asked for before anyone
+      // knows whether there is an account, which is the whole point — the app
+      // asks for one address, one password and one code, and the control plane
+      // works out which of sign-in and registration that was. There is at most
+      // one live code per address; a resend replaces it rather than leaving two
+      // codes that both open the same door.
+      //
+      // Only the hash is kept. A code is a credential for as long as it lives,
+      // and a backup of this table should not be a list of them.
+      db.exec(`CREATE TABLE email_codes (
+        email TEXT PRIMARY KEY,
+        code_hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        -- Guessing is bounded here, not by the HTTP rate limiter: six digits
+        -- fall to a patient attacker spread thinly across many addresses.
+        attempts INTEGER NOT NULL DEFAULT 0
+      )`);
+      db.exec('CREATE INDEX idx_email_codes_expiry ON email_codes(expires_at)');
+    },
+  },
 ];

@@ -187,6 +187,38 @@ export function loadConfig(env = process.env) {
       supportContact: env.SUPPORT_CONTACT || '',
     },
 
+    /**
+     * The relay that carries sign-in codes.
+     *
+     * Nothing is sent until SMTP_HOST and MAIL_FROM are both set: an app that
+     * opens a code field for a code nobody is sending is worse than one that
+     * says the feature is off. Port 465 is implicit TLS and 587 is STARTTLS;
+     * both are encrypted, and plaintext SMTP is not offered.
+     *
+     * With a Gmail account, SMTP_USER is the address and SMTP_PASS is an app
+     * password — not the account password, which Google refuses here.
+     */
+    mail: {
+      host: (env.SMTP_HOST || '').trim(),
+      port: int(env.SMTP_PORT, 465),
+      secure: bool(env.SMTP_SECURE, int(env.SMTP_PORT, 465) === 465),
+      user: (env.SMTP_USER || '').trim(),
+      pass: env.SMTP_PASS || '',
+      // What the recipient sees in the From line. A display name is allowed:
+      // SYX VPN <no-reply@syxvpn.pro>.
+      from: (env.MAIL_FROM || '').trim(),
+      codeTtlMs: 10 * 60 * 1000,
+      /**
+       * Whether a code is required, and not merely checked when given.
+       *
+       * The app always sends one, and a code that is sent is always verified.
+       * This is about the callers that send none — the web storefront, and any
+       * older build still out there. Turn it on once everything in the field
+       * asks for a code, and no route in without one remains.
+       */
+      requireCode: bool(env.AUTH_REQUIRE_EMAIL_CODE, false),
+    },
+
     trustProxy: bool(env.TRUST_PROXY, false),
     demoMode: bool(env.DEMO_MODE, false),
   };
