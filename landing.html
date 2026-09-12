@@ -481,7 +481,7 @@
     var forWhom = function (days) {
       if (days <= 8) return 'برای امتحان کردن';
       if (days <= 31) return 'برای استفادهٔ روزمره';
-      if (days <= 93) return 'به‌صرفه‌ترین انتخاب';
+      if (days <= 93) return 'برای سه ماه';
       if (days <= 190) return 'برای نیم سال';
       return 'برای یک سال';
     };
@@ -548,7 +548,6 @@
             ? '<div class="per">معادل ' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT در ماه</div>'
             : '<div class="per"></div>';
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
-            + (p === longest ? '<span class="tag">به‌صرفه‌ترین</span>' : '')
             + '<div class="plan-head">'
             + mark(p)
             + '<span><span class="term">' + term(p.durationDays) + '</span>'

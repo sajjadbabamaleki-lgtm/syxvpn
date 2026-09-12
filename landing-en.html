@@ -463,7 +463,7 @@
     var forWhom = function (n) {
       if (n <= 8) return 'For trying it out';
       if (n <= 31) return 'For everyday use';
-      if (n <= 93) return 'Best value';
+      if (n <= 93) return 'For three months';
       if (n <= 190) return 'For half a year';
       return 'For a year';
     };
@@ -530,7 +530,6 @@
             ? '<div class="per">' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT a month</div>'
             : '<div class="per"></div>';
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
-            + (p === longest ? '<span class="tag">Best value</span>' : '')
             + '<div class="plan-head">'
             + mark(p)
             + '<span><span class="term">' + term(p.durationDays) + '</span>'
