@@ -241,6 +241,32 @@
   .nav div.active svg { color: #d8f83a; }
   .nav svg { display: block; }
 
+  /* ---- account ---- */
+  .field {
+    border: 1px solid #262626; border-radius: 16px; background: #141414;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex: none;
+  }
+  .field .lab { font-size: 11px; color: #909090; }
+  .field .val { font-size: 15px; color: #fff; }
+  .field .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .field .show { font-size: 12px; color: #909090; flex: none; }
+  .send {
+    flex: none; height: 32px; border-radius: 16px; padding: 0 12px;
+    background: #d8f83a; color: #0e1400; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center;
+  }
+  .send.off { background: #262626; color: #6a6a6a; }
+  .code-row { display: flex; gap: 8px; flex: none; }
+  .code-cell {
+    flex: 1; height: 52px; border-radius: 14px; background: #1b1b1b;
+    border: 1px solid #262626; display: flex; align-items: center; justify-content: center;
+  }
+  .code-cell.off { background: #141414; }
+  .code-cell .dash { width: 12px; height: 2px; background: #6a6a6a; }
+  .code-cell.off .dash { background: #262626; }
+  .hint { font-size: 12px; color: #909090; flex: none; }
+  .hint.off { color: #6a6a6a; }
+  .fine { font-size: 11px; color: #6a6a6a; flex: none; }
   /* ---- premium and support ---- */
   .screen h2 { font-size: 20px; font-weight: 700; margin: 14px 0 0; flex: none; }
   /* 12.6, a tenth closer than the 14 it started at. */
@@ -896,6 +922,40 @@
       </div>
     </div>
     <div class="navwrap"><div class="nav"><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1 -12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a4.5 4.5 0 0 1 4.5-4.5h6a4.5 4.5 0 0 1 4.5 4.5v1"/></svg>Account</div></div></div>
+  </div>
+</div>
+
+<div class="frame">
+  <div class="caption"><b>Account — one way in</b>email, password, and the code sent to it</div>
+  <div class="phone">
+    <div class="statusbar"><span>21:28</span><span>▮▮ ▾ 38%</span></div>
+    <div class="screen">
+      <h2>Your account</h2>
+      <div class="stack">
+        <p class="fine">An account is only needed to buy a plan and to carry it between devices.
+        The tunnel itself does not ask for one.</p>
+        <div class="field">
+          <div class="col"><span class="lab">Email</span><span class="val">you@example.net</span></div>
+        </div>
+        <div class="field">
+          <div class="col"><span class="lab">Password</span><span class="val">••••••••••</span></div>
+          <span class="show">Show</span>
+          <div class="send">Send code</div>
+        </div>
+        <p class="hint">The code sent to you@example.net</p>
+        <div class="code-row">
+          <div class="code-cell"><span class="dash"></span></div>
+          <div class="code-cell"><span class="dash"></span></div>
+          <div class="code-cell"><span class="dash"></span></div>
+          <div class="code-cell"><span class="dash"></span></div>
+          <div class="code-cell"><span class="dash"></span></div>
+          <div class="code-cell"><span class="dash"></span></div>
+        </div>
+        <div class="btn upgrade">Continue</div>
+        <p class="fine">An account on its own carries no data — a plan is bought on the Premium tab.</p>
+      </div>
+    </div>
+    <div class="navwrap"><div class="nav"><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1 -12.8 0M12 2.5v8"/></svg>VPN</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"/></svg>Configs</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.6 3.4L12 4.6l4.4 6.8L21 8l-1.7 10.4H4.7L3 8z"/></svg>Premium</div><div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"/></svg>Support</div><div class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a4.5 4.5 0 0 1 4.5-4.5h6a4.5 4.5 0 0 1 4.5 4.5v1"/></svg>Account</div></div></div>
   </div>
 </div>
 

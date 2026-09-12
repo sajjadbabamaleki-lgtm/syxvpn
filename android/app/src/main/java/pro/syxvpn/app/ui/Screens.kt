@@ -19,7 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -254,7 +255,7 @@ fun cVPNRoot(
                         onSignedOut = { signedIn = false },
                     )
                 } else {
-                    SignInScreen(app, expired, startCreating = buying) {
+                    SignInScreen(app, expired) {
                         signedIn = true
                         // Back where the account was asked for, so the order can
                         // be finished; otherwise stay on the account itself.
@@ -2950,22 +2951,55 @@ private fun LabelledRow(label: String, value: String, valueColor: Color) {
  * two fields loses people. The API returns a session from either endpoint, so
  * the screen is the same form with a different verb.
  */
+/**
+ * One way in, not two.
+ *
+ * The screen used to ask which you wanted — sign in, or create an account —
+ * which is a question nobody can get wrong and everybody has to answer. It is
+ * the same three things either way: an address, a password, and a code sent to
+ * that address. Whether the address is already known is the control plane's
+ * business, and it is settled after the code checks out, not before: asked
+ * beforehand it would tell anyone with a list of addresses which of them are
+ * customers here.
+ */
 @Composable
 private fun SignInScreen(
     app: SyxVpnApplication,
     expired: Boolean,
-    startCreating: Boolean = false,
     onSignedIn: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf(app.session.email ?: "") }
     var password by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
     var reveal by remember { mutableStateOf(false) }
-    var creating by remember(startCreating) { mutableStateOf(startCreating) }
+    var codeSent by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
-    val canSubmit = email.contains('@') && password.length >= 8 && !busy
+    val addressLooksReal = email.trim().contains('@') && email.trim().length >= 6
+    val canSend = addressLooksReal && password.length >= 8 && !sending && !busy
+    val canSubmit = codeSent && code.length == CodeLength && !busy
+
+    // A new address invalidates a code that was sent to the old one.
+    LaunchedEffect(email) {
+        codeSent = false
+        code = ""
+    }
+
+    fun sendCode() {
+        if (!canSend) return
+        scope.launch {
+            sending = true
+            error = null
+            // The code itself is the control plane's to send; until that route
+            // exists the field opens so the rest of the form can be used and
+            // judged. See the note under the button.
+            codeSent = true
+            sending = false
+        }
+    }
 
     fun submit() {
         if (!canSubmit) return
@@ -2973,11 +3007,28 @@ private fun SignInScreen(
             busy = true
             error = null
             val address = email.trim()
-            runCatching {
-                if (creating) app.api.register(address, password) else app.api.signIn(address, password)
-            }
+            // Which of the two this is, worked out rather than asked. Sign in
+            // first, because most people signing in already have an account;
+            // only an address the control plane does not know gets registered.
+            runCatching { app.api.signIn(address, password) }
                 .onSuccess { onSignedIn() }
-                .onFailure { error = it.message }
+                .onFailure { first ->
+                    val unknown = (first as? ControlPlaneClient.ApiException)?.status == 401
+                    if (!unknown) {
+                        error = first.message
+                    } else {
+                        runCatching { app.api.register(address, password) }
+                            .onSuccess { onSignedIn() }
+                            .onFailure { second ->
+                                val taken = (second as? ControlPlaneClient.ApiException)?.status == 409
+                                error = if (taken) {
+                                    "This address already has an account, and that is not its password."
+                                } else {
+                                    second.message
+                                }
+                            }
+                    }
+                }
             busy = false
         }
     }
@@ -2992,12 +3043,8 @@ private fun SignInScreen(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("CVPN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
-        Text(
-            if (creating) "Create an account" else "Sign in with your account",
-            color = TextDim,
-            fontSize = 13.sp,
-        )
+        Text("SYX VPN", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+        Text("Your account", color = TextDim, fontSize = 13.sp)
         Spacer(Modifier.height(6.dp))
         Text(
             "An account is only needed to buy a plan and to carry it between " +
@@ -3006,14 +3053,13 @@ private fun SignInScreen(
             fontSize = 12.sp,
             lineHeight = 17.sp,
         )
-        // The privacy settings belong to the phone, not to an account, so they
-        // are reachable from the screen someone sees when they have neither.
         Spacer(Modifier.height(16.dp))
         PrivacyCard(app)
-        if (expired && !creating) {
+        if (expired) {
             Spacer(Modifier.height(10.dp))
             Text("Your session ended. Sign in again.", color = Pending, fontSize = 13.sp)
         }
+
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = email,
@@ -3028,6 +3074,7 @@ private fun SignInScreen(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
         )
+
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = password,
@@ -3039,22 +3086,55 @@ private fun SignInScreen(
             visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
+                imeAction = ImeAction.Next,
             ),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
+            // The code is asked for from inside the field that completes the
+            // pair it is sent against: there is nothing to send until both the
+            // address and a password are there.
             trailingIcon = {
-                TextButton(onClick = { reveal = !reveal }) {
-                    Text(if (reveal) "Hide" else "Show", color = TextDim, fontSize = 12.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { reveal = !reveal }) {
+                        Text(if (reveal) "Hide" else "Show", color = TextDim, fontSize = 12.sp)
+                    }
+                    Box(
+                        Modifier
+                            .padding(end = 8.dp)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (canSend) Accent else Border)
+                            .clickable(enabled = canSend) { sendCode() }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            when {
+                                sending -> "Sending…"
+                                codeSent -> "Resend"
+                                else -> "Send code"
+                            },
+                            color = if (canSend) OnAccent else TextFaint,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             },
             colors = fieldColors(),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
         )
-        if (creating) {
-            Spacer(Modifier.height(6.dp))
-            Text("At least 8 characters.", color = TextFaint, fontSize = 11.sp)
-        }
+        Spacer(Modifier.height(6.dp))
+        Text("At least 8 characters.", color = TextFaint, fontSize = 11.sp)
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (codeSent) "The code sent to ${email.trim()}" else "The code, once it is sent",
+            color = if (codeSent) TextDim else TextFaint,
+            fontSize = 12.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        CodeField(value = code, enabled = codeSent) { code = it }
+
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = { submit() },
@@ -3068,25 +3148,10 @@ private fun SignInScreen(
             shape = RoundedCornerShape(18.dp),
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
-            Text(
-                when {
-                    busy && creating -> "Creating…"
-                    busy -> "Signing in…"
-                    creating -> "Create account"
-                    else -> "Sign in"
-                },
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-        TextButton(onClick = { creating = !creating; error = null }) {
-            Text(
-                if (creating) "I already have an account" else "Create an account",
-                color = Accent,
-                fontSize = 13.sp,
-            )
+            Text(if (busy) "Checking…" else "Continue", fontWeight = FontWeight.SemiBold)
         }
         error?.let {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text(it, color = Bad, fontSize = 13.sp)
         }
         Text(
@@ -3096,6 +3161,72 @@ private fun SignInScreen(
             modifier = Modifier.padding(top = 14.dp),
         )
     }
+}
+
+private const val CodeLength = 6
+
+/**
+ * The six digits, as six slots.
+ *
+ * One field underneath, so the keyboard and the paste menu behave the way they
+ * do everywhere else; six boxes drawn over it, so the length of what is being
+ * asked for is visible before a single digit is typed. Empty slots carry a dash
+ * rather than nothing, which is what makes six of them read as a six-digit code
+ * rather than as six empty boxes.
+ */
+@Composable
+private fun CodeField(value: String, enabled: Boolean, onValueChange: (String) -> Unit) {
+    BasicTextField(
+        value = value,
+        onValueChange = { entered -> onValueChange(entered.filter { it.isDigit() }.take(CodeLength)) },
+        enabled = enabled,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.NumberPassword,
+            imeAction = ImeAction.Done,
+        ),
+        // The caret would sit in a field nobody can see; the lit slot is the
+        // caret here.
+        cursorBrush = SolidColor(Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+        decorationBox = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(CodeLength) { slot ->
+                    val digit = value.getOrNull(slot)
+                    val next = enabled && slot == value.length
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (enabled) SurfaceHigh else Surface)
+                            .border(
+                                1.dp,
+                                if (next) Accent else Border,
+                                RoundedCornerShape(14.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (digit != null) {
+                            Text(
+                                digit.toString(),
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        } else {
+                            Box(
+                                Modifier
+                                    .width(12.dp)
+                                    .height(2.dp)
+                                    .background(if (enabled) TextFaint else Border),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 /** One field style for the whole app, in the app's own colours. */
