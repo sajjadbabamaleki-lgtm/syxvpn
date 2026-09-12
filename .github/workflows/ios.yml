@@ -1,0 +1,42 @@
+# Builds and tests the iOS side on a macOS runner, so nobody needs a Mac to
+# know whether it compiles.
+#
+# There is no APK equivalent here, and there will not be one until this
+# repository has a paid Apple Developer Program membership: the tunnel needs the
+# Network Extension entitlement, and that entitlement does not exist on a free
+# account. What this workflow can prove without one is everything short of
+# signing — that the code compiles for the device, and that the parsers the
+# tunnel depends on still agree with the Android client.
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+jobs:
+  core:
+    # The half with no platform in it: profile parsing, configuration building,
+    # server choice. It is a package rather than a folder in the app target so
+    # that this job can run it on its own, first and in seconds, and say plainly
+    # which of the two halves broke.
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Say which toolchain this is
+        run: swift --version
+
+      # The tests are ports of the Android client's own, against the same
+      # literals the control plane really emits. Two clients that disagree about
+      # what a profile means is the failure this catches.
+      - name: Test the core
+        working-directory: ios/SyxVPNCore
+        run: swift test --parallel
