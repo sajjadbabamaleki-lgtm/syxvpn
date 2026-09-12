@@ -245,7 +245,8 @@
 
   /* ---- premium and support ---- */
   .screen h2 { font-size: 20px; font-weight: 700; margin: 14px 0 0; flex: none; }
-  .stack { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; }
+  /* 12.6, a tenth closer than the 14 it started at. */
+  .stack { display: flex; flex-direction: column; gap: 12.6px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; }
   .stack::-webkit-scrollbar { display: none; }
   /* Mirrors Compose: the Premium and Support cards carry the public page's
      surface and its light, same as .card. */
@@ -306,7 +307,10 @@
   .spec-list { display: flex; flex-direction: column; gap: 4px; }
   .spec { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #909090; }
   .spec i { width: 4px; height: 4px; border-radius: 50%; background: #d8f83a; flex: none; }
-  .btn.upgrade { height: 52px; font-size: 15px; flex: none; }
+  /* The stack's own step is the only gap above it: .btn carries a margin for
+     the button that used to sit inside a card, and here that margin put the
+     Upgrade button further from the cards than the cards are from each other. */
+  .btn.upgrade { height: 52px; font-size: 15px; flex: none; margin-top: 0; }
   .plan-head { display: flex; align-items: flex-start; gap: 12px; }
   .plan-head b { display: block; font-size: 16px; font-weight: 600; color: #fff; }
   .plan-head p { font-size: 12px; color: #909090; margin-top: 2px; }

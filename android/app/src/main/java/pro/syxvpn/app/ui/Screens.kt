@@ -129,6 +129,9 @@ private val ServerAndPlanCardHeight = 138.dp
 
 // A tenth taller than the text alone came to, so every subscription card is
 // the same size whatever its description says.
+// A tenth closer than the 14 the column started at.
+private val PlanListStep = 12.6.dp
+
 // The size picker is a choice among the plans without being one of them, so it
 // needs an id no plan can have.
 private const val CUSTOM_SIZE = "custom-size"
@@ -2093,7 +2096,11 @@ private fun PremiumScreen(
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        // One step for the whole column, so the Upgrade button sits the same
+        // distance from the last card as the cards sit from each other. A
+        // button set further away than the things it acts on reads as belonging
+        // to whatever comes after it.
+        verticalArrangement = Arrangement.spacedBy(PlanListStep),
     ) {
         Text("Premium", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
