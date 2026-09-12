@@ -226,13 +226,20 @@ test('storefront: a listed address gets the VPN product without buying it', asyn
     assert.equal(me.body.data.subscription, null);
   });
 
+  await t.test('the grant covers both tabs, not just the VPN one', async () => {
+    const row = ctx.db.prepare('SELECT product, quota_bytes FROM subscribers WHERE name = ?')
+      .get('carried@example.com');
+    assert.equal(row.product, 'all');
+    assert.equal(row.quota_bytes, 0);
+  });
+
   await t.test('the grant is renewed rather than duplicated on the next sign-in', async () => {
-    const before = ctx.db.prepare("SELECT COUNT(*) n FROM subscribers WHERE product = 'vpn'").get().n;
+    const before = ctx.db.prepare('SELECT COUNT(*) n FROM subscribers WHERE customer_id IS NOT NULL').get().n;
     const again = await ctx.request('POST', '/api/v1/shop/login', {
       body: { email: 'carried@example.com', password: 'a-good-password' },
     });
     assert.equal(again.status, 200);
-    const after = ctx.db.prepare("SELECT COUNT(*) n FROM subscribers WHERE product = 'vpn'").get().n;
+    const after = ctx.db.prepare('SELECT COUNT(*) n FROM subscribers WHERE customer_id IS NOT NULL').get().n;
     assert.equal(after, before);
   });
 });

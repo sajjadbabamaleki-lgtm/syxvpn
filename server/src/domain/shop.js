@@ -55,7 +55,13 @@ export function loginCustomer(db, { email, password, userAgent }) {
 }
 
 /**
- * Gives a listed address the VPN product, and keeps it in date.
+ * Gives a listed address both products, and keeps the grant in date.
+ *
+ * 'all' rather than 'vpn': these are the accounts the product is tested from,
+ * and a tester who can only open one of the two tabs cannot tell you whether
+ * the other one works. It is the same value the pre-split subscriptions were
+ * migrated to, and subscriberForCustomer already reads it as covering either
+ * side, so nothing downstream has to know this grant is special.
  *
  * Called on the way in rather than at registration, so an address added to the
  * list later gets its subscription the next time it signs in, and one taken off
@@ -71,11 +77,11 @@ export function ensureCompedSubscription(db, customerId, email) {
   const existing = subscriberForCustomer(db, customerId, 'vpn');
   if (existing) {
     // Renewed, not topped up: there is no quota to add to, and the only thing
-    // that can run out is the date.
-    if (existing.expires_at < expiresAt) {
-      db.prepare('UPDATE subscribers SET expires_at = ?, updated_at = ? WHERE id = ?')
-        .run(expiresAt, now, existing.id);
-    }
+    // that can run out is the date. A grant made before this covered both
+    // products is widened here rather than left half-working beside a second
+    // subscription for the other half.
+    db.prepare('UPDATE subscribers SET expires_at = ?, product = ?, quota_bytes = 0, updated_at = ? WHERE id = ?')
+      .run(Math.max(existing.expires_at, expiresAt), 'all', now, existing.id);
     return existing.id;
   }
 
@@ -86,11 +92,11 @@ export function ensureCompedSubscription(db, customerId, email) {
     expiresAt,
     note: 'comped — on the operator list',
     customerId,
-    product: 'vpn',
+    product: 'all',
   });
   recordEvent(db, {
     type: 'subscriber.comped', targetType: 'subscriber', targetId: created.id,
-    message: `Comped VPN subscription for ${normalized}`,
+    message: `Comped subscription for ${normalized}, both products`,
   });
   return created.id;
 }
