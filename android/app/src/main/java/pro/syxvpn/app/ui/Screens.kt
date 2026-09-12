@@ -569,7 +569,7 @@ private fun AutomaticRow(
             .background(if (selected) SurfaceHigh else Surface)
             .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
             .clickable(onClick = onSelect)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -713,7 +713,7 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
         Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(
             Modifier
@@ -1236,7 +1236,7 @@ private fun ColumnScope.ServerAndPlanCard(
                 .fillMaxWidth()
                 .weight(1f)
                 .clickable(onClick = onOpenConfigs)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -1287,7 +1287,7 @@ private fun ColumnScope.ServerAndPlanCard(
                 .fillMaxWidth()
                 .weight(1f)
                 .clickable(onClick = onOpenPremium)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -1355,7 +1355,7 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
             .clip(RoundedCornerShape(28.dp))
             .litCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -1576,7 +1576,7 @@ private fun VpnScreen(
     val connected = mine && tunnelState == TunnelService.State.CONNECTED
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         TunnelSwitch(state, TunnelService.Source.VPN, onConnect, onDisconnect)
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
@@ -1846,7 +1846,7 @@ private fun ConfigsScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         TunnelSwitch(state, TunnelService.Source.CONFIGS, onConnect, onDisconnect)
         ConnectionCard(state)
         TunnelError()
@@ -2099,7 +2099,7 @@ private fun PremiumScreen(
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 14.dp, vertical = 20.dp),
         // One step for the whole column, so the Upgrade button sits the same
         // distance from the last card as the cards sit from each other. A
         // button set further away than the things it acts on reads as belonging
@@ -2682,7 +2682,7 @@ private fun SupportScreen(app: SyxVpnApplication) {
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 14.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Support", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -2796,7 +2796,7 @@ private fun AccountScreen(
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 14.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Account", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -3040,7 +3040,7 @@ private fun SignInScreen(
             .verticalScroll(rememberScrollState())
             // The keyboard must not cover the button that submits the form.
             .imePadding()
-            .padding(horizontal = 16.dp, vertical = 24.dp),
+            .padding(horizontal = 14.dp, vertical = 24.dp),
         // The form sits at the foot of the screen, not at the head of it. What
         // is above it is explanation, and explanation does not need the thumb's
         // half of the screen.
