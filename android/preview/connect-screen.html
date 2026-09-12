@@ -277,11 +277,20 @@
     display: flex; gap: 4px; padding: 4px; height: 46px; flex: none;
     background: #1b1b1b; border: 1px solid #262626; border-radius: 23px;
   }
+  /* The tappable half is the whole half; the lit pill inside it is 85% of that,
+     so the marked tab reads as something sitting in the track rather than as
+     the track's other half changing colour. */
   .seg-btn {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    border-radius: 19px; font-size: 13px; font-weight: 500; color: #6a6a6a;
+    position: relative; flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 500; color: #6a6a6a;
   }
-  .seg-btn.active { background: rgba(216, 248, 58, .14); color: #d8f83a; font-weight: 600; }
+  .seg-btn.active { color: #d8f83a; font-weight: 600; }
+  .seg-btn.active::before {
+    content: ""; position: absolute; inset: 7.5%;
+    border-radius: 16px; background: rgba(216, 248, 58, .14);
+  }
+  .seg-btn span { position: relative; }
 
   /* A subscription card is a set height, a tenth taller than its text alone
      came to, so a two-word description and a two-line one make the same card. */
@@ -739,8 +748,8 @@
       <h2>Premium</h2>
       <div class="stack">
         <div class="switcher">
-          <div class="seg-btn active">Subscription</div>
-          <div class="seg-btn">Configs</div>
+          <div class="seg-btn active"><span>Subscription</span></div>
+          <div class="seg-btn"><span>Configs</span></div>
         </div>
         <div class="panel plan sel">
           <div class="plan-head">
@@ -836,8 +845,8 @@
       <h2>Premium</h2>
       <div class="stack">
         <div class="switcher">
-          <div class="seg-btn">Subscription</div>
-          <div class="seg-btn active">Configs</div>
+          <div class="seg-btn"><span>Subscription</span></div>
+          <div class="seg-btn active"><span>Configs</span></div>
         </div>
         <div class="panel plan bundle sel">
           <div class="plan-head">

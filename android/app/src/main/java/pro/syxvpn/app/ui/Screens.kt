@@ -129,6 +129,9 @@ private val ServerAndPlanCardHeight = 138.dp
 
 // A tenth taller than the text alone came to, so every subscription card is
 // the same size whatever its description says.
+// The lit pill in the switcher, against the half it sits in.
+private const val SwitcherPillScale = 0.85f
+
 // A tenth closer than the 14 the column started at.
 private val PlanListStep = 12.6.dp
 
@@ -2269,20 +2272,30 @@ private fun SwitcherSegment(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    // The tappable half is the whole half; the lit pill inside it is smaller
+    // than that, so the marked tab reads as something sitting in the track
+    // rather than as the track's other half changing colour.
     Box(
         modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(19.dp))
-            .background(if (active) Accent.copy(alpha = 0.14f) else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            color = if (active) Accent else TextFaint,
-            fontSize = 13.sp,
-            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-        )
+        Box(
+            Modifier
+                .fillMaxWidth(SwitcherPillScale)
+                .fillMaxHeight(SwitcherPillScale)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (active) Accent.copy(alpha = 0.14f) else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                label,
+                color = if (active) Accent else TextFaint,
+                fontSize = 13.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            )
+        }
     }
 }
 
