@@ -2328,22 +2328,10 @@ private fun PlanCard(
                 plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
             }
             Spacer(Modifier.width(10.dp))
-            // The size sits under the price, in the corner the price leaves
-            // empty, rather than as another bullet in the list. It is the
-            // figure being paid for, so it belongs beside what is being paid.
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(4.dp))
-                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
-                }
-                if (plan.isConfigs) {
-                    Text(
-                        if (plan.quotaBytes > 0) formatBytes(plan.quotaBytes) else "Unmetered",
-                        color = TextDim,
-                        fontSize = 12.sp,
-                    )
-                }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(4.dp))
+                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
         }
 
@@ -2397,18 +2385,15 @@ private fun CustomSizeCard(
                 Text("Pick the traffic, pay for that much.", color = TextDim, fontSize = 12.sp)
             }
             Spacer(Modifier.width(10.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        formatUsdt(unit.priceMicro * units),
-                        color = Accent,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
-                }
-                Text(formatBytes(unit.quotaBytes * units), color = TextDim, fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    formatUsdt(unit.priceMicro * units),
+                    color = Accent,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
         }
 
