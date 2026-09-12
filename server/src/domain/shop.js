@@ -50,7 +50,49 @@ export function loginCustomer(db, { email, password, userAgent }) {
     .run(sha256(token), customer.id, now, expiresAt, now, (userAgent || '').slice(0, 200));
   db.prepare('UPDATE customers SET last_login_at = ? WHERE id = ?').run(now, customer.id);
   db.prepare('DELETE FROM customer_sessions WHERE expires_at <= ?').run(now);
+  ensureCompedSubscription(db, customer.id, customer.email);
   return { token, expiresAt, customer: { id: customer.id, email: customer.email } };
+}
+
+/**
+ * Gives a listed address the VPN product, and keeps it in date.
+ *
+ * Called on the way in rather than at registration, so an address added to the
+ * list later gets its subscription the next time it signs in, and one taken off
+ * the list simply stops being renewed. The grant is unmetered: it exists so the
+ * people running this can use it, and metering them tells nobody anything.
+ */
+export function ensureCompedSubscription(db, customerId, email) {
+  const normalized = String(email).trim().toLowerCase();
+  if (!config.shop.compedEmails.includes(normalized)) return null;
+
+  const now = Date.now();
+  const expiresAt = now + config.shop.compedDays * 86400000;
+  const existing = subscriberForCustomer(db, customerId, 'vpn');
+  if (existing) {
+    // Renewed, not topped up: there is no quota to add to, and the only thing
+    // that can run out is the date.
+    if (existing.expires_at < expiresAt) {
+      db.prepare('UPDATE subscribers SET expires_at = ?, updated_at = ? WHERE id = ?')
+        .run(expiresAt, now, existing.id);
+    }
+    return existing.id;
+  }
+
+  const created = createSubscriber(db, {
+    name: normalized,
+    // 0 is unmetered.
+    quotaBytes: 0,
+    expiresAt,
+    note: 'comped — on the operator list',
+    customerId,
+    product: 'vpn',
+  });
+  recordEvent(db, {
+    type: 'subscriber.comped', targetType: 'subscriber', targetId: created.id,
+    message: `Comped VPN subscription for ${normalized}`,
+  });
+  return created.id;
 }
 
 export function logoutCustomer(db, token) {

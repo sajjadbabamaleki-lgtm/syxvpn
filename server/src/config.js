@@ -151,6 +151,26 @@ export function loadConfig(env = process.env) {
       // ceiling is an invitation to open a six-figure order by holding a
       // button down.
       maxOrderUnits: int(env.SHOP_MAX_ORDER_UNITS, 100),
+      /**
+       * Addresses that get the VPN product without buying it.
+       *
+       * The operators' own accounts, and anyone else the owner decides to
+       * carry: they sign in like everybody else and the control plane gives
+       * them a subscription on the way in. It is deliberately not something
+       * the app can ask for — an app that could grant itself a plan is a plan
+       * anybody can have by editing a field.
+       *
+       * Set SHOP_COMPED_EMAILS to replace the list; an empty value switches
+       * it off entirely.
+       */
+      compedEmails: (env.SHOP_COMPED_EMAILS ?? 'sajjadbabamaleki@gmail.com,fazialighob@gmail.com')
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+      // How long a comped subscription runs before it is renewed on the next
+      // sign-in. Long enough that it never lapses under somebody, short enough
+      // that removing an address from the list actually takes effect.
+      compedDays: int(env.SHOP_COMPED_DAYS, 365),
       sessionTtlSeconds: int(env.SHOP_SESSION_TTL_SECONDS, 30 * 24 * 3600),
       // TRC-20 USDT address that receives customer payments. Without it the
       // storefront still lists plans but refuses to open an order.

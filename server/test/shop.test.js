@@ -194,6 +194,49 @@ test('storefront: a by-the-gigabyte plan is bought by the unit', async (t) => {
   });
 });
 
+test('storefront: a listed address gets the VPN product without buying it', async (t) => {
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const adminToken = await ctx.login();
+  await usableGateway(ctx, adminToken);
+
+  const { config } = await import('../src/config.js');
+  const originalShop = { ...config.shop };
+  Object.assign(config.shop, shopConfig({ compedEmails: ['carried@example.com'], compedDays: 365 }));
+  t.after(() => Object.assign(config.shop, originalShop));
+
+  await t.test('a listed address is carried from its first sign-in', async () => {
+    const res = await ctx.request('POST', '/api/v1/shop/register', {
+      body: { email: 'Carried@example.com', password: 'a-good-password' },
+    });
+    assert.equal(res.status, 201);
+    const me = await ctx.request('GET', '/api/v1/shop/me', { token: res.body.data.token });
+    assert.equal(me.status, 200);
+    assert.ok(me.body.data.subscription, 'a listed address has a subscription without an order');
+    // Unmetered: there is no quota on a grant, only a date.
+    assert.equal(me.body.data.subscription.quotaBytes, 0);
+    assert.deepEqual(me.body.data.orders, []);
+  });
+
+  await t.test('an address that is not listed gets nothing', async () => {
+    const res = await ctx.request('POST', '/api/v1/shop/register', {
+      body: { email: 'paying@example.com', password: 'a-good-password' },
+    });
+    const me = await ctx.request('GET', '/api/v1/shop/me', { token: res.body.data.token });
+    assert.equal(me.body.data.subscription, null);
+  });
+
+  await t.test('the grant is renewed rather than duplicated on the next sign-in', async () => {
+    const before = ctx.db.prepare("SELECT COUNT(*) n FROM subscribers WHERE product = 'vpn'").get().n;
+    const again = await ctx.request('POST', '/api/v1/shop/login', {
+      body: { email: 'carried@example.com', password: 'a-good-password' },
+    });
+    assert.equal(again.status, 200);
+    const after = ctx.db.prepare("SELECT COUNT(*) n FROM subscribers WHERE product = 'vpn'").get().n;
+    assert.equal(after, before);
+  });
+});
+
 test('storefront: on-chain settlement', async (t) => {
   const ctx = await startTestServer();
   t.after(() => ctx.close());
