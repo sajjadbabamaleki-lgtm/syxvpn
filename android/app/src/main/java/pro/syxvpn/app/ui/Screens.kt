@@ -3169,12 +3169,6 @@ private fun SignInScreen(
             Text(it, color = Bad, fontSize = 13.sp)
         }
         }
-        Text(
-            "An account on its own carries no data — a plan is bought on the Premium tab.",
-            color = TextFaint,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(top = 14.dp),
-        )
     }
 }
 
