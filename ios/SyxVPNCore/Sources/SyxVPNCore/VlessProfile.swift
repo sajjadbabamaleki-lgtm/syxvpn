@@ -97,6 +97,9 @@ public struct VlessProfile: TunnelProfile, Equatable {
     }
 }
 
-extension String {
+/// On StringProtocol rather than String: `split` hands back Substrings, and an
+/// extension that only covered String meant every such call site had to convert
+/// first or stop compiling.
+extension StringProtocol {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
