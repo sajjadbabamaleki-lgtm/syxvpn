@@ -64,6 +64,15 @@ class ControlPlaneClient(
         val confirmations: Int,
         val windowMinutes: Int,
         val supportContact: String?,
+        /**
+         * Whether this deployment can send the six-digit code at all.
+         *
+         * False when no mail relay is configured, and then the sign-in screen
+         * must not ask for a code: the control plane skips the check in that
+         * state, and a screen that asked anyway would be a field nobody can
+         * fill standing between every customer and their account.
+         */
+        val emailCodes: Boolean,
     )
 
     data class Plan(
@@ -121,6 +130,7 @@ class ControlPlaneClient(
             confirmations = payment?.get("confirmations")?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
             windowMinutes = payment?.get("windowMinutes")?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
             supportContact = data["supportContact"]?.jsonPrimitive?.contentOrNullSafe(),
+            emailCodes = data["emailCodes"]?.jsonPrimitive?.content.toBoolean(),
         )
     }
 
@@ -210,8 +220,12 @@ class ControlPlaneClient(
      * Whether this address is new is the control plane's to work out, and the
      * code is what makes working it out safe. Two calls — sign in, and register
      * when that failed — would spend the code on the first of them.
+     *
+     * The code is omitted where the deployment has no relay to send one with.
+     * The control plane skips the check in exactly that state, so this is the
+     * same one call either way rather than a second way in.
      */
-    suspend fun authenticate(email: String, password: String, code: String): String =
+    suspend fun authenticate(email: String, password: String, code: String? = null): String =
         authenticate("/api/v1/shop/auth/session", email, password, code)
 
     suspend fun signIn(email: String, password: String): String =

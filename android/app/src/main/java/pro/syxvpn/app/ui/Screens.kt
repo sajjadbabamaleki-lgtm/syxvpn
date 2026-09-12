@@ -2982,6 +2982,12 @@ private fun LabelledRow(label: String, value: String, valueColor: Color) {
  * The empty slots and the send button used to sit on screen from the first
  * frame — one asking to be filled from a message nobody had been sent, the
  * other a second control for the act the button underneath already performs.
+ *
+ * The third thing is asked for only where it exists. A deployment with no mail
+ * relay cannot send a code, the control plane skips the check in exactly that
+ * state, and so the screen is the address and the password alone: asking for a
+ * code nobody is sending would lock every customer out of an account the
+ * server would have opened for them.
  */
 @Composable
 private fun SignInScreen(
@@ -3000,14 +3006,24 @@ private fun SignInScreen(
     var busy by remember { mutableStateOf(false) }
 
     val codeFocus = remember { FocusRequester() }
+    // Whether this deployment can send a code at all. Assumed off until the
+    // control plane says otherwise: a screen that asks for a code nobody is
+    // sending is a locked door, and the control plane skips the check in the
+    // same state, so asking would be the app's own invention.
+    var codesRequired by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching { app.api.shopConfig() }.onSuccess { codesRequired = it.emailCodes }
+    }
 
     val addressLooksReal = email.trim().contains('@') && email.trim().length >= 6
-    val canSend = addressLooksReal && password.length >= 8 && !sending && !busy
+    val credentialsReady = addressLooksReal && password.length >= 8 && !sending && !busy
+    val canSend = credentialsReady && codesRequired
     val canSubmit = codeSent && code.length == CodeLength && !busy
     // One button, so what it is allowed to do depends on which half of the form
     // is showing. A resend in flight closes it too: the code on screen is the
     // one being replaced.
-    val canContinue = if (codeSent) canSubmit && !sending else canSend
+    val canContinue = if (codeSent) canSubmit && !sending else credentialsReady
 
     // A new address invalidates a code that was sent to the old one.
     LaunchedEffect(email) {
@@ -3036,7 +3052,7 @@ private fun SignInScreen(
     }
 
     fun submit() {
-        if (!canSubmit) return
+        if (if (codesRequired) !canSubmit else !credentialsReady) return
         scope.launch {
             busy = true
             error = null
@@ -3044,16 +3060,27 @@ private fun SignInScreen(
             // Which of the two this is, worked out on the other side and in one
             // call. Trying to sign in first and registering when that failed
             // would spend the code on the attempt that failed.
-            runCatching { app.api.authenticate(address, password, code) }
+            runCatching { app.api.authenticate(address, password, code.ifEmpty { null }) }
                 .onSuccess { onSignedIn() }
                 .onFailure {
-                    error = it.message
-                    // A code is good once. Whatever went wrong, the one just
-                    // typed is gone, so the form asks for another rather than
-                    // leaving six digits on screen that cannot work again.
-                    if ((it as? ControlPlaneClient.ApiException)?.status == 401) {
-                        code = ""
-                        codeSent = false
+                    val status = (it as? ControlPlaneClient.ApiException)?.status
+                    // The relay was turned on since this screen was drawn, or
+                    // the config call never arrived. Either way the control
+                    // plane has just said it wants a code, so ask for one
+                    // rather than repeating a call it will refuse again.
+                    if (status == 400 && !codeSent) {
+                        codesRequired = true
+                        sendCode()
+                    } else {
+                        error = it.message
+                        // A code is good once. Whatever went wrong, the one
+                        // just typed is gone, so the form asks for another
+                        // rather than leaving six digits on screen that cannot
+                        // work again.
+                        if (status == 401 && codeSent) {
+                            code = ""
+                            codeSent = false
+                        }
                     }
                 }
             busy = false
@@ -3189,7 +3216,7 @@ private fun SignInScreen(
             // One button for both steps: it sends the code, and then it sends
             // the code back. Asking people to find a different control for the
             // second half of one act is how the old screen lost them.
-            onClick = { if (codeSent) submit() else sendCode() },
+            onClick = { if (codeSent) submit() else if (codesRequired) sendCode() else submit() },
             enabled = canContinue,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Accent,
