@@ -125,6 +125,8 @@ private val CardFoot = Color(0xFF121212)
  * two-line card and a six-line one.
  */
 /** The lifted surface on its own, for a card the light does not suit. */
+private val ServerAndPlanCardHeight = 138.dp
+
 private fun Modifier.glassCard(): Modifier =
     background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
 
@@ -1199,9 +1201,13 @@ private fun ColumnScope.ServerAndPlanCard(
         }
     }
 
+    // A set height, not one that follows the text. The two rows split what is
+    // left of it either side of the divider, so the card stays the same size
+    // whether the second line reads "31.6 GB left" or the plain offer.
     Column(
         Modifier
             .fillMaxWidth()
+            .height(ServerAndPlanCardHeight)
             .clip(RoundedCornerShape(28.dp))
             .glassCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp)),
@@ -1209,8 +1215,9 @@ private fun ColumnScope.ServerAndPlanCard(
         Row(
             Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .clickable(onClick = onOpenConfigs)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -1259,8 +1266,9 @@ private fun ColumnScope.ServerAndPlanCard(
         Row(
             Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .clickable(onClick = onOpenPremium)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {

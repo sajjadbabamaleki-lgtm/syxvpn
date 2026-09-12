@@ -244,7 +244,25 @@
   .screen h2 { font-size: 20px; font-weight: 700; margin: 14px 0 0; flex: none; }
   .stack { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; overflow-y: auto; scrollbar-width: none; }
   .stack::-webkit-scrollbar { display: none; }
-  .panel { background: #141414; border: 1px solid #262626; border-radius: 28px; padding: 18px; }
+  /* Mirrors Compose: the Premium and Support cards carry the public page's
+     surface and its light, same as .card. */
+  .panel {
+    position: relative; overflow: hidden; padding: 18px;
+    background: linear-gradient(180deg, #1b1b1b, #121212 62%);
+    border: 1px solid #262626; border-radius: 28px;
+  }
+  .panel::before {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    inset: 0 0 auto 0; height: 96px;
+    border-radius: 27px 27px 0 0;
+    background:
+      radial-gradient(26% 64% at 92% 26px, rgba(240, 224, 122, .58), transparent 72%),
+      radial-gradient(52% 120% at 92% 26px, rgba(217, 176, 33, .22), transparent 76%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
+    mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
+    filter: blur(13px);
+  }
+  .panel > * { position: relative; z-index: 1; }
   .plan-head { display: flex; align-items: flex-start; gap: 12px; }
   .plan-head b { display: block; font-size: 16px; font-weight: 600; color: #fff; }
   .plan-head p { font-size: 12px; color: #909090; margin-top: 2px; }
@@ -310,10 +328,14 @@
   .vcard {
     position: relative; overflow: hidden;
     margin-top: 10px; flex: none;
+    /* A set height, not one that follows the text: the card stays the same size
+       whether the second line reads "31.6 GB left" or the plain offer. The two
+       halves split what is left of it either side of the divider. */
+    height: 138px; display: flex; flex-direction: column;
     background: linear-gradient(180deg, #1b1b1b, #121212 62%);
     border: 1px solid #262626; border-radius: 28px;
   }
-  .vcard .half { display: flex; align-items: center; padding: 14px 16px; gap: 10px; }
+  .vcard .half { flex: 1; display: flex; align-items: center; padding: 0 16px; gap: 10px; }
   .vcard .half + .half { border-top: 1px solid #262626; }
   .vcard .who { flex: 1; min-width: 0; }
   .vcard .who b { display: block; font-size: 15px; font-weight: 500; color: #fff; }
