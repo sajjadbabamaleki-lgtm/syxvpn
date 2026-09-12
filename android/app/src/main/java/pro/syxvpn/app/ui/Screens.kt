@@ -143,24 +143,26 @@ private fun Modifier.glassCard(): Modifier =
 private fun Modifier.litCard(): Modifier = this
     .background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
     .drawBehind {
-        // Smaller than it was, and sat in the one part of a card that holds
-        // nothing: under the price, on the right, below the figure and above
-        // whatever the specs run to. Centred on the top edge it crossed the
-        // card's title; in the corner it lit the price itself. Between the two
-        // it is light falling on an empty part of the glass, which is what it
-        // was always meant to be.
-        val band = minOf(size.height, 150.dp.toPx())
-        drawRect(
-            brush = Brush.radialGradient(
-                0.00f to GoldSoft.copy(alpha = 0.30f),
-                0.42f to Gold.copy(alpha = 0.12f),
-                1.00f to Color.Transparent,
-                center = Offset(size.width * 0.85f, 60.dp.toPx()),
-                radius = 88.dp.toPx(),
-            ),
-            topLeft = Offset.Zero,
-            size = Size(size.width, band),
-        )
+        // The light lives in the one part of a card that holds nothing: the
+        // block of glass below the price, on the right. It is kept there by
+        // where it starts as much as by where it is centred — the band begins
+        // under the price line, so no part of the glow can reach up and sit
+        // behind the figure the way it did when it was centred on the top edge.
+        val top = 52.dp.toPx()
+        val band = (size.height - top).coerceAtMost(112.dp.toPx())
+        if (band > 0f) {
+            drawRect(
+                brush = Brush.radialGradient(
+                    0.00f to GoldSoft.copy(alpha = 0.30f),
+                    0.42f to Gold.copy(alpha = 0.12f),
+                    1.00f to Color.Transparent,
+                    center = Offset(size.width * 0.85f, top + 46.dp.toPx()),
+                    radius = 66.dp.toPx(),
+                ),
+                topLeft = Offset(0f, top),
+                size = Size(size.width, band),
+            )
+        }
     }
 
 @Composable

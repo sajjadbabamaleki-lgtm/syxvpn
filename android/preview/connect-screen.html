@@ -138,14 +138,14 @@
   }
   .card::before {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
-    inset: 0 0 auto 0; height: 150px;
-    border-radius: 27px 27px 0 0;
-    /* Smaller than it was, and sat in the one part of a card that holds
-       nothing: under the price, on the right. Centred on the top edge it
-       crossed the title; in the corner it lit the price itself. */
+    /* The light lives in the block of glass below the price, on the right. It
+       is kept there by where it starts as much as by where it is centred: the
+       band begins under the price line, so no part of the glow can reach up and
+       sit behind the figure. */
+    inset: 52px 0 auto 0; height: 112px;
     background:
-      radial-gradient(66px 52px at 85% 60px, rgba(240, 224, 122, .52), transparent 72%),
-      radial-gradient(104px 88px at 85% 60px, rgba(217, 176, 33, .20), transparent 76%);
+      radial-gradient(50px 40px at 85% 46px, rgba(240, 224, 122, .52), transparent 72%),
+      radial-gradient(78px 66px at 85% 46px, rgba(217, 176, 33, .20), transparent 76%);
     filter: blur(13px);
   }
   .card > * { position: relative; z-index: 1; }
@@ -257,14 +257,14 @@
   }
   .panel::before {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
-    inset: 0 0 auto 0; height: 150px;
-    border-radius: 27px 27px 0 0;
-    /* Smaller than it was, and sat in the one part of a card that holds
-       nothing: under the price, on the right. Centred on the top edge it
-       crossed the title; in the corner it lit the price itself. */
+    /* The light lives in the block of glass below the price, on the right. It
+       is kept there by where it starts as much as by where it is centred: the
+       band begins under the price line, so no part of the glow can reach up and
+       sit behind the figure. */
+    inset: 52px 0 auto 0; height: 112px;
     background:
-      radial-gradient(66px 52px at 85% 60px, rgba(240, 224, 122, .52), transparent 72%),
-      radial-gradient(104px 88px at 85% 60px, rgba(217, 176, 33, .20), transparent 76%);
+      radial-gradient(50px 40px at 85% 46px, rgba(240, 224, 122, .52), transparent 72%),
+      radial-gradient(78px 66px at 85% 46px, rgba(217, 176, 33, .20), transparent 76%);
     filter: blur(13px);
   }
   .panel > * { position: relative; z-index: 1; }
