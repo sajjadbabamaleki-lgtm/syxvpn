@@ -57,6 +57,15 @@ final class ConnectionMemoryTests: XCTestCase {
         XCTAssertEqual(ConnectionMemory.decode("v1\nk|a|b|c|d|e|f|g|h").size, 0)
     }
 
+    func testAFileWithWindowsLineEndingsIsStillReadable() {
+        // CRLF is one Character in Swift and equals neither "\n" nor "\r"; a
+        // memory file that had been through an editor would have read as empty.
+        let memory = ConnectionMemory.empty.recordSample("gw1:443", rttMs: 120, now: 10)
+        let windows = memory.encode().replacingOccurrences(of: "\n", with: "\r\n")
+        XCTAssertEqual(ConnectionMemory.decode(windows).size, memory.size)
+        XCTAssertEqual(ConnectionMemory.decode(windows).of("gw1:443"), memory.of("gw1:443"))
+    }
+
     func testMemoryStaysBounded() {
         var memory = ConnectionMemory.empty
         for i in 1...(ConnectionMemory.limit + 20) {

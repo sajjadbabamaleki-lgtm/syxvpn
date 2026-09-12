@@ -169,7 +169,10 @@ public struct ConnectionMemory {
     /// tunnel measures from scratch, which it can always do.
     public static func decode(_ text: String?) -> ConnectionMemory {
         guard let text else { return empty }
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        // Same grapheme rule as ConfigImport: a CRLF is one Character and does
+        // not equal "\n". Nothing here writes one, but a file that has been
+        // through an editor or a backup tool may carry them.
+        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
             .map(String.init)
             .filter { !$0.trimmed.isEmpty }
         guard lines.first == version else { return empty }

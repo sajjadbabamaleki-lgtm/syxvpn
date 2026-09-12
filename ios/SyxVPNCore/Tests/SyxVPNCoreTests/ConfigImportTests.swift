@@ -39,6 +39,16 @@ final class ConfigImportTests: XCTestCase {
         XCTAssertEqual(ConfigImport.parse(messy).added.count, 2)
     }
 
+    func testCarriageReturnsAreLineBreaksNotPartOfTheLine() {
+        // In Swift a Character is a grapheme cluster, and CRLF is one — it
+        // equals neither "\n" nor "\r". A splitter written against those two
+        // left a whole Windows-line-ended paste as a single line, which parsed
+        // as one config and dropped the others without saying so.
+        XCTAssertEqual(ConfigImport.parse("\(one)\r\n\(two)").added.count, 2, "CRLF")
+        XCTAssertEqual(ConfigImport.parse("\(one)\r\(two)").added.count, 2, "CR alone")
+        XCTAssertEqual(ConfigImport.parse("\(one)\n\(two)").added.count, 2, "LF alone")
+    }
+
     func testTheBase64BlobASubscriptionURLAnswersWith() {
         // People paste the *answer* as often as they paste the link.
         let result = ConfigImport.parse(base64("\(one)\n\(two)"))

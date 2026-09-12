@@ -89,7 +89,12 @@ public enum ConfigImport {
     }
 
     private static func lines(_ text: String) -> [String] {
-        text.split(whereSeparator: { $0 == "\n" || $0 == "\r" })
+        // `isNewline`, not a comparison against "\n" and "\r" separately. In
+        // Swift a Character is a grapheme cluster and CRLF is one of them, so it
+        // equals neither — and text copied out of a chat app on Windows is
+        // mostly CRLF. Splitting it that way left the whole paste as a single
+        // line, which parsed as one config and silently dropped the rest.
+        text.split(whereSeparator: \.isNewline)
             .map { $0.trimmed }
             // A '#' line is a comment in some lists, but a config's own label
             // comes after a '#' *within* the line, so only a leading one is a
