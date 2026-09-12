@@ -476,6 +476,21 @@
       if (!bytes) return 'Unmetered';
       return Math.round(bytes / 1073741824) + ' GB';
     };
+    // The metal a plan is named for, rendered rather than drawn: the crown's
+    // highlights and the facets' falloff are the mark, and a flat icon of the
+    // same shape is a different object. A plan named for none of the three
+    // keeps the shield, so renaming a plan never leaves a card with a hole in
+    // it.
+    var METALS = ['bronze', 'silver', 'gold'];
+    var mark = function (p) {
+      var name = String(p.name || '').toLowerCase();
+      for (var i = 0; i < METALS.length; i += 1) {
+        if (name.indexOf(METALS[i]) !== -1) {
+          return '<img class="tier" src="/tier-' + METALS[i] + '.png" alt="" loading="lazy" />';
+        }
+      }
+      return '<span class="chip chip-sq">' + ICON + '</span>';
+    };
     var ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
       + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/></svg>';
@@ -517,7 +532,7 @@
           return '<article class="plan' + (p === longest ? ' best' : '') + '">'
             + (p === longest ? '<span class="tag">Best value</span>' : '')
             + '<div class="plan-head">'
-            + '<span class="chip chip-sq">' + ICON + '</span>'
+            + mark(p)
             + '<span><span class="term">' + term(p.durationDays) + '</span>'
             + '<br /><span class="for">' + forWhom(p.durationDays) + '</span></span>'
             + '</div>'
