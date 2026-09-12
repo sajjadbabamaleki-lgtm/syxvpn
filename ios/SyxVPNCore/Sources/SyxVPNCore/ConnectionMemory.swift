@@ -142,17 +142,24 @@ public struct ConnectionMemory {
         // order is not stable across runs, and a file that changes when nothing
         // changed is a file nobody can diff.
         for entry in stats.values.sorted(by: { $0.key < $1.key }) {
-            out += [
-                entry.key,
-                String(entry.attempts),
-                String(entry.successes),
-                String(entry.consecutiveFailures),
-                entry.rttMs.map(String.init) ?? "",
-                entry.jitterMs.map(String.init) ?? "",
-                String(entry.lastSuccessAt),
-                String(entry.lastFailureAt),
-                String(entry.updatedAt),
-            ].joined(separator: "|") + "\n"
+            // Built field by field, with the type written down at every step.
+            // As one array literal of nine mixed expressions this defeated the
+            // type checker outright — "unable to type-check in reasonable time"
+            // — and a file that will not compile is worse than a verbose one.
+            var fields: [String] = []
+            fields.append(entry.key)
+            fields.append(String(entry.attempts))
+            fields.append(String(entry.successes))
+            fields.append(String(entry.consecutiveFailures))
+            let rtt: String = entry.rttMs == nil ? "" : String(entry.rttMs!)
+            fields.append(rtt)
+            let jitter: String = entry.jitterMs == nil ? "" : String(entry.jitterMs!)
+            fields.append(jitter)
+            fields.append(String(entry.lastSuccessAt))
+            fields.append(String(entry.lastFailureAt))
+            fields.append(String(entry.updatedAt))
+            out += fields.joined(separator: "|")
+            out += "\n"
         }
         return out
     }
