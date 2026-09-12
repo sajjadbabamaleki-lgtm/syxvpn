@@ -129,8 +129,6 @@ private val ServerAndPlanCardHeight = 138.dp
 
 // A tenth taller than the text alone came to, so every subscription card is
 // the same size whatever its description says.
-private val SubscriptionCardHeight = 210.dp
-
 // The size picker is a choice among the plans without being one of them, so it
 // needs an id no plan can have.
 private const val CUSTOM_SIZE = "custom-size"
@@ -2288,8 +2286,10 @@ private fun SwitcherSegment(
  * no cap to spend — so it never shows a quota figure. A config plan is the one
  * sold by volume, and there the figure is the whole point.
  *
- * A subscription card also has a set height, a tenth taller than the text alone
- * asked for, so a two-word description and a two-line one make the same card.
+ * The card is the height of what it says. It was pinned to a number for a
+ * while, and the number was always larger than the shortest text, so every card
+ * carried a band of nothing — first between the description and the specs, then
+ * under the last line. A card that ends where its words end has neither.
  */
 @Composable
 private fun PlanCard(
@@ -2301,13 +2301,17 @@ private fun PlanCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .then(if (plan.isConfigs) Modifier else Modifier.height(SubscriptionCardHeight))
             .clip(shape)
             .litCard()
             .border(1.dp, if (selected) Accent else Border, shape)
             .clickable(onClick = onSelect)
             .padding(18.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        // Packed from the top, not spread to both ends. A card is taller than
+        // its shortest possible text on purpose, and spreading put all of that
+        // slack in one hole between the description and the first spec. Held
+        // together, the slack sits under the last line, where it reads as the
+        // card's own padding.
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {

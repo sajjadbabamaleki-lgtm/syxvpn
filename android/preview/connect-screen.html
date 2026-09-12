@@ -284,12 +284,13 @@
 
   /* A subscription card is a set height, a tenth taller than its text alone
      came to, so a two-word description and a two-line one make the same card. */
+  /* The card is the height of what it says. Pinned to a number, it was always
+     taller than the shortest text, and that slack showed up as a band of
+     nothing — first between the description and the specs, then under the last
+     line. A card that ends where its words end has neither. */
   .panel.plan {
-    height: 210px; display: flex; flex-direction: column; justify-content: space-between;
+    display: flex; flex-direction: column; gap: 12px;
   }
-  /* A config bundle is its size and its life, bought beside a picker that
-     builds any other size, so it earns less room than a subscription. */
-  .panel.plan.bundle { height: auto; }
   .stepper { display: flex; align-items: center; gap: 12px; }
   .step {
     width: 44px; height: 44px; border-radius: 50%; flex: none;
