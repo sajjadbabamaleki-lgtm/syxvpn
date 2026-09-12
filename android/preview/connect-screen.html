@@ -246,9 +246,13 @@
      page sets its own form on a card rather than loose on the ground. */
   .stack.bottom { margin-top: auto; justify-content: flex-end; }
   .panel.account { display: flex; flex-direction: column; gap: 12px; }
+  /* 56 high, and the button inside it is 38.64 — which leaves 8.68 above and
+     below, so the same 8.68 goes to its right and the button sits in an even
+     inset on three sides. */
   .field {
     border: 1px solid #262626; border-radius: 16px; background: #141414;
-    padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex: none;
+    height: 56px; padding: 0 8.68px 0 14px;
+    display: flex; align-items: center; gap: 10px; flex: none;
   }
   .field .lab { font-size: 11px; color: #909090; }
   .field .val { font-size: 15px; color: #fff; }
@@ -258,8 +262,8 @@
      larger than it was, in every dimension at once, so it grows rather than
      stretches. */
   .send {
-    flex: none; height: 36.8px; border-radius: 13.8px; padding: 0 13.8px;
-    background: #d8f83a; color: #0e1400; font-size: 13.8px; font-weight: 600;
+    flex: none; height: 38.64px; border-radius: 14.49px; padding: 0 14.49px;
+    background: #d8f83a; color: #0e1400; font-size: 14.49px; font-weight: 600;
     display: flex; align-items: center;
   }
   .send.off { background: #262626; color: #6a6a6a; }

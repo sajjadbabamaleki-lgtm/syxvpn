@@ -3112,18 +3112,23 @@ private fun SignInScreen(
                     }
                     Box(
                         Modifier
-                            .padding(end = 8.dp)
-                            // A seventh larger than it was, in every dimension
-                            // at once: height, side padding, corner and type,
-                            // so it grows rather than stretches.
-                            .height(36.8.dp)
+                            // The gap to the field's right edge is the gap to
+                            // its top and bottom edges: the field is 56 high and
+                            // the button 38.64, which leaves 8.68 above and
+                            // below, so 8.68 goes to the right of it as well and
+                            // the button sits in an even inset on three sides.
+                            .padding(end = 8.68.dp)
+                            // Larger again, in every dimension at once: height,
+                            // side padding, corner and type, so it grows rather
+                            // than stretches.
+                            .height(38.64.dp)
                             // Curved like the rest of the app, not a capsule and
                             // not a corner: a pill would be a lozenge sitting
                             // inside a field that is merely rounded.
-                            .clip(RoundedCornerShape(13.8.dp))
+                            .clip(RoundedCornerShape(14.49.dp))
                             .background(if (canSend) Accent else Border)
                             .clickable(enabled = canSend) { sendCode() }
-                            .padding(horizontal = 13.8.dp),
+                            .padding(horizontal = 14.49.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -3133,7 +3138,7 @@ private fun SignInScreen(
                                 else -> "Send code"
                             },
                             color = if (canSend) OnAccent else TextFaint,
-                            fontSize = 13.8.sp,
+                            fontSize = 14.49.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
