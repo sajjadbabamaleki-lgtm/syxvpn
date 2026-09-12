@@ -431,33 +431,12 @@ jobs:
             echo "   $(basename "$apk")  $(du -h "$apk" | cut -f1)"
           done
 
-      # The builds that ship. Their names carry whether they are signed for real
-      # or only for testing, because that difference cannot be seen in the file
-      # and getting it wrong means publishing something nobody can update from.
-      - name: Attach the release arm64 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-arm64-v8a
-          path: android/app/build/outputs/apk/dist/*arm64-v8a*.apk
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Attach the release armeabi-v7a APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-armeabi-v7a
-          path: android/app/build/outputs/apk/dist/*armeabi-v7a*.apk
-          if-no-files-found: error
-          retention-days: 7
-
-      # The one to hand somebody whose installer refuses a per-architecture
-      # APK. Bigger, and it installs anywhere.
-      # A link that does not change. Artifacts live inside an account's storage
-      # and behind a sign-in; a release asset is a plain URL, which is what the
-      # site's download button needs and what a phone can follow. It also keeps
-      # the newest build reachable after the artifacts above have expired.
+      # Where the APKs actually go. Not artifact storage: that lives inside the
+      # account's quota, and a quota that fills takes every later build down
+      # with it — which is what was happening. A release asset is a plain URL
+      # outside that quota, which is also what the site's download button needs
+      # and what a phone can follow.
       - name: Publish the release APKs where a phone can reach them
-        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -473,19 +452,10 @@ jobs:
             --prerelease \
             android/app/build/outputs/apk/dist/*.apk
 
-      - name: Attach the release universal APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-universal
-          path: android/app/build/outputs/apk/dist/*universal*.apk
-          if-no-files-found: error
-          retention-days: 7
-
-
-
       # A failed build is the useful output too: the compiler's own words,
       # kept where they can be read without opening a laptop.
       - name: Keep the build log on failure
+        continue-on-error: true
         if: failure()
         uses: actions/upload-artifact@v4
         with:
