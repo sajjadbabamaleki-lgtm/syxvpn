@@ -78,6 +78,14 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      # Where the APK is handed out from, and the one thing on this site that
+      # is not built from the repository: a 100MB binary does not belong in
+      # git, and rebuilding the image to publish a new build would be a deploy
+      # for a file copy. Drop syxvpn.apk in ./download on the host and the
+      # download buttons work — they already point at /download/syxvpn.apk.
+      # Read-only: nothing inside the container has any business writing here.
+      - ${APK_DIR:-./download}:/usr/share/nginx/html/download:ro
     depends_on:
       - api
 

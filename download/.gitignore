@@ -1,0 +1,2 @@
+# The APK is build output, not source. See README.md.
+*.apk
