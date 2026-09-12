@@ -8,14 +8,16 @@ set -e
 REPO=${REPO:-/opt/cvpn}
 # A branch name on GitHub, not a product name: this one is a real ref and does
 # not get renamed along with everything else.
-BRANCH=${BRANCH:-claude/jordan-vpn-control-plane-pq17ik}
+BRANCH=${BRANCH:-claude/app-theme-material-sync-a8y48j}
 
-# The repository was renamed. GitHub redirects the old URL, so a clone made
-# before the rename keeps working — until somebody creates a repository under
-# the freed-up old name, at which point the redirect stops and this host starts
-# deploying a stranger's code. Correct it once, quietly.
+# The repository has been renamed twice: jordan-vpn, then cvpn, now syxvpn.
+# GitHub redirects an old URL, so a clone made before a rename keeps working —
+# until somebody creates a repository under the freed-up old name, at which
+# point the redirect stops and this host starts deploying a stranger's code.
+# Both freed names are corrected, once, quietly.
 case "$(git -C "$REPO" remote get-url origin)" in
-  *jordan-vpn*) git -C "$REPO" remote set-url origin https://github.com/sajjadbabamaleki-lgtm/cvpn ;;
+  *jordan-vpn*|*/cvpn|*/cvpn.git)
+    git -C "$REPO" remote set-url origin https://github.com/sajjadbabamaleki-lgtm/syxvpn ;;
 esac
 
 git -C "$REPO" fetch origin "$BRANCH"
