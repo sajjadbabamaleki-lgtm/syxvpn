@@ -16,8 +16,15 @@
  *
  * A comped address gets its subscription back the next time it signs in; that
  * grant is made on the way in, not at registration.
+ *
+ * Deleting a subscriber here takes its credential with it, and the gateways are
+ * told so: without that they keep serving the deployed config they already have,
+ * and the UUID of an account that no longer exists keeps opening tunnels until
+ * something unrelated happens to bump the version. createSubscriber does the
+ * same thing when an account is made; the way out has to match the way in.
  */
 import { openDatabase } from '../src/db/index.js';
+import { bumpAllConfigVersions } from '../src/domain/gateways.js';
 
 const db = openDatabase(process.env.DB_PATH || '/data/cvpn.db');
 
@@ -41,6 +48,7 @@ const deleteSubscribers = db.prepare('DELETE FROM subscribers WHERE customer_id 
 const deleteCustomer = db.prepare('DELETE FROM customers WHERE id = ?');
 
 let missing = 0;
+let revoked = 0;
 
 const forget = db.transaction((email) => {
   const customer = findCustomer.get(email);
@@ -63,9 +71,18 @@ const forget = db.transaction((email) => {
   if (dryRun) return;
   deleteSubscribers.run(customer.id);
   deleteCustomer.run(customer.id);
+  if (subscribers.length) revoked += subscribers.length;
 });
 
 for (const email of emails) forget(email);
+
+if (!dryRun && revoked) {
+  bumpAllConfigVersions(db, 'subscriber-forgotten');
+  process.stdout.write(
+    `\nGateways told to rebuild: ${revoked} credential(s) withdrawn.`
+    + ' They stop working once each agent pulls its next config.\n',
+  );
+}
 
 if (dryRun) process.stdout.write('\nNothing was changed. Run again without --dry-run to delete.\n');
 process.exit(missing === emails.length ? 1 : 0);
