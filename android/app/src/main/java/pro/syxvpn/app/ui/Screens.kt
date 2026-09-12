@@ -2328,10 +2328,18 @@ private fun PlanCard(
                 plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
             }
             Spacer(Modifier.width(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(4.dp))
-                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                // A subscription's size sits across from the plan's name, above
+                // the price. A config plan's name already carries its size, so
+                // there the same figure would be the card saying it twice.
+                if (!plan.isConfigs && plan.quotaBytes > 0) {
+                    Text(formatBytes(plan.quotaBytes), color = TextDim, fontSize = 12.sp)
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(4.dp))
+                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
+                }
             }
         }
 
@@ -2344,7 +2352,9 @@ private fun PlanCard(
                 SpecLine("${plan.durationDays} days")
             } else {
                 SpecLine("${plan.durationDays} days")
-                SpecLine("No data cap")
+                // Only the plan that actually has no cap gets to say so; one
+                // with a size has it printed across from its name.
+                if (plan.quotaBytes <= 0) SpecLine("No data cap")
                 SpecLine("Every gateway on the list, one switch")
                 SpecLine("Comes back on its own when a route dies")
             }
