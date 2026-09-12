@@ -124,6 +124,10 @@ private val CardFoot = Color(0xFF121212)
  * measured in dp rather than as a fraction of a height that varies between a
  * two-line card and a six-line one.
  */
+/** The lifted surface on its own, for a card the light does not suit. */
+private fun Modifier.glassCard(): Modifier =
+    background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
+
 private fun Modifier.litCard(): Modifier = this
     .background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
     .drawBehind {
@@ -1199,7 +1203,7 @@ private fun ColumnScope.ServerAndPlanCard(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .litCard()
+            .glassCard()
             .border(1.dp, Border, RoundedCornerShape(28.dp)),
     ) {
         Row(

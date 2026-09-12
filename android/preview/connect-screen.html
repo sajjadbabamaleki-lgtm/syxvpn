@@ -304,26 +304,15 @@
   /* The VPN card: two halves, and both of them go somewhere. */
   /* Mirrors Compose: half the old 20, because the timer under CONNECTED and
      the card naming the server are one thought. The surface is the public
-     page's, same as .card above — this screen's card is a different class
-     and was still a flat fill while the app's was not. */
+     page's, same as .card above, but without its light: this card sits right
+     under the timer, where the glow reads as a coloured mass rather than as
+     light with a source. */
   .vcard {
     position: relative; overflow: hidden;
     margin-top: 10px; flex: none;
     background: linear-gradient(180deg, #1b1b1b, #121212 62%);
     border: 1px solid #262626; border-radius: 28px;
   }
-  .vcard::before {
-    content: ""; position: absolute; z-index: 0; pointer-events: none;
-    inset: 0 0 auto 0; height: 96px;
-    border-radius: 27px 27px 0 0;
-    background:
-      radial-gradient(26% 64% at 92% 26px, rgba(240, 224, 122, .58), transparent 72%),
-      radial-gradient(52% 120% at 92% 26px, rgba(217, 176, 33, .22), transparent 76%);
-    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
-    mask-image: linear-gradient(180deg, #000 0, #000 30%, transparent 90%);
-    filter: blur(13px);
-  }
-  .vcard > * { position: relative; z-index: 1; }
   .vcard .half { display: flex; align-items: center; padding: 14px 16px; gap: 10px; }
   .vcard .half + .half { border-top: 1px solid #262626; }
   .vcard .who { flex: 1; min-width: 0; }
