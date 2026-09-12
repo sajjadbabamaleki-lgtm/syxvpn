@@ -28,6 +28,13 @@ public actor ControlPlaneClient {
     /// What the deployment sells and how it takes payment. Public: no session.
     public struct ShopConfig: Equatable {
         public let paymentsConfigured: Bool
+        public let payAddress: String?
+        public let chain: String
+        public let asset: String
+        /// TRC-20 contract of the asset, for the wallet deep link.
+        public let contract: String?
+        public let confirmations: Int
+        public let windowMinutes: Int
         public let supportContact: String?
         /// Whether this deployment can send the six-digit code at all. False
         /// when no mail relay is configured, and then the sign-in screen must
@@ -35,6 +42,51 @@ public actor ControlPlaneClient {
         /// and a screen that asked anyway would be a field nobody can fill
         /// standing between every customer and their account.
         public let emailCodes: Bool
+    }
+
+    public struct Plan: Equatable {
+        public let id: String
+        public let name: String
+        public let description: String?
+        public let quotaBytes: Int64
+        public let durationDays: Int
+        public let priceMicro: Int64
+        /// Which of the two things this plan buys: "vpn", the managed servers
+        /// behind the switch, or "configs", the list to use here or carry to
+        /// another client. They are sold separately and the Premium tab shows
+        /// one at a time, so a card can never be ambiguous about what it is.
+        ///
+        /// Anything else — "all", from before the split — reads as vpn, which
+        /// is the side that grant already covers.
+        public let product: String
+        /// "duration", sold by time, or "volume", sold by the gigabyte.
+        public let billing: String
+
+        public var isConfigs: Bool { product == "configs" }
+    }
+
+    /// An order. Amounts stay in micro-USDT (1 USDT = 1_000_000) — the same
+    /// integer precision as TRC-20 USDT on chain, so the amount the app shows
+    /// is exactly the amount the watcher matches against. A Double would round
+    /// it, and a rounded amount is one the watcher never sees arrive.
+    public struct Order: Equatable {
+        public let id: String
+        public let planName: String
+        public let status: String
+        public let quotaBytes: Int64
+        public let durationDays: Int
+        public let payAmountMicro: Int64
+        public let payAddress: String?
+        public let chain: String?
+        public let asset: String?
+        public let confirmations: Int
+        public let txHash: String?
+        public let expiresAt: String
+
+        /// Still waiting on the customer. The two the storefront treats as one
+        /// thing: "pending" has had nothing sent, "paid" is sent and not yet
+        /// confirmed deeply enough to credit.
+        public var awaitingCustomer: Bool { status == "pending" || status == "paid" }
     }
 
     /// One gateway as the subscription describes it.
@@ -80,6 +132,12 @@ public actor ControlPlaneClient {
         let payment = data["payment"] as? [String: Any]
         return ShopConfig(
             paymentsConfigured: (payment?["configured"] as? Bool) ?? false,
+            payAddress: payment?["address"] as? String,
+            chain: (payment?["chain"] as? String) ?? "tron",
+            asset: (payment?["asset"] as? String) ?? "USDT-TRC20",
+            contract: payment?["contract"] as? String,
+            confirmations: Int(number(payment?["confirmations"])),
+            windowMinutes: Int(number(payment?["windowMinutes"])),
             supportContact: data["supportContact"] as? String,
             emailCodes: (data["emailCodes"] as? Bool) ?? false
         )
@@ -142,12 +200,103 @@ public actor ControlPlaneClient {
         return result
     }
 
+    // MARK: - the store
+
+    public func plans() async throws -> [Plan] {
+        let rows = try await requestArray(
+            "GET", "/api/v1/shop/plans", body: nil, authenticated: false
+        )
+        return rows.map { plan in
+            Plan(
+                id: (plan["id"] as? String) ?? "",
+                name: (plan["name"] as? String) ?? "",
+                description: plan["description"] as? String,
+                quotaBytes: number(plan["quotaBytes"]),
+                durationDays: Int(number(plan["durationDays"])),
+                priceMicro: number(plan["priceMicro"]),
+                product: (plan["product"] as? String) ?? "vpn",
+                billing: (plan["billing"] as? String) ?? "duration"
+            )
+        }.filter { !$0.id.isEmpty }
+    }
+
+    /// Open an order.
+    ///
+    /// `units` is how many of the plan to buy at once, and only a plan sold by
+    /// the gigabyte has a unit to multiply. The price is the published plan's,
+    /// multiplied by the control plane rather than by this app: what the app
+    /// shows while somebody is picking a size is an estimate of the same sum,
+    /// and the amount that has to be paid is the one the order comes back with.
+    public func createOrder(planId: String, units: Int = 1) async throws -> Order {
+        let body = try JSONSerialization.data(
+            withJSONObject: ["planId": planId, "units": units], options: [.sortedKeys]
+        )
+        return orderOf(try await request(
+            "POST", "/api/v1/shop/orders",
+            body: String(decoding: body, as: UTF8.self), authenticated: true
+        ))
+    }
+
+    public func order(id: String) async throws -> Order {
+        orderOf(try await request(
+            "GET", "/api/v1/shop/orders/" + escape(id), body: nil, authenticated: true
+        ))
+    }
+
+    /// The order the customer still has to pay, if there is one.
+    public func openOrder() async throws -> Order? {
+        let rows = try await requestArray(
+            "GET", "/api/v1/shop/orders", body: nil, authenticated: true
+        )
+        return rows.map(orderOf).first { $0.awaitingCustomer }
+    }
+
+    public func cancelOrder(id: String) async throws {
+        _ = try await request(
+            "POST", "/api/v1/shop/orders/" + escape(id) + "/cancel",
+            body: "{}", authenticated: true
+        )
+    }
+
+    private func orderOf(_ order: [String: Any]) -> Order {
+        Order(
+            id: (order["id"] as? String) ?? "",
+            planName: (order["planName"] as? String) ?? "",
+            status: (order["status"] as? String) ?? "unknown",
+            quotaBytes: number(order["quotaBytes"]),
+            durationDays: Int(number(order["durationDays"])),
+            payAmountMicro: number(order["payAmountMicro"]),
+            payAddress: order["payAddress"] as? String,
+            chain: order["chain"] as? String,
+            asset: order["asset"] as? String,
+            confirmations: Int(number(order["confirmations"])),
+            txHash: order["txHash"] as? String,
+            expiresAt: (order["expiresAt"] as? String) ?? ""
+        )
+    }
+
+    /// An id in a path. Order ids are generated here and carry nothing exotic,
+    /// but a value from the server going into a URL is escaped on principle.
+    private func escape(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? value
+    }
+
     // MARK: - plumbing
 
-    /// The request, and what each kind of failure means.
     private func request(
         _ method: String, _ path: String, body: String?, authenticated: Bool
     ) async throws -> [String: Any] {
+        let reply = try await send(method, path, body: body, authenticated: authenticated)
+        guard let object = reply as? [String: Any] else {
+            throw ApiError(status: 200, code: "MALFORMED", message: "Unexpected response")
+        }
+        return object
+    }
+
+    /// The request, and what each kind of failure means.
+    private func send(
+        _ method: String, _ path: String, body: String?, authenticated: Bool
+    ) async throws -> Any {
         // No account, no call. A fresh install has no token, and sending the
         // request anyway would come back 401 and be read as a session that
         // expired — telling somebody who never had an account to sign in again.
@@ -184,10 +333,21 @@ public actor ControlPlaneClient {
                     ?? "Request failed (\(reply.status))"
             )
         }
-        guard let data = payload?["data"] as? [String: Any] else {
+        guard let data = payload?["data"] else {
             throw ApiError(status: reply.status, code: "MALFORMED", message: "Unexpected response")
         }
         return data
+    }
+
+    /// `{ data: [...] }` responses — plans and orders come back as lists.
+    private func requestArray(
+        _ method: String, _ path: String, body: String?, authenticated: Bool
+    ) async throws -> [[String: Any]] {
+        let reply = try await send(method, path, body: body, authenticated: authenticated)
+        guard let rows = reply as? [[String: Any]] else {
+            throw ApiError(status: 200, code: "MALFORMED", message: "Unexpected response")
+        }
+        return rows
     }
 
     /// The same request against each address until one answers.

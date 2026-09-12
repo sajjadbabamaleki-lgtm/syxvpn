@@ -199,6 +199,98 @@ final class ControlPlaneClientTests: XCTestCase {
         XCTAssertEqual(session.cachedProfiles, "vless://uuid@gw1.example:443?type=ws")
     }
 
+    // MARK: the store
+
+    func testPlansAreReadAndAPlanWithNoIdIsNotOffered() async throws {
+        let transport = FakeTransport()
+        transport.replies[first] = ok("""
+        {"data":[
+          {"id":"pl_bronze","name":"Bronze · 30 GB","description":"A week, to try it out.",
+           "quotaBytes":"32212254720","durationDays":7,"priceMicro":"2000000",
+           "product":"vpn","billing":"duration"},
+          {"name":"a row with no id"}
+        ]}
+        """)
+        let (client, _) = makeClient(transport)
+
+        let plans = try await client.plans()
+        XCTAssertEqual(plans.count, 1, "a row the app cannot order from is not a plan")
+        XCTAssertEqual(plans[0].id, "pl_bronze")
+        XCTAssertEqual(plans[0].quotaBytes, 32_212_254_720)
+        XCTAssertEqual(plans[0].priceMicro, 2_000_000)
+        XCTAssertFalse(plans[0].isConfigs)
+    }
+
+    func testAPlanFromBeforeTheSplitReadsAsVpn() async throws {
+        let transport = FakeTransport()
+        transport.replies[first] = ok(
+            #"{"data":[{"id":"pl_old","name":"Gold","quotaBytes":0,"durationDays":90,"priceMicro":"15000000"}]}"#
+        )
+        let (client, _) = makeClient(transport)
+        let plans = try await client.plans()
+        XCTAssertEqual(plans[0].product, "vpn", "the side that grant already covers")
+        XCTAssertEqual(plans[0].billing, "duration")
+    }
+
+    func testTheAmountToPayStaysAnIntegerOfMicroUsdt() async throws {
+        // A Double would round it, and a rounded amount is one the on-chain
+        // watcher never sees arrive.
+        let transport = FakeTransport()
+        transport.replies[first] = ok("""
+        {"data":{"id":"ord_1","planName":"Silver","status":"pending","quotaBytes":"128849018880",
+        "durationDays":30,"payAmountMicro":"6000001","payAddress":"TR7NH...","chain":"tron",
+        "asset":"USDT-TRC20","confirmations":19,"expiresAt":"2026-09-12T17:00:00.000Z"}}
+        """)
+        let (client, session) = makeClient(transport)
+        session.token = "sess_abc"
+
+        let order = try await client.createOrder(planId: "pl_silver")
+        XCTAssertEqual(order.payAmountMicro, 6_000_001)
+        XCTAssertEqual(order.quotaBytes, 128_849_018_880)
+        XCTAssertTrue(order.awaitingCustomer)
+    }
+
+    func testOnlyAnOrderTheCustomerStillOwesIsTheOpenOne() async throws {
+        let transport = FakeTransport()
+        transport.replies[first] = ok("""
+        {"data":[
+          {"id":"ord_done","planName":"Bronze","status":"credited","quotaBytes":0,
+           "durationDays":7,"payAmountMicro":"2000000","expiresAt":"x"},
+          {"id":"ord_open","planName":"Silver","status":"paid","quotaBytes":0,
+           "durationDays":30,"payAmountMicro":"6000000","expiresAt":"x"}
+        ]}
+        """)
+        let (client, session) = makeClient(transport)
+        session.token = "sess_abc"
+
+        let open = try await client.openOrder()
+        XCTAssertEqual(open?.id, "ord_open", "paid-but-unconfirmed is still the customer's turn")
+    }
+
+    func testNoOrdersIsNilRatherThanAnError() async throws {
+        let transport = FakeTransport()
+        transport.replies[first] = ok(#"{"data":[]}"#)
+        let (client, session) = makeClient(transport)
+        session.token = "sess_abc"
+        let open = try await client.openOrder()
+        XCTAssertNil(open)
+    }
+
+    func testAListWhereAnObjectWasExpectedIsAClearFailure() async {
+        let transport = FakeTransport()
+        transport.replies[first] = ok(#"{"data":[1,2,3]}"#)
+        let (client, session) = makeClient(transport)
+        session.token = "sess_abc"
+        do {
+            _ = try await client.subscription()
+            XCTFail("should have thrown")
+        } catch let error as ControlPlaneClient.ApiError {
+            XCTAssertEqual(error.code, "MALFORMED")
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+    }
+
     func testSigningOutClearsTheSessionEvenIfTheServerNeverAnswers() async throws {
         let transport = FakeTransport()
         for base in [first, second] {
