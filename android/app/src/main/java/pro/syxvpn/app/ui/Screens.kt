@@ -2324,22 +2324,19 @@ private fun PlanCard(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(plan.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    planTitle(plan),
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
             }
             Spacer(Modifier.width(10.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                // A subscription's size sits across from the plan's name, above
-                // the price. A config plan's name already carries its size, so
-                // there the same figure would be the card saying it twice.
-                if (!plan.isConfigs && plan.quotaBytes > 0) {
-                    Text(formatBytes(plan.quotaBytes), color = TextDim, fontSize = 12.sp)
-                }
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(4.dp))
-                    Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
-                }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(4.dp))
+                Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
         }
 
@@ -2450,6 +2447,20 @@ private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
             fontWeight = FontWeight.Bold,
         )
     }
+}
+
+/**
+ * The name a card shows: the plan's own, with its size after it.
+ *
+ * The size belongs in the title — it is half of what distinguishes one plan
+ * from the next — and the Configs plans are already named that way by the
+ * control plane. A plan whose name carries the figure already keeps the name it
+ * was given rather than being handed it twice.
+ */
+private fun planTitle(plan: ControlPlaneClient.Plan): String {
+    if (plan.quotaBytes <= 0) return plan.name
+    val size = formatBytes(plan.quotaBytes)
+    return if (plan.name.contains(size, ignoreCase = true)) plan.name else "${plan.name} · $size"
 }
 
 @Composable
