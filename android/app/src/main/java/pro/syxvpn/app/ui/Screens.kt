@@ -3114,7 +3114,6 @@ private fun SignInScreen(
                         Modifier
                             .padding(end = 8.dp)
                             .height(32.dp)
-                            .clip(RoundedCornerShape(16.dp))
                             .background(if (canSend) Accent else Border)
                             .clickable(enabled = canSend) { sendCode() }
                             .padding(horizontal = 12.dp),
