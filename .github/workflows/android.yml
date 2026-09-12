@@ -28,6 +28,10 @@ env:
   # The NDK libXray's own CI builds with.
   LIBXRAY_NDK: r29
 
+# Creating the release below writes to the repository; nothing else here does.
+permissions:
+  contents: write
+
 jobs:
   # The native runtime. Cached on the pinned tag, so this costs ten minutes once
   # and nothing on every build after it.
@@ -95,12 +99,10 @@ jobs:
           cp libxray/libXray.aar runtime/libXray.aar
           ls -l runtime/
 
-      - name: Hand it to the next job
-        uses: actions/upload-artifact@v4
-        with:
-          name: libxray-runtime
-          path: runtime/libXray.aar
-          if-no-files-found: error
+      # No artifact for it. The .aar is already in a cache keyed on the tag it
+      # was built from, and the build job restores that same key — uploading it
+      # as well spent 94MB of the account's artifact storage on every run, for
+      # a file both jobs can already reach.
 
   build:
     needs: runtime
@@ -111,10 +113,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Take the runtime
-        uses: actions/download-artifact@v4
+        uses: actions/cache/restore@v4
         with:
-          name: libxray-runtime
-          path: android/app/libs
+          path: runtime
+          key: libxray-${{ env.LIBXRAY_REF }}-ndk${{ env.LIBXRAY_NDK }}
+          fail-on-cache-miss: true
+
+      - name: Put it where the build looks for it
+        run: |
+          mkdir -p android/app/libs
+          cp runtime/libXray.aar android/app/libs/libXray.aar
 
       # The build switches source sets on the presence of this file, and it does
       # so silently. A missing .aar would produce a perfectly green APK that
@@ -432,6 +440,7 @@ jobs:
           name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-arm64-v8a
           path: android/app/build/outputs/apk/dist/*arm64-v8a*.apk
           if-no-files-found: error
+          retention-days: 7
 
       - name: Attach the release armeabi-v7a APK
         uses: actions/upload-artifact@v4
@@ -439,36 +448,40 @@ jobs:
           name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-armeabi-v7a
           path: android/app/build/outputs/apk/dist/*armeabi-v7a*.apk
           if-no-files-found: error
+          retention-days: 7
 
       # The one to hand somebody whose installer refuses a per-architecture
       # APK. Bigger, and it installs anywhere.
+      # A link that does not change. Artifacts live inside an account's storage
+      # and behind a sign-in; a release asset is a plain URL, which is what the
+      # site's download button needs and what a phone can follow. It also keeps
+      # the newest build reachable after the artifacts above have expired.
+      - name: Publish the release APKs where a phone can reach them
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="app-latest"
+          notes="Built from ${GITHUB_SHA} on ${GITHUB_REF_NAME}."
+          # Moved rather than added to: one tag, always the newest build.
+          gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "SyxVPN — latest build" \
+            --notes "$notes" \
+            --prerelease \
+            android/app/build/outputs/apk/dist/*.apk
+
       - name: Attach the release universal APK
         uses: actions/upload-artifact@v4
         with:
           name: syxvpn-${{ steps.signing.outputs.have_key == 'true' && 'release' || 'TEST-SIGNED' }}-universal
           path: android/app/build/outputs/apk/dist/*universal*.apk
           if-no-files-found: error
+          retention-days: 7
 
-      - name: Attach the universal APK to this run
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-debug-apk-universal
-          path: android/app/build/outputs/apk/debug/*universal*.apk
-          if-no-files-found: error
 
-      - name: Attach the arm64 APK to this run
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-debug-apk-arm64-v8a
-          path: android/app/build/outputs/apk/debug/*arm64-v8a*.apk
-          if-no-files-found: error
-
-      - name: Attach the armeabi-v7a APK to this run
-        uses: actions/upload-artifact@v4
-        with:
-          name: syxvpn-debug-apk-armeabi-v7a
-          path: android/app/build/outputs/apk/debug/*armeabi-v7a*.apk
-          if-no-files-found: error
 
       # A failed build is the useful output too: the compiler's own words,
       # kept where they can be read without opening a laptop.
