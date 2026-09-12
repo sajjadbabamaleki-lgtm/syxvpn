@@ -127,6 +127,10 @@ private val CardFoot = Color(0xFF121212)
 /** The lifted surface on its own, for a card the light does not suit. */
 private val ServerAndPlanCardHeight = 138.dp
 
+// A tenth taller than the text alone came to, so every subscription card is
+// the same size whatever its description says.
+private val SubscriptionCardHeight = 188.dp
+
 private fun Modifier.glassCard(): Modifier =
     background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
 
@@ -2040,6 +2044,8 @@ private fun PremiumScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var busyPlan by remember { mutableStateOf<String?>(null) }
+    var showConfigs by remember { mutableStateOf(false) }
+    var selectedPlanId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(signedIn) {
         // Plans and payment settings are public; an open order belongs to an
@@ -2063,6 +2069,14 @@ private fun PremiumScreen(
             delay(10_000)
             runCatching { app.api.order(open.id) }.onSuccess { order = it }
         }
+    }
+
+    // Whichever side is showing, its first plan starts chosen: a single button
+    // under an empty choice is a button that does nothing, and the cheapest
+    // plan is the one to land on rather than the one nobody picked.
+    LaunchedEffect(plans, showConfigs) {
+        val side = plans.filter { it.isConfigs == showConfigs }
+        if (side.none { it.id == selectedPlanId }) selectedPlanId = side.firstOrNull()?.id
     }
 
     val payments = shopConfig
@@ -2103,22 +2117,52 @@ private fun PremiumScreen(
             if (!BuildConfig.IN_APP_ORDERS) {
                 NoticeCard("Buying happens on the website", "This build opens the storefront in a browser to pay.")
             }
-            plans.forEach { plan ->
+            // Two products, sold separately, and never mixed in one list: the
+            // servers behind the switch, and the configs to carry elsewhere.
+            // A card that does not say which of the two it buys is a refund
+            // request, so the switcher answers it for the whole list at once.
+            val shown = plans.filter { it.isConfigs == showConfigs }
+            if (!loading) {
+                ProductSwitcher(showConfigs) { showConfigs = it }
+            }
+
+            // The choice is the card, not a button on it. Three buy buttons on
+            // one screen is three decisions; one button under a chosen card is
+            // the one decision there actually is.
+            shown.forEach { plan ->
                 PlanCard(
                     plan = plan,
-                    busy = busyPlan == plan.id,
-                    canOrder = canOrder,
-                    signedIn = signedIn,
-                    onBuy = {
+                    selected = plan.id == selectedPlanId,
+                    onSelect = { selectedPlanId = plan.id },
+                )
+            }
+            if (!loading && shown.isEmpty() && error == null) {
+                Text(
+                    if (showConfigs) {
+                        "No config plans have been published yet."
+                    } else {
+                        "No subscriptions have been published yet."
+                    },
+                    color = TextDim,
+                    fontSize = 13.sp,
+                )
+            }
+
+            val chosen = shown.firstOrNull { it.id == selectedPlanId }
+            if (shown.isNotEmpty()) {
+                val busy = busyPlan != null
+                Button(
+                    onClick = {
+                        val plan = chosen ?: return@Button
                         if (!BuildConfig.IN_APP_ORDERS) {
                             onOpenStore()
-                            return@PlanCard
+                            return@Button
                         }
                         // The one moment an account is actually needed: an order
                         // has to belong to someone.
                         if (!signedIn) {
                             onNeedsAccount()
-                            return@PlanCard
+                            return@Button
                         }
                         scope.launch {
                             busyPlan = plan.id
@@ -2129,10 +2173,31 @@ private fun PremiumScreen(
                             busyPlan = null
                         }
                     },
-                )
-            }
-            if (!loading && plans.isEmpty() && error == null) {
-                Text("No plans have been published yet.", color = TextDim, fontSize = 13.sp)
+                    enabled = chosen != null &&
+                        (((canOrder || !signedIn) && !busy) || !BuildConfig.IN_APP_ORDERS),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Accent,
+                        disabledContainerColor = Border,
+                    ),
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    Text(
+                        when {
+                            !BuildConfig.IN_APP_ORDERS -> "Upgrade on the website"
+                            busy -> "Opening order…"
+                            !canOrder && signedIn -> "Payments unavailable"
+                            else -> "Upgrade"
+                        },
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        color = if (chosen != null && (canOrder || !signedIn || !BuildConfig.IN_APP_ORDERS)) {
+                            OnAccent
+                        } else {
+                            TextFaint
+                        },
+                    )
+                }
             }
             if (plans.isNotEmpty() && payments != null) {
                 Text(
@@ -2149,62 +2214,115 @@ private fun PremiumScreen(
     }
 }
 
+/** The two products, one showing at a time. */
+@Composable
+private fun ProductSwitcher(configs: Boolean, onSelect: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(RoundedCornerShape(23.dp))
+            .background(SurfaceHigh)
+            .border(1.dp, Border, RoundedCornerShape(23.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        SwitcherSegment("Subscription", !configs, Modifier.weight(1f)) { onSelect(false) }
+        SwitcherSegment("Configs", configs, Modifier.weight(1f)) { onSelect(true) }
+    }
+}
+
+@Composable
+private fun SwitcherSegment(
+    label: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(19.dp))
+            .background(if (active) Accent.copy(alpha = 0.14f) else Color.Transparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (active) Accent else TextFaint,
+            fontSize = 13.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+        )
+    }
+}
+
+/**
+ * One plan, and what it actually buys.
+ *
+ * A subscription is time, not gigabytes — it is sold by the month and there is
+ * no cap to spend — so it never shows a quota figure. A config plan is the one
+ * sold by volume, and there the figure is the whole point.
+ *
+ * A subscription card also has a set height, a tenth taller than the text alone
+ * asked for, so a two-word description and a two-line one make the same card.
+ */
 @Composable
 private fun PlanCard(
     plan: ControlPlaneClient.Plan,
-    busy: Boolean,
-    canOrder: Boolean,
-    signedIn: Boolean,
-    onBuy: () -> Unit,
+    selected: Boolean,
+    onSelect: () -> Unit,
 ) {
+    val shape = RoundedCornerShape(28.dp)
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .then(if (plan.isConfigs) Modifier else Modifier.height(SubscriptionCardHeight))
+            .clip(shape)
             .litCard()
-            .border(1.dp, Border, RoundedCornerShape(28.dp))
+            .border(1.dp, if (selected) Accent else Border, shape)
+            .clickable(onClick = onSelect)
             .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(plan.name, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 plan.description?.let { Text(it, color = TextDim, fontSize = 12.sp) }
             }
+            Spacer(Modifier.width(10.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(formatUsdt(plan.priceMicro), color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(4.dp))
                 Text("USDT", color = TextFaint, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(
-                if (plan.quotaBytes > 0) formatBytes(plan.quotaBytes) else "Unmetered",
-                color = TextDim,
-                fontSize = 13.sp,
-            )
-            Text("${plan.durationDays} days", color = TextDim, fontSize = 13.sp)
+
+        // What the plan is, line by line, so the card answers "what am I
+        // buying" without the person opening anything.
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SpecLine("${plan.durationDays} days")
+            if (plan.isConfigs) {
+                SpecLine(if (plan.quotaBytes > 0) "${formatBytes(plan.quotaBytes)} of traffic" else "Unmetered")
+                SpecLine("Works in any client that reads a config")
+            } else {
+                SpecLine("No data cap")
+                SpecLine("Every gateway on the list, one switch")
+            }
         }
-        Button(
-            onClick = onBuy,
-            // Signed out the button still works: it asks for the account first.
-            enabled = ((canOrder || !signedIn) && !busy) || !BuildConfig.IN_APP_ORDERS,
-            colors = ButtonDefaults.buttonColors(containerColor = Accent, disabledContainerColor = Border),
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-        ) {
-            Text(
-                when {
-                    !BuildConfig.IN_APP_ORDERS -> "Buy on the website"
-                    busy -> "Opening order…"
-                    !signedIn -> "Buy with USDT"
-                    canOrder -> "Buy with USDT"
-                    else -> "Payments unavailable"
-                },
-                fontWeight = FontWeight.SemiBold,
-                color = if (canOrder || !signedIn || !BuildConfig.IN_APP_ORDERS) OnAccent else TextFaint,
-            )
-        }
+    }
+}
+
+@Composable
+private fun SpecLine(text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(4.dp)
+                .clip(CircleShape)
+                .background(Accent),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(text, color = TextDim, fontSize = 13.sp)
     }
 }
 

@@ -73,7 +73,21 @@ class ControlPlaneClient(
         val quotaBytes: Long,
         val durationDays: Int,
         val priceMicro: Long,
-    )
+        /**
+         * Which of the two things this plan buys: "vpn", the managed servers
+         * behind the switch, or "configs", the list to use here or carry to
+         * another client. They are sold separately and the Premium tab shows
+         * one at a time, so a card can never be ambiguous about what it is.
+         *
+         * Anything else — "all", from before the split — reads as vpn, which is
+         * the side that grant already covers.
+         */
+        val product: String,
+        /** "duration", sold by time, or "volume", sold by the gigabyte. */
+        val billing: String,
+    ) {
+        val isConfigs: Boolean get() = product == "configs"
+    }
 
     /**
      * An order. Amounts stay in micro-USDT (1 USDT = 1_000_000) — the same
@@ -120,6 +134,8 @@ class ControlPlaneClient(
                 quotaBytes = plan["quotaBytes"]!!.jsonPrimitive.content.toLong(),
                 durationDays = plan["durationDays"]!!.jsonPrimitive.content.toInt(),
                 priceMicro = plan["priceMicro"]!!.jsonPrimitive.content.toLong(),
+                product = plan["product"]?.jsonPrimitive?.contentOrNullSafe() ?: "vpn",
+                billing = plan["billing"]?.jsonPrimitive?.contentOrNullSafe() ?: "duration",
             )
         }
     }
