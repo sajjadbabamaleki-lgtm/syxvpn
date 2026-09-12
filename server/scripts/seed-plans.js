@@ -2,6 +2,9 @@
 /**
  * The three plans the public page is built around, created in one command.
  *
+ * Named for their metal — bronze, silver, gold — so the three read as a ladder
+ * rather than as three unrelated lengths.
+ *
  *   docker compose --env-file .env -f deploy/docker-compose.yml \
  *     exec api node scripts/seed-plans.js
  *
@@ -24,7 +27,7 @@ const GB = 1024 ** 3;
 
 const WANTED = [
   {
-    name: 'Weekly · 30 GB',
+    name: 'Bronze · 30 GB',
     description: 'A week, to try it out.',
     quotaBytes: 30 * GB,
     durationDays: 7,
@@ -36,7 +39,7 @@ const WANTED = [
     sortOrder: 10,
   },
   {
-    name: 'Monthly · 120 GB',
+    name: 'Silver · 120 GB',
     description: 'A month, for everyday use.',
     quotaBytes: 120 * GB,
     durationDays: 30,
@@ -46,7 +49,7 @@ const WANTED = [
     sortOrder: 20,
   },
   {
-    name: 'Quarterly · unmetered',
+    name: 'Gold · unmetered',
     description: 'Three months, no volume cap.',
     // 0 is unmetered, and the page says so rather than printing "0 GB".
     quotaBytes: 0,
