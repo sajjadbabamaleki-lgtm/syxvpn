@@ -942,59 +942,35 @@ a.soc:hover {
   to   { opacity: 1; transform: none; }
 }
 
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* The lamp goes on the card, not on its ::before. The card sets
-       `overflow: hidden` to clip the glow, which makes it a scroll container —
-       and `view()` resolves against the nearest one, so an animation on the
-       pseudo-element would be measuring its travel through the card it lives
-       in, which is none. The card's nearest scroller is the page, so the
-       timeline lives here and reaches the glow through an inherited property.
+/* The card's arrival: the light coming up, and the card itself.
 
-       A card carries this instead of the rise below, and that is the honest
-       reading of the reference: its cards do not visibly travel. The light
-       coming up on them is the motion. */
-    /* Where the lamp runs, the observer's one-shot fade on a card would be a
-       second motion on the same object, on its own clock. Its transition is
-       dropped so the scroll-linked pair below is the only thing moving. */
-    .js .card.reveal { transition: none; }
+   This used to be a pair of scroll-linked animations on `animation-timeline:
+   view()`, which ties progress to scroll position — so scrolling back up ran
+   them backwards and the page took itself apart again. That was deliberate and
+   it was wrong: a card arriving is an event, not a state of the scrollbar, and
+   watching it un-arrive is the kind of motion that makes a page feel unstable.
 
-    /* Two scroll-linked animations on one element: the light coming up, and the
-       card itself arriving. The rise runs a touch longer than the lamp so the
-       card settles into place a moment after it is fully lit. */
-    .card, .plan {
-      animation: lamp linear both, lift cubic-bezier(.5, 0, .35, 1) both;
-      animation-timeline: view(), view();
-      /* Run over more of the card's travel than before: a range that closes
-         almost as soon as the card is on screen is a change nobody catches.
-         The easing matters as much as the range. An ease-out curve spends most
-         of itself in the first fifth — measured, the card was already at 0.83
-         opacity and 9px of travel while still at the bottom edge of the screen,
-         so the part anyone could see was the last crumb of it. This curve holds
-         back at the start and spreads the movement across the whole range. */
-      animation-range: entry 0% cover 38%, entry 0% cover 46%;
-    }
-
-    /* A row of cards should not light as one slab. Each column comes up a
-       little later than the one before it — which on a phone, where they are
-       stacked, costs nothing, because they are already apart. */
-    .grid > .card:nth-child(2), .plans > .plan:nth-child(2) { animation-range: entry 7% cover 45%, entry 7% cover 53%; }
-    .grid > .card:nth-child(3), .plans > .plan:nth-child(3) { animation-range: entry 14% cover 52%, entry 14% cover 60%; }
-    .grid > .card:nth-child(4) { animation-range: entry 21% cover 59%, entry 21% cover 67%; }
-
-    /* Everything that is not a card keeps a rise, now tracking the scroll
-       rather than firing once — so a reader who scrolls back up sees it again
-       instead of finding the page already assembled. `:not(.card)` matters:
-       cards match both rules, and the more specific one would take the
-       animation away from them. */
-    .js .reveal:not(.card) {
-      opacity: 1; transform: none;
-      animation: rise cubic-bezier(.5, 0, .35, 1) both;
-      animation-timeline: view();
-      animation-range: entry 8% cover 34%;
-      transition: none;
-    }
+   So both now run once, off the `in` class the observer adds and never
+   removes, and the observer stops watching the element the moment it does.
+   One motion per card per visit. The keyframes are unchanged; only what drives
+   them is. */
+@media (prefers-reduced-motion: no-preference) {
+  /* The observer's own fade would be a second motion on the same object, on
+     its own clock. The animations below are the only thing moving. */
+  .js .card.reveal { transition: none; }
+  .js .card.reveal.in,
+  .js .plans.reveal.in > .plan {
+    animation: lamp .75s linear both, lift .9s cubic-bezier(.5, 0, .35, 1) both;
   }
+
+  /* A row should not light as one slab, so each column comes up a little after
+     the one before it. On a phone they are stacked and already apart, and the
+     delay costs nothing there. */
+  .js .grid > .card.reveal.in:nth-child(2),
+  .js .plans.reveal.in > .plan:nth-child(2) { animation-delay: .08s, .08s; }
+  .js .grid > .card.reveal.in:nth-child(3),
+  .js .plans.reveal.in > .plan:nth-child(3) { animation-delay: .16s, .16s; }
+  .js .grid > .card.reveal.in:nth-child(4) { animation-delay: .24s, .24s; }
 }
 
 /* Guarded by the `js` class the page sets on <html> before anything renders:
