@@ -14,6 +14,7 @@
     "qrcode-generator": "^1.5.0"
   },
   "devDependencies": {
+    "marked": "^18.0.13",
     "vite": "8.2.2"
   }
 }

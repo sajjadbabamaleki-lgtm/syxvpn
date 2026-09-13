@@ -4,6 +4,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY vite.config.js index.html landing.html landing-en.html ./
+COPY scripts ./scripts
+COPY content ./content
 COPY src ./src
 COPY public ./public
 ARG VITE_API_URL=""
@@ -22,10 +24,14 @@ ENV VITE_APK_URL=$VITE_APK_URL
 
 RUN npm run build
 
-# robots.txt and sitemap.xml carry absolute URLs, so they are written here where
-# the address is known rather than committed with a guess in them.
-RUN printf 'User-agent: *\nAllow: /\nAllow: /en\nDisallow: /app\n\nSitemap: %s/sitemap.xml\n' "$VITE_SITE_URL" > dist/robots.txt \
- && printf '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n  <url><loc>%s/</loc>\n    <xhtml:link rel="alternate" hreflang="fa" href="%s/"/>\n    <xhtml:link rel="alternate" hreflang="en" href="%s/en"/>\n  </url>\n  <url><loc>%s/en</loc>\n    <xhtml:link rel="alternate" hreflang="fa" href="%s/"/>\n    <xhtml:link rel="alternate" hreflang="en" href="%s/en"/>\n  </url>\n</urlset>\n' "$VITE_SITE_URL" "$VITE_SITE_URL" "$VITE_SITE_URL" "$VITE_SITE_URL" "$VITE_SITE_URL" "$VITE_SITE_URL" > dist/sitemap.xml
+# robots.txt and sitemap.xml carry absolute URLs, so they are generated here
+# where the address is known rather than committed with a guess in them.
+#
+# The two indexable pages are / (English) and /fa (Persian). /en is a 301 to /,
+# and the previous sitemap listed it as a page and named it as the English
+# alternate — a sitemap of redirects, telling a crawler the canonical English
+# address is one that immediately sends it somewhere else.
+RUN node scripts/build-pages.mjs "$VITE_SITE_URL" dist
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/dist /usr/share/nginx/html

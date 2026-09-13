@@ -22,6 +22,11 @@
 <meta property="og:url" content="%VITE_SITE_URL%/fa" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="SyxVPN — اینترنت باز، بدون قول‌های الکی" />
+<meta property="og:image" content="%VITE_SITE_URL%/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="SyxVPN" />
+<meta name="twitter:image" content="%VITE_SITE_URL%/og.png" />
 <meta name="twitter:description" content="یک دکمه. خودش سرور را انتخاب می‌کند، و اگر مسیری بمیرد خودش برمی‌گردد." />
 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='g' gradientUnits='userSpaceOnUse' cx='50.0' cy='50.0' r='24.0'%3E%3Cstop offset='0' stop-color='%23d8f83a' stop-opacity='.95'/%3E%3Cstop offset='.35' stop-color='%23d8f83a' stop-opacity='.55'/%3E%3Cstop offset='.7' stop-color='%23d8f83a' stop-opacity='.16'/%3E%3Cstop offset='1' stop-color='%23d8f83a' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='27' fill='%230d0d0d'/%3E%3Ccircle cx='50.0' cy='50.0' r='24.0' fill='url(%23g)'/%3E%3Cg fill='%23ffffff' transform='translate(20 20) scale(0.6)'%3E%3Cpath d='M20.15%2C14.16 32.30%2C34.48 90.38%2C52.09 92.20%2C55.54 92.20%2C75.32 91.29%2C77.68 79.49%2C85.84 67.51%2C65.52 12.52%2C49.36 9.44%2C47.91 7.80%2C45.37 7.80%2C23.96 9.98%2C21.05 19.96%2C14.34Z'/%3E%3Cpath d='M42.11%2C0.00 58.62%2C0.18 70.05%2C7.62 50.82%2C27.95 49.91%2C28.68 29.76%2C7.62 39.38%2C1.09 41.92%2C0.18Z'/%3E%3Cpath d='M49.73%2C71.51 70.05%2C92.38 59.71%2C99.46 57.89%2C100.00 41.02%2C99.82 29.95%2C92.56 49.55%2C71.69Z'/%3E%3Cpath d='M79.67%2C14.16 91.47%2C22.69 92.20%2C24.68 92.20%2C36.84 66.42%2C36.84 79.49%2C14.34Z'/%3E%3Cpath d='M7.99%2C63.16 33.39%2C63.34 20.69%2C85.48 19.96%2C85.84 8.35%2C77.31 7.80%2C76.04 7.80%2C63.34Z'/%3E%3C/g%3E%3C/svg%3E" />
@@ -76,6 +81,26 @@
         }
       ]
     }
+    ,{
+      "@type": "Organization",
+      "@id": "%VITE_SITE_URL%/#organization",
+      "name": "SyxVPN",
+      "url": "%VITE_SITE_URL%/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "%VITE_SITE_URL%/og.png",
+        "width": 1200,
+        "height": 630
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "%VITE_SITE_URL%/#website",
+      "name": "SyxVPN",
+      "url": "%VITE_SITE_URL%/fa",
+      "inLanguage": "fa",
+      "publisher": { "@id": "%VITE_SITE_URL%/#organization" }
+    }
   ]
 }
 </script>
@@ -92,6 +117,7 @@
       <a href="#features" class="hide-sm">امکانات</a>
       <a href="#about" class="hide-sm">دربارهٔ ما</a>
       <a href="#plans" class="hide-sm">پلن‌ها</a>
+      <a href="/fa/articles" class="hide-sm">مقاله‌ها</a>
       <a href="#faq" class="hide-sm">سؤالات</a>
       <details class="langsel">
         <summary aria-label="تغییر زبان">
@@ -110,6 +136,7 @@
           <a href="#features" role="menuitem">امکانات</a>
           <a href="#about" role="menuitem">دربارهٔ ما</a>
           <a href="#plans" role="menuitem">پلن‌ها</a>
+          <a href="/fa/articles" role="menuitem">مقاله‌ها</a>
           <a href="#faq" role="menuitem">سؤالات</a>
           <a href="/app/" role="menuitem">حساب کاربری</a>
         </div>
@@ -437,6 +464,7 @@
       <a href="#features">امکانات</a>
       <a href="#about">دربارهٔ ما</a>
       <a href="#plans">پلن‌ها</a>
+      <a href="/fa/articles">مقاله‌ها</a>
       <a href="/app/">ورود</a>
       <a href="/app/#/store">خرید پلن</a>
       <a href="/app/#/config">کانفیگ من</a>
