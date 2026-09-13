@@ -926,6 +926,26 @@ a.soc:hover {
 .byline { color: var(--faint); font-size: 13px; margin-top: 14px; direction: ltr; }
 [dir="rtl"] .byline { direction: rtl; }
 
+/* ------------------------------------------------------- coming soon
+ *
+ * A native <dialog>, so the modal behaviour, the focus trap, Escape and the
+ * inert background are the browser's rather than three more listeners here.
+ * ::backdrop only exists on a dialog opened with showModal(), which is what
+ * the handler uses.
+ */
+.soon {
+  border: 1px solid var(--border); border-radius: 22px;
+  background: var(--surface-high); color: var(--text);
+  padding: 30px 26px; max-width: 380px; width: calc(100% - 32px);
+  text-align: center; box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+}
+.soon::backdrop { background: rgba(0, 0, 0, .68); backdrop-filter: blur(3px); }
+.soon h2 { font-size: 26px; font-weight: 500; margin: 0; letter-spacing: -.01em; }
+.soon p { color: var(--dim); font-size: 14.5px; margin: 12px 0 22px; }
+.soon .btn { width: 100%; }
+/* The badges are buttons now, and a button brings its own font and background. */
+button.badge { font: inherit; cursor: pointer; }
+
 /* --------------------------------------------------------------- badges */
 
 .store { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
