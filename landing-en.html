@@ -281,6 +281,11 @@
         Paid in USDT on TRON, confirmed on chain.
       </p>
 
+      <div class="switcher reveal" id="plan-switch" role="tablist" aria-label="Plan type" hidden>
+        <button type="button" class="seg on" role="tab" aria-selected="true" data-product="vpn">Subscription</button>
+        <button type="button" class="seg" role="tab" aria-selected="false" data-product="configs">Configs</button>
+      </div>
+
       <div class="plans reveal" id="plan-grid" aria-live="polite">
         <div class="plans-empty" id="plan-loading">Reading plans from the server…</div>
       </div>
@@ -529,14 +534,22 @@
       }).join('') + '</ul>';
     };
 
-    fetch(API + '/api/v1/shop/plans', { headers: { accept: 'application/json' } })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (body) {
-        var plans = (body && body.data) || [];
-        if (!plans.length) throw new Error('empty');
-        plans.sort(function (a, b) { return a.durationDays - b.durationDays; });
-        var longest = plans[plans.length - 1];
-        grid.innerHTML = plans.map(function (p) {
+    // Two products, sold separately, and never in one list: the servers
+    // behind the switch, and the configs to carry elsewhere. The app's Premium
+    // tab has always split them, and a card that does not say which of the two
+    // it buys is a refund request — so the switch answers it for the whole
+    // list at once, exactly as it does there.
+    var all = [];
+    var switcher = document.getElementById('plan-switch');
+    var draw = function (configs) {
+      var plans = all.filter(function (p) { return (p.product === 'configs') === configs; });
+      if (!plans.length) {
+        grid.innerHTML = '<div class="plans-empty">Nothing on sale here right now. See the <a href="/app/#/store">store</a> or the app.</div>';
+        return;
+      }
+      // Best-value is the longest of what is showing, not of both lists.
+      var longest = plans[plans.length - 1];
+      grid.innerHTML = plans.map(function (p) {
           var monthly = p.durationDays > 31
             ? '<div class="per">' + money(p.priceMicro / (p.durationDays / 30)) + ' USDT a month</div>'
             : '<div class="per"></div>';
@@ -551,7 +564,29 @@
             + features(p)
             + '<div class="buy"><a href="/app/#/store">Buy</a></div>'
             + '</article>';
-        }).join('');
+      }).join('');
+    };
+
+    var segs = switcher.querySelectorAll('.seg');
+    Array.prototype.forEach.call(segs, function (seg) {
+      seg.addEventListener('click', function () {
+        Array.prototype.forEach.call(segs, function (other) {
+          var on = other === seg;
+          other.classList.toggle('on', on);
+          other.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        draw(seg.getAttribute('data-product') === 'configs');
+      });
+    });
+
+    fetch(API + '/api/v1/shop/plans', { headers: { accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (body) {
+        all = (body && body.data) || [];
+        if (!all.length) throw new Error('empty');
+        all.sort(function (a, b) { return a.durationDays - b.durationDays; });
+        switcher.hidden = false;
+        draw(false);
       })
       .catch(function () {
         grid.innerHTML = '<div class="plans-empty">Plans are not available right now. '
