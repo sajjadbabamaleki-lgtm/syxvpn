@@ -779,10 +779,7 @@ private fun BottomBarItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // White, like the label under it and like the mark on the icon: the
-        // lime is the light behind things now, not the things themselves. It
-        // is still here, as the tint block this sits on.
-        PathIcon(pathData, 20.dp, if (selected) Color.White else TextFaint)
+        PathIcon(pathData, 20.dp, if (selected) Accent else TextFaint)
         Spacer(Modifier.height(4.dp))
         Text(
             label,
