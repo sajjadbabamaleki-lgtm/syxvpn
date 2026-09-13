@@ -432,8 +432,15 @@ h3 { font-weight: 400; }
 
 /* ------------------------------------------------------------------ cards */
 
-.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+/* The track minimum is what decides how many cards a row holds, so it is set
+ * against the real number: the section is 1080px wide inside its padding, and
+ * four tracks with three 20px gaps leave (1080 - 60) / 4 = 255px each. 250px
+ * clears that with room to spare, so a full row is four across on a desktop
+ * and folds to two and then one on the way down. auto-fit collapses the empty
+ * tracks, so the three-card row still spreads across the section instead of
+ * leaving a gap where a fourth card would have been. */
+.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
 
 .card {
   position: relative; overflow: hidden;
