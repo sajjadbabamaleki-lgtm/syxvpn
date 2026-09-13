@@ -280,8 +280,22 @@ html:has(.menubtn[open]) { overflow: hidden; }
  * itself. `width`/`height` are on the img so the row is reserved before the
  * bytes land and nothing below it jumps, and the negative margin still tucks
  * the next section under the glow the way the drawn one did. */
-.arc { max-width: 820px; margin: 0 auto; padding: 0 20px; }
-.arc img { width: 100%; height: auto; border-radius: 18px; }
+.arc { margin: 0; }
+/* Edge to edge on a phone: no gutter and no corner radius, so the horizon runs
+ * off both sides of the screen instead of sitting on a card in the middle of
+ * a 412px one.
+ *
+ * On a wide screen it goes back in its frame. Full bleed there is 614px of one
+ * band on a 1280 viewport, and cropping it to fit is not an option: the mark
+ * runs from a seventh of the way down to nine tenths, so there is no middle
+ * third to keep — a 340px cap took "BEYOND BORDERS" off the bottom and cut
+ * through the wordmark above it.
+ */
+.arc img { display: block; width: 100%; height: auto; }
+@media (min-width: 861px) {
+  .arc { max-width: 820px; margin: 0 auto; padding: 0 20px; }
+  .arc img { border-radius: 18px; }
+}
 
 .label {
   display: flex; align-items: center; gap: 18px; margin: 0 0 22px;
