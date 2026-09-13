@@ -741,11 +741,13 @@ h3 { font-weight: 400; }
 
 #faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px 24px; margin-bottom: 12px; }
 #faq details[open] { border-color: rgba(216, 248, 58, .32); }
-#faq summary { cursor: pointer; font-weight: 500; font-size: 16px; list-style: none; }
+/* A tenth off the whole accordion: question, answer and the marker beside
+   them, so the three stay in the proportion they were drawn in. */
+#faq summary { cursor: pointer; font-weight: 500; font-size: 14.4px; list-style: none; }
 #faq summary::-webkit-details-marker { display: none; }
-#faq summary::after { content: "+"; float: inline-end; color: var(--accent); font-weight: 400; font-size: 22px; line-height: 1.1; }
+#faq summary::after { content: "+"; float: inline-end; color: var(--accent); font-weight: 400; font-size: 19.8px; line-height: 1.1; }
 #faq details[open] summary::after { content: "–"; }
-#faq details p { color: var(--dim); font-size: 14px; margin: 14px 0 0; }
+#faq details p { color: var(--dim); font-size: 12.6px; margin: 14px 0 0; }
 
 /* --------------------------------------------------------------- footer */
 
