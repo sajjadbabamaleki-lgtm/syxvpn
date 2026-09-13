@@ -227,7 +227,11 @@ img { max-width: 100%; display: block; }
      stays as a transparent hairline so the box keeps its measured size. */
   border: 1px solid transparent; background: #0d0d0d;
   box-shadow: 0 0 4px rgba(216, 248, 58, .55), 0 0 13px rgba(216, 248, 58, .3);
-  color: var(--accent); cursor: pointer; list-style: none; user-select: none;
+  /* White, like the mark on the tile beside it. The lime is the light both
+     tiles throw, not the thing drawn on them; this used to be lime on lime and
+     the two tiles no longer matched once the mark turned white. Both glyphs
+     inherit it, so the close cross changes with the bars. */
+  color: #ffffff; cursor: pointer; list-style: none; user-select: none;
 }
 .menubtn > summary svg { display: block; width: 26.5px; height: 26.5px; }
 .menubtn > summary::-webkit-details-marker { display: none; }
