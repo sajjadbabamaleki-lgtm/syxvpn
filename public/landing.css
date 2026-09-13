@@ -837,11 +837,22 @@ a.soc:hover {
    a hundred pixels each — three narrow lists where one wrapping row reads. */
 .foot-row {
   display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 4px 22px; margin: 42px 0 0; padding: 0 6px;
+  /* The rows sat about 18px apart — 4px of gap plus 7px of padding on each
+     link — which read as four separate lists rather than one wrapped one.
+     Halved, and taken out of the gap first so the links keep most of the
+     height that makes them tappable. */
+  /* 26px across, not 22: at 22 a 412px screen fits five links on the first
+     row and strands فارسی alone on its own, and 26 is the smallest value
+     that holds 4/3/2/1 at both 390 and 412. */
+  gap: 2px 26px; margin: 42px 0 0; padding: 0 6px;
 }
-.foot-row a { color: var(--dim); padding: 7px 2px; font-size: 13.5px; }
+.foot-row a { color: var(--dim); padding: 4px 2px; font-size: 13.5px; }
 .foot-row a:hover { color: var(--text); }
-@media (min-width: 620px) { .foot-row { gap: 6px 30px; margin-top: 50px; } }
+/* The download is the one thing here anybody came for, and it was sharing a
+   row with two account links. Last and full width, so it wraps onto a line of
+   its own and the two move up into the space it left. */
+.foot-row .dl { flex-basis: 100%; text-align: center; }
+@media (min-width: 620px) { .foot-row { gap: 4px 30px; margin-top: 50px; } }
 
 .foot {
   display: flex; gap: 10px 20px; flex-wrap: wrap; justify-content: center; text-align: center;
