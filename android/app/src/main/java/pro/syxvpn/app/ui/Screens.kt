@@ -109,6 +109,15 @@ private val Border = Color(0xFF262626)
 // never implies a connection that does not exist yet.
 private val Accent = Color(0xFFD8F83A)
 private val Ok = Accent
+
+/**
+ * A plain green, for a reading rather than for the brand.
+ *
+ * The lime is the accent: it says "this is the app talking". A latency is a
+ * measurement, and a measurement in the accent colour reads as a highlight
+ * rather than as a number that came back good.
+ */
+private val Green = Color(0xFF3DDC84)
 private val OnAccent = Color(0xFF0E1400)
 private val Pending = Color(0xFF909090)
 private val Bad = Color(0xFFF2665F)
@@ -1500,7 +1509,7 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
                         pingMs != null -> "$pingMs ms"
                         else -> "PING"
                     },
-                    color = if (pingMs != null && !pinging) Ok else Pending,
+                    color = if (pingMs != null && !pinging) Green else Pending,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = if (pingMs == null) 1.sp else 0.sp,
