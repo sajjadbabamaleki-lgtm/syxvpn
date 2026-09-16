@@ -4,9 +4,11 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.Process
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,6 +87,9 @@ class TunnelService : VpnService() {
     private var statsJob: Job? = null
     private var bridge: XrayBridge? = null
     private var connectedAt: Long = 0L
+    /** UID byte counters as they stood when this session started. */
+    private var txBaseline: Long = 0L
+    private var rxBaseline: Long = 0L
 
     /**
      * What the last connect was asked to do, kept so a dropped tunnel can be
@@ -280,6 +285,7 @@ class TunnelService : VpnService() {
                     activeLabel.value = server.label
                     activity.value = null
                     connectedAt = System.currentTimeMillis()
+                    markTrafficBaseline()
                     state.value = State.CONNECTED
                     lastError.value = null
                     startStatsLoop()
@@ -477,6 +483,35 @@ class TunnelService : VpnService() {
      */
     private fun freeLoopbackPort(): Int = ServerSocket(0).use { it.localPort }
 
+    /**
+     * Where this process's byte counters stood when the tunnel came up.
+     *
+     * The counters are the phone's, not the session's — they have been running
+     * since boot — so the session is the difference from here.
+     */
+    private fun markTrafficBaseline() {
+        val uid = Process.myUid()
+        txBaseline = TrafficStats.getUidTxBytes(uid)
+        rxBaseline = TrafficStats.getUidRxBytes(uid)
+    }
+
+    /**
+     * This session's bytes, counted off the app's own UID.
+     *
+     * The fallback for when the core's metrics server does not answer. Some
+     * devices do not report per-UID bytes at all and return UNSUPPORTED; there
+     * is nothing to show then, and a made-up number would be worse than a zero.
+     */
+    private fun uidTraffic(): Pair<Long, Long> {
+        val uid = Process.myUid()
+        val tx = TrafficStats.getUidTxBytes(uid)
+        val rx = TrafficStats.getUidRxBytes(uid)
+        val unsupported = TrafficStats.UNSUPPORTED.toLong()
+        if (tx == unsupported || rx == unsupported) return 0L to 0L
+        if (txBaseline == unsupported || rxBaseline == unsupported) return 0L to 0L
+        return (tx - txBaseline).coerceAtLeast(0L) to (rx - rxBaseline).coerceAtLeast(0L)
+    }
+
     private fun fail(message: String) {
         lastError.value = message
         state.value = State.FAILED
@@ -514,9 +549,20 @@ class TunnelService : VpnService() {
             while (isActive) {
                 // Off the lifecycle thread: this is an HTTP call to the core's
                 // metrics server, and it must not delay a disconnect.
-                traffic.value = withContext(Dispatchers.IO) {
+                // The core's own counters first: they are the traffic that went
+                // through the proxy outbound and nothing else. When they read
+                // zero the session's bytes are counted off this process's UID
+                // instead — every byte the tunnel moves is sent by this app, so
+                // the difference since connect is the session, give or take the
+                // transport's own overhead. A tunnel that is plainly working
+                // should not show 0 B because one metrics port did not answer.
+                val fromCore = withContext(Dispatchers.IO) {
                     runCatching { bridge?.trafficStats() }.getOrNull()
-                } ?: (0L to 0L)
+                }
+                traffic.value = when {
+                    fromCore != null && (fromCore.first > 0L || fromCore.second > 0L) -> fromCore
+                    else -> uidTraffic()
+                }
                 uptimeSeconds.value = (System.currentTimeMillis() - connectedAt) / 1000
 
                 // The watchdog. A tunnel can stop being a tunnel without anyone

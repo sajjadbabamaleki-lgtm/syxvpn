@@ -1405,8 +1405,19 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
 
     var pingMs by remember { mutableStateOf<Long?>(null) }
     var pinging by remember { mutableStateOf(false) }
-    // A measurement belongs to the server it was taken against.
-    LaunchedEffect(current?.key) { pingMs = null }
+    // A measurement belongs to the server it was taken against, so both a new
+    // server and a new session clear it. With a tunnel up it is then taken
+    // straight away rather than waiting for a tap: the tile said "PING" for the
+    // whole of a working connection, which reads as a number that never
+    // arrived rather than as a button. It stays tappable to measure again.
+    LaunchedEffect(current?.key, connected) {
+        pingMs = null
+        val profile = current?.profile
+        if (!connected || profile == null) return@LaunchedEffect
+        pinging = true
+        pingMs = Latency.measure(profile.host, profile.port)
+        pinging = false
+    }
 
     Column(
         Modifier
@@ -1926,29 +1937,15 @@ private fun ConfigsScreen(
         ConnectionCard(state)
         TunnelError()
 
-        // Only under Automatic: with one config named by hand there is nothing
-        // for a weighting to choose between, and a row of chips that changes
-        // nothing is a lie about what the app does.
-        if (state.configAutomatic) {
-            Spacer(Modifier.height(12.dp))
-            PurposeRow(
-                state,
-                live = connected || connecting,
-                source = TunnelService.Source.CONFIGS,
-                onConnect = onConnect,
-            )
-        }
-
+        // The purpose chips stay on the VPN tab. This tab is the list itself:
+        // the heading above it named what was already obvious from the rows,
+        // and a second row of chips here only repeated a control that lives one
+        // tab away.
         Spacer(Modifier.height(14.dp))
 
-        Text("Configs", color = TextDim, fontSize = 13.sp)
-
-        Spacer(Modifier.height(8.dp))
-
-        // The same pill the purpose chips are — same height, same radius, same
-        // surface and border — run the whole width. It is one of this screen's
-        // controls and it now looks like one; a text link hanging off the end
-        // of a heading read as an afterthought beside the row above it.
+        // The chips' shape, not their company: same height, same radius, same
+        // surface and border, run the whole width. A text link hanging off the
+        // end of a heading read as an afterthought.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
