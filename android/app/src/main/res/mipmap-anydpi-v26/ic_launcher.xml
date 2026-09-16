@@ -14,8 +14,8 @@
   anything outside the middle two thirds is cropped and everything inside is
   scaled up. The supplied artwork fills 58% of the canvas across and 68% down,
   which lands it flush against that mask — the mark touched all four edges and
-  its top and bottom were clipped. A 25% inset on every side halves the artwork,
-  bringing the ink to roughly 31 x 37 of the 108dp canvas: comfortably inside
+  its top and bottom were clipped. A 20% inset on every side scales the artwork to 60%,
+  bringing the ink to roughly 38 x 44 of the 108dp canvas: comfortably inside
   the 66dp safe zone, with room to breathe on all four sides of the mask.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -23,9 +23,9 @@
     <foreground>
         <inset
             android:drawable="@mipmap/ic_launcher_foreground"
-            android:insetLeft="25%"
-            android:insetTop="25%"
-            android:insetRight="25%"
-            android:insetBottom="25%" />
+            android:insetLeft="20%"
+            android:insetTop="20%"
+            android:insetRight="20%"
+            android:insetBottom="20%" />
     </foreground>
 </adaptive-icon>
