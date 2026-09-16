@@ -8,8 +8,24 @@
   The background stays a flat colour. It is what the launcher parallaxes
   against, and the artwork's own black is the same #0D0D0D, so the seam does
   not show when a launcher shifts the two layers apart.
+
+  The foreground is inset because an adaptive icon is not shown at the size it
+  is drawn: the launcher masks the 108dp layers down to a 72dp viewport, so
+  anything outside the middle two thirds is cropped and everything inside is
+  scaled up. The supplied artwork fills 58% of the canvas across and 68% down,
+  which lands it flush against that mask — the mark touched all four edges and
+  its top and bottom were clipped. A 15% inset on every side brings the ink to
+  roughly 44 x 51 of the 108dp canvas, well inside the 66dp safe zone, which is
+  where a launcher icon is meant to sit.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_foreground"
+            android:insetLeft="15%"
+            android:insetTop="15%"
+            android:insetRight="15%"
+            android:insetBottom="15%" />
+    </foreground>
 </adaptive-icon>

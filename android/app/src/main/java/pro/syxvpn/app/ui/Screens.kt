@@ -20,6 +20,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,14 +39,16 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -410,13 +413,23 @@ private fun SwitchLabel(text: String, active: Boolean, onGreen: Boolean, modifie
 }
 
 /**
- * A green light travelling around the thumb while the tunnel comes up.
+ * A lime light travelling along the pill's own edge while the tunnel comes up.
  *
- * It exists only in that waiting state: once connected the thumb itself turns
- * green and the light is gone, so the two states cannot be confused.
+ * It runs *on* the outline the border is drawn on, so it reads as the switch's
+ * own edge lighting up rather than as a glow floating somewhere near it. A
+ * short bright head with a tail fading out behind it, walked around the stadium
+ * with [PathMeasure].
  *
- * Drawn as a rotating sweep gradient stroked along a stadium outline, which
- * needs no blur support (Modifier.blur is API 31; this app supports 24).
+ * Walked, not rotated. Rotating the shape — which is what this did before —
+ * spins the stadium itself, and a stadium is not a circle: a quarter turn puts
+ * it across the pill, the clip cuts most of it away, and what is left flickers
+ * at the corners. That is the "irregular" light. A path walk moves a light
+ * along a fixed outline, which is the thing that was wanted.
+ *
+ * It exists only in the waiting state: once connected the thumb itself turns
+ * lime and the light is gone, so the two states cannot be confused.
+ *
+ * Stroked geometry, no blur: Modifier.blur is API 31 and this app supports 24.
  */
 @Composable
 private fun OrbitLight(
@@ -425,34 +438,71 @@ private fun OrbitLight(
     spinning: Boolean,
 ) {
     val transition = rememberInfiniteTransition(label = "orbit")
-    val angle by transition.animateFloat(
+    val head by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
-        label = "orbit-angle",
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing)),
+        label = "orbit-head",
     )
 
     // requiredSize, not size: the light lies over the pill it runs around and
     // must not take part in measuring it.
     Canvas(Modifier.requiredSize(width, height)) {
         if (!spinning) return@Canvas
-        val radius = size.height / 2
-        // The pill clips the outer half of this stroke, so it is drawn wide
-        // enough that the half which survives still reads as a line.
-        val stroke = Stroke(width = 5f.dp.toPx())
+        val strokePx = 2.5f.dp.toPx()
+        val half = strokePx / 2
 
-        // Most of the sweep is transparent, so a single bright arc chases the
-        // outline instead of the whole ring glowing.
-        val brush = Brush.sweepGradient(
-            0.00f to Color.Transparent,
-            0.55f to Color.Transparent,
-            0.78f to Ok.copy(alpha = 0.25f),
-            0.94f to Ok,
-            1.00f to Color.Transparent,
-            center = center,
-        )
-        rotate(degrees = angle) {
-            drawRoundRect(brush = brush, cornerRadius = CornerRadius(radius, radius), style = stroke)
+        // Inset by half the stroke so the line sits on the border rather than
+        // straddling it, where the pill's own clip would cut the outer half
+        // away and leave a line that looks thinner than it is drawn.
+        val outline = Path().apply {
+            addRoundRect(
+                RoundRect(
+                    left = half,
+                    top = half,
+                    right = size.width - half,
+                    bottom = size.height - half,
+                    cornerRadius = CornerRadius(
+                        size.height / 2 - half,
+                        size.height / 2 - half,
+                    ),
+                ),
+            )
+        }
+
+        val measure = PathMeasure().apply { setPath(outline, forceClosed = true) }
+        val total = measure.length
+        if (total <= 0f) return@Canvas
+
+        val tail = total * 0.28f
+        val steps = 28
+        val segment = Path()
+        // Dimmest link first, so the bright head is drawn over the tail where
+        // the round caps of the two overlap rather than under it.
+        for (i in steps - 1 downTo 0) {
+            var from = (head * total - tail * (i + 1) / steps) % total
+            if (from < 0f) from += total
+            var to = (head * total - tail * i / steps) % total
+            if (to < 0f) to += total
+
+            segment.reset()
+            if (to >= from) {
+                measure.getSegment(from, to, segment, true)
+            } else {
+                // The link straddles the point the outline closes at; take it
+                // in two pieces rather than letting it wrap to nothing.
+                measure.getSegment(from, total, segment, true)
+                measure.getSegment(0f, to, segment, true)
+            }
+
+            // Squared, so the tail falls away quickly and the head still reads
+            // as a point of light rather than as a long even smear.
+            val fade = 1f - i.toFloat() / steps
+            drawPath(
+                segment,
+                Ok.copy(alpha = fade * fade),
+                style = Stroke(width = strokePx, cap = StrokeCap.Round),
+            )
         }
     }
 }
@@ -1848,10 +1898,26 @@ private fun ConfigsScreen(
     LaunchedEffect(state.visible.map { it.key }) { state.checkHealth() }
 
     var adding by remember { mutableStateOf(false) }
+    // Held here rather than inside the LazyColumn so a config that was just
+    // added can be scrolled to the moment it lands.
+    val listState = rememberLazyListState()
+    // Only a pull turns the spinner on. A refresh the app started by itself —
+    // the one that runs on sign-in — fills the list in behind whatever is
+    // already there, because a list that blanks to a spinner every time someone
+    // signs in looks like it lost their configs.
+    var pulling by remember { mutableStateOf(false) }
     if (adding) {
         AddConfigSheet(
             onDismiss = { adding = false },
-            onAdd = { pasted -> state.importPasted(pasted).summary() },
+            onAdd = { pasted ->
+                val summary = state.importPasted(pasted).summary()
+                // New configs go in at the top. Put the list there too, so the
+                // thing that was just added is the thing now on screen: the
+                // list holds two rows, and a config added while it was scrolled
+                // down used to look like nothing had happened at all.
+                scope.launch { listState.animateScrollToItem(0) }
+                summary
+            },
         )
     }
 
@@ -1875,30 +1941,51 @@ private fun ConfigsScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Text("Configs", color = TextDim, fontSize = 13.sp)
+
+        Spacer(Modifier.height(8.dp))
+
+        // The same pill the purpose chips are — same height, same radius, same
+        // surface and border — run the whole width. It is one of this screen's
+        // controls and it now looks like one; a text link hanging off the end
+        // of a heading read as an afterthought beside the row above it.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .clip(RoundedCornerShape(17.dp))
+                .background(Surface)
+                .border(1.dp, Border, RoundedCornerShape(17.dp))
+                .clickable { adding = true },
+            contentAlignment = Alignment.Center,
         ) {
-            Text("Configs", color = TextDim, fontSize = 13.sp)
-            TextButton(onClick = { adding = true }) {
-                Text("+ Add", color = Accent, fontSize = 13.sp)
-            }
+            Text(
+                "+  Add a config",
+                color = Accent,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
         }
+
+        Spacer(Modifier.height(10.dp))
 
         // Two rows, ending on a whole one, and the rest scrolls. Pulling it
         // down refreshes it, which is the gesture people already reach for.
         PullToRefreshBox(
-            isRefreshing = state.busy || state.checking,
+            isRefreshing = pulling,
             onRefresh = {
                 scope.launch {
+                    pulling = true
                     state.refresh(app.subscriptions)
                     state.checkHealth()
+                    pulling = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(ConfigListHeight),
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(ConfigRowGap),
             ) {
