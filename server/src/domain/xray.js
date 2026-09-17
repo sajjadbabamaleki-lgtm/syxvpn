@@ -15,6 +15,7 @@
 
 import { splitList } from '../lib/reality.js';
 import { inboundConfig } from './inbounds.js';
+import { config } from '../config.js';
 
 export const API_PORT = 10085;
 // Loopback SOCKS inbounds, one per assigned egress, used by the gateway agent
@@ -265,7 +266,12 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId, 
   }
 
   return {
-    log: { loglevel: 'warning' },
+    // Raised from the control plane when a gateway is being diagnosed. A
+    // REALITY inbound tells a client nothing and logs nothing when its
+    // credentials do not match — it forwards the connection to the borrowed
+    // site, which is the point — so 'warning' leaves an operator unable to
+    // tell a rejected handshake from one that never arrived.
+    log: { loglevel: config.xrayLogLevel },
     // Per-user counters are the source of truth for quota accounting.
     api: { tag: 'api', services: ['HandlerService', 'StatsService'] },
     stats: {},

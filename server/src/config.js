@@ -27,6 +27,10 @@ export function loadConfig(env = process.env) {
     host: env.HOST || '0.0.0.0',
     dbPath: env.DB_PATH || 'cvpn.db',
     logLevel: env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
+    // What the gateways' own Xray logs at. Deliberately separate from the
+    // control plane's level: this one reaches every gateway's disk.
+    xrayLogLevel: ['debug', 'info', 'warning', 'error', 'none'].includes(env.XRAY_LOG_LEVEL)
+      ? env.XRAY_LOG_LEVEL : 'warning',
 
     // Public base URL used when rendering subscription links for operators.
     publicBaseUrl: (env.PUBLIC_BASE_URL || '').replace(/\/+$/, ''),

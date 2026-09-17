@@ -72,6 +72,9 @@ services:
       # docs/ADAPTIVE-INBOUNDS.md.
       ADAPTIVE_INBOUNDS: ${ADAPTIVE_INBOUNDS:-false}
       ADAPTIVE_INBOUNDS_PERCENT: ${ADAPTIVE_INBOUNDS_PERCENT:-0}
+      # What the gateways' own Xray logs at. 'debug' while diagnosing a
+      # handshake, 'warning' the rest of the time.
+      XRAY_LOG_LEVEL: ${XRAY_LOG_LEVEL:-warning}
       # The support bot. Off unless enabled AND given a key; see
       # docs/SUPPORT-ASSISTANT.md.
       ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
