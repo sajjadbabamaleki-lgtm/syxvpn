@@ -506,3 +506,32 @@ test('operating the extra doors', async (t) => {
     assert.equal(res.status, 404);
   });
 });
+
+test('the gateway agent is served the additional inbounds', async (t) => {
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const token = await ctx.login();
+  const gw = await seedGateway(ctx, token);
+
+  const original = { ...config.adaptiveInbounds };
+  t.after(() => Object.assign(config.adaptiveInbounds, original));
+  Object.assign(config.adaptiveInbounds, { enabled: true, rolloutPercent: 100 });
+
+  const added = await ctx.request('POST', `/api/v1/gateways/${gw.id}/inbounds`, {
+    token, body: { kind: 'shadowsocks', port: 8388 },
+  });
+  assert.equal(added.status, 201);
+
+  // The agent's copy is the only one that is ever deployed. A door the control
+  // plane generates, probes and advertises to subscribers but leaves out of
+  // this response is a door no gateway ever opens, and nothing anywhere says so.
+  const res = await ctx.agentRequest('GET', '/api/v1/agent/config', {
+    key: gw.agentKey, gatewayId: gw.id,
+  });
+  assert.equal(res.status, 200);
+  const ports = res.body.data.config.inbounds.map((i) => i.port);
+  assert.ok(
+    ports.includes(8388),
+    `the agent was not served the extra inbound: ${ports.join(',')}`,
+  );
+});

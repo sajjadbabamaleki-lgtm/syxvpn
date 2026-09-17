@@ -5,6 +5,7 @@ import { ok } from '../lib/respond.js';
 import { requireAgent, agentHeader } from '../auth/agent.js';
 import { buildGatewayConfig, egressProbePlan, recordDeployment } from '../domain/gateways.js';
 import { decryptSecrets } from '../domain/egresses.js';
+import { activeInbounds, inboundConfig } from '../domain/inbounds.js';
 import { applyAgentEgressHealth } from '../domain/health.js';
 import { ingestUsageReport } from '../domain/usage.js';
 import { EVENT, recordEvent } from '../domain/events.js';
@@ -101,7 +102,28 @@ export function agentRoutes({ db }) {
                   JOIN egresses e ON e.id = ge.egress_id WHERE ge.gateway_id = ?
                   ORDER BY ge.priority, e.priority`).all(gateway.id),
     );
-    const xray = gatewayServerConfig(gateway, clients, egresses, gateway.active_egress_id);
+    // The additional doors belong in what the gateway actually runs. They were
+    // generated, probed and offered to subscribers, but this endpoint — the one
+    // reader whose copy is deployed — rebuilt the configuration without them,
+    // so every extra inbound was written down and never opened. One that cannot
+    // be rendered is still left out rather than failing the whole fetch.
+    const extras = [];
+    for (const inbound of activeInbounds(db, gateway.id)) {
+      try {
+        inboundConfig(gateway, inbound, clients);
+        extras.push(inbound);
+      } catch (error) {
+        recordEvent(db, {
+          type: EVENT.GATEWAY_DEGRADED,
+          severity: 'warning',
+          targetType: 'gateway',
+          targetId: gateway.id,
+          message: `${gateway.name}: ${inbound.kind} inbound on ${inbound.port} left out — ${error.message}`,
+          data: { inboundId: inbound.id, kind: inbound.kind },
+        });
+      }
+    }
+    const xray = gatewayServerConfig(gateway, clients, egresses, gateway.active_egress_id, extras);
     return ok(res, {
       gatewayId: gateway.id,
       version: gateway.config_version,
