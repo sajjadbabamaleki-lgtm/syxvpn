@@ -581,7 +581,7 @@ private fun RowAction(pathData: String, description: String, onClick: () -> Unit
 private val ConfigRowHeight = 62.dp
 private val ConfigRowGap = 14.dp
 private val CountryRowHeight = 60.dp
-private val CountryRowGap = 10.dp
+private val CountryRowGap = 14.dp
 
 /**
  * Both lists end on the second row, and everything left over goes to the banner
@@ -1176,29 +1176,10 @@ private fun ColumnScope.TunnelSwitch(
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
 
-    // Why the switch will not move, under the switch, where the person pressing
-    // it is already looking. Both reasons are ordinary — a phone with no plan
-    // on it yet, and a country filter that outlived the servers it was set on —
-    // and both used to be silence.
-    if (elsewhere) {
-        Spacer(Modifier.height(8.dp))
-        Text(
-            if (source == TunnelService.Source.VPN) {
-                "The tunnel is running on a config from the Configs tab. " +
-                    "Turning this on moves it to a server from your plan."
-            } else {
-                "The tunnel is running on a server from your plan. " +
-                    "Turning this on moves it to the config chosen here."
-            },
-            color = TextDim,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(horizontal = 28.dp),
-        )
-    }
+    // The tunnel running under the other tab used to be explained here, in two
+    // lines of prose under the switch. Pressing the switch moves it and the
+    // card then names the server it moved to, which is the same answer in the
+    // place a person is already looking.
 
     if (candidates.isEmpty() && !connected && !connecting && !elsewhere) {
         Spacer(Modifier.height(8.dp))
@@ -1679,7 +1660,7 @@ private fun VpnScreen(
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         PurposeRow(
             state,
             live = connected || connecting,
@@ -1687,7 +1668,7 @@ private fun VpnScreen(
             onConnect = onConnect,
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         // Countries, not configs. This is the screen for someone who has never
         // seen a `vless://` line and does not want to: the control plane's
@@ -1757,7 +1738,9 @@ private fun VpnScreen(
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        // Nine here plus the bar's own five above its slab: the same 14 that
+        // separates everything else down this screen.
+        Spacer(Modifier.height(9.dp))
     }
 }
 
