@@ -20,6 +20,29 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
 
     data class Servers(val servers: List<Server>, val stale: Boolean, val error: String?)
 
+    /**
+     * What this phone already holds, with nothing asked of the network.
+     *
+     * `load` goes to the control plane first, and it is right to: that answer
+     * reflects gateway changes and failover. But when the control plane cannot
+     * be reached the request does not fail quickly — it fails when the socket
+     * gives up — and for the whole of that wait the list was empty, on an app
+     * that had a perfectly good copy of it on disk. Whoever opened the app read
+     * that as having lost their configs, and pulled to refresh to get them
+     * back.
+     *
+     * This is that copy, and it is free.
+     */
+    fun cached(session: SessionStore): List<Server> {
+        val imported = session.importedLines.mapNotNull { line ->
+            TunnelProfile.parse(line)?.let { Server(profile = it, imported = true) }
+        }
+        val fromPlan = session.cachedProfiles?.lines().orEmpty().mapNotNull { line ->
+            TunnelProfile.parse(line)?.let { Server(profile = it) }
+        }
+        return imported + fromPlan
+    }
+
     suspend fun load(session: SessionStore): Servers {
         // Pasted in by the person, and theirs whatever the account says. They
         // are added to every answer below rather than being an answer of their

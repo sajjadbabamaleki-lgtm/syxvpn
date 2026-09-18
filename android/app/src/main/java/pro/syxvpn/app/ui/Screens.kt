@@ -577,8 +577,12 @@ private fun RowAction(pathData: String, description: String, onClick: () -> Unit
 }
 
 // A fixed row height, so the list can be capped at a whole number of rows
-// instead of ending on a half-visible one.
-private val ConfigRowHeight = 62.dp
+// instead of ending on a half-visible one. The same 60dp and the same 20dp
+// corner as the VPN tab's country rows: two lists of the same thing, one tab
+// apart, and 2dp of height and 4dp of radius between them was a difference
+// with nothing behind it.
+private val ConfigRowHeight = 60.dp
+private val ConfigRowCorner = 20.dp
 private val ConfigRowGap = 14.dp
 private val CountryRowHeight = 60.dp
 private val CountryRowGap = 14.dp
@@ -594,6 +598,8 @@ private val CountryRowGap = 14.dp
  * for the unit that goes in it or it is not.
  */
 private const val VISIBLE_ROWS = 2
+private val ConfigListHeight =
+    ConfigRowHeight * VISIBLE_ROWS + ConfigRowGap * (VISIBLE_ROWS - 1)
 private val CountryListHeight =
     CountryRowHeight * VISIBLE_ROWS + CountryRowGap * (VISIBLE_ROWS - 1)
 
@@ -633,9 +639,9 @@ private fun AutomaticRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(ConfigRowHeight)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(ConfigRowCorner))
             .background(if (selected) SurfaceHigh else Surface)
-            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
+            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(ConfigRowCorner))
             .clickable(onClick = onSelect)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -694,9 +700,9 @@ private fun ConfigRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(ConfigRowHeight)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(ConfigRowCorner))
             .background(if (selected) SurfaceHigh else Surface)
-            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(24.dp))
+            .border(1.dp, if (selected) Ok.copy(alpha = 0.45f) else Border, RoundedCornerShape(ConfigRowCorner))
             .clickable(onClick = onSelect)
             .padding(start = 16.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1044,6 +1050,19 @@ private class ServerListState(private val session: SessionStore) {
     }
 
     suspend fun refresh(repository: SubscriptionRepository) {
+        // On screen before anything is asked of the network. The control plane
+        // can be slow or unreachable, and that call fails when the socket gives
+        // up rather than promptly — the list used to sit empty for the whole of
+        // that wait, on a phone that already held the answer. What is fetched
+        // below replaces this the moment it arrives.
+        if (servers.isEmpty()) {
+            val known = repository.cached(session)
+            if (known.isNotEmpty()) {
+                servers = known
+                val offered = known.filterNot { hidden.contains(it.key) }
+                chosen = offered.firstOrNull { it.key == chosen?.key } ?: offered.firstOrNull()
+            }
+        }
         busy = true
         runCatching { repository.load(session) }
             .onSuccess { result ->
@@ -1990,10 +2009,9 @@ private fun ConfigsScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // The list takes what is left rather than two fixed rows. The fixed
-        // height was there to leave a slot for a banner, and this tab has no
-        // banner: what it left instead was a band of empty black between the
-        // last row and the bar, taller than every gap above it.
+        // Two whole rows, the same as the country list one tab away. The spare
+        // height goes to the banner slot above the switch, which is where it
+        // goes on that tab too.
         //
         // Pulling it down refreshes it, which is the gesture people already
         // reach for.
@@ -2007,7 +2025,7 @@ private fun ConfigsScreen(
                     pulling = false
                 }
             },
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.fillMaxWidth().height(ConfigListHeight),
         ) {
             LazyColumn(
                 state = listState,
