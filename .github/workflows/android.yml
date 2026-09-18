@@ -77,6 +77,14 @@ jobs:
       - name: Android SDK
         if: steps.cached.outputs.cache-hit != 'true'
         uses: android-actions/setup-android@v3
+        # Installs nothing by default. Left to itself the action runs
+        # `sdkmanager tools`, and Google withdrew that package from the SDK
+        # repository — every run since has died here, thirty seconds in, before
+        # a line of Kotlin was compiled and with "Failed to find package
+        # 'tools'" as the only clue. What this build actually needs is
+        # installed by name in the steps below.
+        with:
+          packages: ''
 
       - name: Android NDK
         if: steps.cached.outputs.cache-hit != 'true'
@@ -144,6 +152,14 @@ jobs:
 
       - name: Android SDK
         uses: android-actions/setup-android@v3
+        # Installs nothing by default. Left to itself the action runs
+        # `sdkmanager tools`, and Google withdrew that package from the SDK
+        # repository — every run since has died here, thirty seconds in, before
+        # a line of Kotlin was compiled and with "Failed to find package
+        # 'tools'" as the only clue. What this build actually needs is
+        # installed by name in the steps below.
+        with:
+          packages: ''
 
       - name: Install the platform this app compiles against
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
