@@ -579,7 +579,7 @@ private fun RowAction(pathData: String, description: String, onClick: () -> Unit
 // A fixed row height, so the list can be capped at a whole number of rows
 // instead of ending on a half-visible one.
 private val ConfigRowHeight = 62.dp
-private val ConfigRowGap = 13.dp
+private val ConfigRowGap = 14.dp
 private val CountryRowHeight = 60.dp
 private val CountryRowGap = 10.dp
 
@@ -594,8 +594,6 @@ private val CountryRowGap = 10.dp
  * for the unit that goes in it or it is not.
  */
 private const val VISIBLE_ROWS = 2
-private val ConfigListHeight =
-    ConfigRowHeight * VISIBLE_ROWS + ConfigRowGap * (VISIBLE_ROWS - 1)
 private val CountryListHeight =
     CountryRowHeight * VISIBLE_ROWS + CountryRowGap * (VISIBLE_ROWS - 1)
 
@@ -783,7 +781,12 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
         Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            // Five above the slab, twelve below it. Twelve on both sides put
+            // the bar's own black a long way above its top edge, and on a
+            // screen that ends in a list it read as a gap in the layout rather
+            // than as the bar's padding.
+            .padding(horizontal = 14.dp)
+            .padding(top = 5.dp, bottom = 12.dp),
     ) {
         Row(
             Modifier
@@ -1928,6 +1931,18 @@ private fun ConfigsScreen(
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
     val current = currentServer(state, choosing = state.configAutomatic)
 
+    // The config carrying the traffic sits directly under Automatic, wherever
+    // it came in the list. It is the row a person opens this tab to look at,
+    // and leaving it where the subscription happened to put it meant scrolling
+    // to find the one thing that is actually running.
+    //
+    // sortedByDescending is stable, so everything else keeps the order it
+    // arrived in.
+    val ordered = remember(state.visible, current?.key) {
+        val running = current?.key
+        if (running == null) state.visible else state.visible.sortedByDescending { it.key == running }
+    }
+
     // Measured once when the list is first shown, and again on a pull. Not on a
     // timer: a sweep is real traffic to real servers, and a screen nobody is
     // looking at has no reason to make it.
@@ -1990,10 +2005,15 @@ private fun ConfigsScreen(
             )
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // Two rows, ending on a whole one, and the rest scrolls. Pulling it
-        // down refreshes it, which is the gesture people already reach for.
+        // The list takes what is left rather than two fixed rows. The fixed
+        // height was there to leave a slot for a banner, and this tab has no
+        // banner: what it left instead was a band of empty black between the
+        // last row and the bar, taller than every gap above it.
+        //
+        // Pulling it down refreshes it, which is the gesture people already
+        // reach for.
         PullToRefreshBox(
             isRefreshing = pulling,
             onRefresh = {
@@ -2004,7 +2024,7 @@ private fun ConfigsScreen(
                     pulling = false
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(ConfigListHeight),
+            modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
             LazyColumn(
                 state = listState,
@@ -2073,7 +2093,7 @@ private fun ConfigsScreen(
                     // Keyed on the line itself: two profiles can share a host
                     // and port and be different doors into it, and a key that
                     // is only the address would collapse them into one row.
-                    items(state.visible, key = { it.profile.uri }) { server ->
+                    items(ordered, key = { it.profile.uri }) { server ->
                         val profile = server.profile
                         // Two different things, and only one of them is a
                         // ring: the row in use, which under Automatic is the
@@ -2152,7 +2172,11 @@ private fun ConfigsScreen(
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        // Nine, not fourteen: the bar adds five of its own above the slab, and
+        // the two together are the same 14dp that separates everything else on
+        // this screen. Fourteen here made it twenty-six — a band of black under
+        // the last row twice the size of every other gap.
+        Spacer(Modifier.height(9.dp))
     }
 }
 
