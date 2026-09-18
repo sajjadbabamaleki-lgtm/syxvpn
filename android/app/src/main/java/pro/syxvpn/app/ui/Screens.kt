@@ -164,25 +164,27 @@ private fun Modifier.litCard(): Modifier = this
     .background(Brush.verticalGradient(0f to CardTop, 0.62f to CardFoot, 1f to CardFoot))
     .drawBehind {
         // The light lives in the one part of a card that holds nothing: the
-        // block of glass below the price, on the right. It is kept there by
-        // where it starts as much as by where it is centred — the band begins
-        // under the price line, so no part of the glow can reach up and sit
-        // behind the figure the way it did when it was centred on the top edge.
-        val top = 52.dp.toPx()
-        val band = (size.height - top).coerceAtMost(112.dp.toPx())
-        if (band > 0f) {
-            drawRect(
-                brush = Brush.radialGradient(
-                    0.00f to GoldSoft.copy(alpha = 0.30f),
-                    0.42f to Gold.copy(alpha = 0.12f),
-                    1.00f to Color.Transparent,
-                    center = Offset(size.width * 0.85f, top + 46.dp.toPx()),
-                    radius = 66.dp.toPx(),
-                ),
-                topLeft = Offset(0f, top),
-                size = Size(size.width, band),
-            )
-        }
+        // lower right of the glass, below whatever the card leads with.
+        //
+        // It is placed from the foot rather than clipped into a band starting
+        // part-way down. The band kept the glow off a tall card's price, but
+        // its own top edge was a straight horizontal cut, and on a short card —
+        // the one naming the server — that cut ran through the middle of the
+        // glow. What should have read as light read as a torn edge.
+        //
+        // Five stops rather than three: on a surface this dark the wide jump
+        // from 0.42 to transparent banded into a visible ring.
+        drawRect(
+            brush = Brush.radialGradient(
+                0.00f to GoldSoft.copy(alpha = 0.26f),
+                0.26f to Gold.copy(alpha = 0.13f),
+                0.50f to Gold.copy(alpha = 0.06f),
+                0.74f to Gold.copy(alpha = 0.02f),
+                1.00f to Color.Transparent,
+                center = Offset(size.width * 0.85f, size.height - 30.dp.toPx()),
+                radius = 78.dp.toPx(),
+            ),
+        )
     }
 
 @Composable
@@ -1084,7 +1086,6 @@ private fun ColumnScope.TunnelSwitch(
 ) {
     val tunnelState by TunnelService.state.collectAsState()
     val tunnelSource by TunnelService.source.collectAsState()
-    val uptime by TunnelService.uptimeSeconds.collectAsState()
 
     // A phone has one tunnel, and the app sells two things through it: servers
     // a plan provides, and configs a person brought. Reading the tunnel's state
@@ -1171,15 +1172,6 @@ private fun ColumnScope.TunnelSwitch(
         letterSpacing = 2.sp,
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
-    if (connected) {
-        Spacer(Modifier.height(3.dp))
-        Text(
-            formatUptime(uptime),
-            color = TextFaint,
-            fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-    }
 
     // Why the switch will not move, under the switch, where the person pressing
     // it is already looking. Both reasons are ordinary — a phone with no plan
@@ -1225,10 +1217,11 @@ private fun ColumnScope.TunnelSwitch(
         )
     }
 
-    // Half what it was. The timer under CONNECTED and the card naming the server
-    // are one thought — which server you are on, and for how long — and 20dp set
-    // them far enough apart to read as two.
-    Spacer(Modifier.height(10.dp))
+    // The same 16dp that sits above the status line. With the timer moved into
+    // the card, the switch, the word under it and the card are three things
+    // evenly spaced, and an uneven gap here read as the status line belonging
+    // to the card rather than to the switch it describes.
+    Spacer(Modifier.height(16.dp))
 }
 
 /**
@@ -1408,6 +1401,7 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
     val activity by TunnelService.activity.collectAsState()
     val activeLabel by TunnelService.activeLabel.collectAsState()
     val traffic by TunnelService.traffic.collectAsState()
+    val uptime by TunnelService.uptimeSeconds.collectAsState()
     val connected = tunnelState == TunnelService.State.CONNECTED
     val current = currentServer(state, choosing = state.configAutomatic)
     val selected = current?.profile
@@ -1465,15 +1459,29 @@ private fun ColumnScope.ConnectionCard(state: ServerListState) {
             }
             selected?.let { profile ->
                 Spacer(Modifier.width(10.dp))
-                Text(
-                    // Whatever this connection turned out to be. The profile
-                    // says so itself, so a protocol added later is named here
-                    // rather than quietly labelled as the old one.
-                    profile.protocolLabel.replace(" · ", "  ·  "),
-                    color = TextFaint,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        // Whatever this connection turned out to be. The profile
+                        // says so itself, so a protocol added later is named here
+                        // rather than quietly labelled as the old one.
+                        profile.protocolLabel.replace(" · ", "  ·  "),
+                        color = TextFaint,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                    )
+                    // How long this session has been up, on the card that names
+                    // the server carrying it. Under the switch it was a number
+                    // with nothing beside it to say what it was counting.
+                    if (connected) {
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            formatUptime(uptime),
+                            color = TextFaint,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
 
@@ -1543,7 +1551,15 @@ private fun StatTile(
 @Composable
 private fun TileValue(arrow: String, value: String, live: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(arrow, color = if (live) Ok else TextFaint, fontSize = 13.sp)
+        // Bigger and bolder than the figure beside it. At 13sp regular these
+        // glyphs are a hairline — the one stroke in the tile that says which
+        // direction the bytes went, and the hardest thing on the card to see.
+        Text(
+            arrow,
+            color = if (live) Ok else TextFaint,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Spacer(Modifier.width(5.dp))
         Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
