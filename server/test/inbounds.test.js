@@ -241,6 +241,36 @@ test('the subscription endpoint', async (t) => {
   const inboundId = added.body.data.id;
   ctx.db.prepare("UPDATE gateway_inbounds SET status='online' WHERE id=?").run(inboundId);
 
+  await t.test('an operator selling by hand is handed every door, cohort or not', async () => {
+    // The rollout fraction decides what a subscription advertises to clients
+    // fetching on their own. An operator handing a config over is choosing the
+    // door themselves, and a screen that showed fewer than exist would be
+    // hiding the only door some customers' apps can open.
+    const off = { ...config.adaptiveInbounds };
+    Object.assign(config.adaptiveInbounds, { enabled: true, rolloutPercent: 0 });
+    try {
+      const sale = await ctx.request('POST', '/api/v1/subscribers', {
+        token, body: { name: 'Walk-in', quotaGb: 5, days: 30 },
+      });
+      assert.equal(sale.status, 201);
+      const kinds = sale.body.data.profiles.map((p) => p.protocol);
+      assert.ok(kinds.includes('vless'), `no vless line: ${kinds}`);
+      assert.ok(kinds.includes('shadowsocks'), `no shadowsocks line: ${kinds}`);
+      const ssLine = sale.body.data.profiles.find((p) => p.protocol === 'shadowsocks');
+      assert.match(ssLine.uri, /^ss:\/\//);
+
+      // And again when the operator comes back to the subscriber's own page,
+      // which is where a link that was lost is recovered.
+      const revealed = await ctx.request('GET', `/api/v1/subscribers/${sale.body.data.id}/subscription`, { token });
+      assert.deepEqual(
+        revealed.body.data.profiles.map((p) => p.uri),
+        sale.body.data.profiles.map((p) => p.uri),
+      );
+    } finally {
+      Object.assign(config.adaptiveInbounds, off);
+    }
+  });
+
   await t.test('an old client is handed exactly what it was handed before', async () => {
     // The app already on phones asks for no protocols and cannot read an ss://
     // line. Serving it one would be a client that connects to nothing.

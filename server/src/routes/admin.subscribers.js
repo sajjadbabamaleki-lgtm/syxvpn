@@ -9,6 +9,7 @@ import {
   createSubscriberBatch, listBatches, subscribersInBatch, revealToken,
 } from '../domain/subscribers.js';
 import { clientProfile } from '../domain/xray.js';
+import { inboundProfile, offerableInbounds } from '../domain/inbounds.js';
 import { usableGateways, gatewaysFor } from './public.js';
 import { recordEvent } from '../domain/events.js';
 import { subscriberView } from './serialize.js';
@@ -60,6 +61,48 @@ const rotateCredentialSchema = z.object({
   graceMinutes: z.coerce.number().int().min(0).max(1440).default(0),
 });
 
+/**
+ * Every config this subscriber can use, one line per door.
+ *
+ * The gateway's own inbound and the additional ones beside it — a gateway can
+ * carry more than one protocol on more than one port, all of them the same
+ * credential to the same egress. The operator screens showed only the first,
+ * which is the one door a client that cannot speak REALITY has no way in by:
+ * selling a config meant no way to hand over the door that client can open.
+ *
+ * Not gated on the rollout cohort. That fraction decides what a subscription is
+ * *advertised* as carrying, which is a rollout decision about clients fetching
+ * on their own; an operator handing someone a config by hand is choosing the
+ * door themselves, and being shown fewer than exist would just be a screen
+ * hiding what it knows.
+ */
+function allProfiles(db, subscriberId) {
+  const credential = activeCredentials(db, subscriberId).find((c) => c.state === 'active');
+  if (!credential) return [];
+  return gatewaysFor(db, subscriberId).flatMap(({ gateway, state }) => {
+    const lines = [{
+      gatewayId: gateway.id,
+      gatewayName: gateway.name,
+      routeState: state,
+      protocol: 'vless',
+      label: gateway.name,
+      uri: clientProfile(gateway, credential.uuid),
+    }];
+    for (const inbound of offerableInbounds(db, gateway.id)) {
+      lines.push({
+        gatewayId: gateway.id,
+        gatewayName: gateway.name,
+        routeState: state,
+        protocol: inbound.kind,
+        inboundId: inbound.id,
+        label: `${gateway.name} · ${inbound.kind}`,
+        uri: inboundProfile(gateway, inbound, credential.uuid),
+      });
+    }
+    return lines;
+  });
+}
+
 function subscriptionUrl(req, token) {
   const base = config.publicBaseUrl || `${req.protocol}://${req.get('host')}`;
   return `${base}/sub/${token}`;
@@ -91,21 +134,13 @@ export function adminSubscriberRoutes({ db }) {
   router.post('/', validate(createSchema), (req, res) => {
     const { id, token } = createSubscriber(db, req.body);
     const sub = getSubscriber(db, id);
-    const credential = activeCredentials(db, id).find((c) => c.state === 'active');
     // The lines this subscriber can actually use, on the screen that made
     // them. Selling one config is: create it, hand it over. Returning only
     // the subscription link meant the second half of that was a trip through
     // the subscriber's page to reveal what was just generated — and a customer
     // whose client app takes a config rather than a link cannot be served from
     // this screen at all.
-    const profiles = credential
-      ? gatewaysFor(db, id).map(({ gateway, state }) => ({
-        gatewayId: gateway.id,
-        gatewayName: gateway.name,
-        routeState: state,
-        uri: clientProfile(gateway, credential.uuid),
-      }))
-      : [];
+    const profiles = allProfiles(db, id);
     // The raw token is shown exactly once; only its hash is stored.
     return created(res, {
       ...subscriberView(sub, { entitled: true, entitlementReason: 'active' }),
@@ -135,9 +170,10 @@ export function adminSubscriberRoutes({ db }) {
         // The raw profile URIs, for handing someone a single config rather than
         // a subscription link. Each subscriber's own gateways, not the fleet's:
         // what is printed here is what that subscriber can leak.
-        profiles: credential
-          ? gatewaysFor(db, id).map(({ gateway }) => clientProfile(gateway, credential.uuid))
-          : [],
+        // Every door, as bare lines: a batch is handed out the same way one
+        // config is, and a list that carried only the gateway's own inbound
+        // would leave every client that cannot speak it without one.
+        profiles: allProfiles(db, id).map((p) => p.uri),
         quotaBytes: sub.quota_bytes,
         expiresAt: new Date(sub.expires_at).toISOString(),
       };
@@ -251,22 +287,15 @@ export function adminSubscriberRoutes({ db }) {
     if (!sub) return next(notFound('Subscriber'));
     const token = revealToken(db, sub.id);
     if (!token) return next(notFound('Subscription token'));
-    const credential = activeCredentials(db, sub.id).find((c) => c.state === 'active');
     // What this subscriber is actually served, so an operator reading a link
     // sees the same list the customer does.
-    const routes = gatewaysFor(db, sub.id);
     recordEvent(db, {
       type: 'subscriber.link_revealed', severity: 'info', targetType: 'subscriber', targetId: sub.id,
       message: `Subscription link for ${sub.name} shown to ${req.admin.username}`,
     });
     return ok(res, {
       subscriptionUrl: subscriptionUrl(req, token),
-      profiles: credential ? routes.map(({ gateway, state }) => ({
-        gatewayId: gateway.id,
-        gatewayName: gateway.name,
-        routeState: state,
-        uri: clientProfile(gateway, credential.uuid),
-      })) : [],
+      profiles: allProfiles(db, sub.id),
     });
   });
 
