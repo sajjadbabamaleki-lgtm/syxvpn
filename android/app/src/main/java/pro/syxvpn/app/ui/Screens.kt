@@ -65,10 +65,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pro.syxvpn.app.BuildConfig
 import pro.syxvpn.app.SyxVpnApp as SyxVpnApplication
 import pro.syxvpn.app.core.ConfigHealth
@@ -84,10 +86,12 @@ import pro.syxvpn.app.core.Purpose
 import pro.syxvpn.app.core.RouteState
 import pro.syxvpn.app.core.Server
 import pro.syxvpn.app.core.supportLink
+import pro.syxvpn.app.core.XrayConfigBuilder
 import pro.syxvpn.app.data.ControlPlaneClient
 import pro.syxvpn.app.data.SessionStore
 import pro.syxvpn.app.data.SubscriptionRepository
 import pro.syxvpn.app.vpn.TunnelService
+import pro.syxvpn.app.vpn.createXrayBridge
 
 // The palette is the public page's, value for value — see the token block at
 // the top of public/landing.css. The app and the site are one product, and a
@@ -538,6 +542,8 @@ private const val ICON_GLOBE =
     "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"
 private const val ICON_SERVERS = "M4 5h16v6H4zM4 15h16v4H4zM8 8h.01M8 17h.01"
 private const val ICON_CHEVRON = "M9 5l7 7-7 7"
+// A heartbeat line: the row's own test, which is a request sent and answered.
+private const val ICON_PULSE = "M3 12h4l3 7 4-14 3 7h4"
 private const val ICON_CHAT =
     "M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1 -2.5 2.5H10l-6 4.5v-14z"
 private const val ICON_USER =
@@ -563,7 +569,12 @@ private fun PathIcon(pathData: String, size: androidx.compose.ui.unit.Dp, color:
 
 /** An icon button sized for a thumb, not for a mouse. */
 @Composable
-private fun RowAction(pathData: String, description: String, onClick: () -> Unit) {
+private fun RowAction(
+    pathData: String,
+    description: String,
+    onClick: () -> Unit,
+    tint: Color = TextDim,
+) {
     Box(
         Modifier
             .size(40.dp)
@@ -572,7 +583,28 @@ private fun RowAction(pathData: String, description: String, onClick: () -> Unit
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        PathIcon(pathData, 19.dp, TextDim)
+        PathIcon(pathData, 19.dp, tint)
+    }
+}
+
+/**
+ * Four characters that tell one config from another.
+ *
+ * Taken from the credential in the line itself — the one part of a config that
+ * is unique to it — so two subscriptions into the same gateway, which share a
+ * name and an address, read as different rows. Short because it is an
+ * identifier a person compares at a glance, not one they type, and it is only
+ * ever shown beside the address it belongs to.
+ */
+private fun configTag(server: Server): String {
+    val uri = server.profile.uri
+    val credential = uri.substringAfter("://", "").substringBefore('@')
+        .ifEmpty { uri }
+    val letters = credential.filter { it.isLetterOrDigit() }
+    return if (letters.length >= 4) letters.takeLast(4) else {
+        // Nothing usable in the line: a stable number from the whole of it is
+        // still an identifier, and still the same one on every draw.
+        Integer.toHexString(uri.hashCode()).takeLast(4)
     }
 }
 
@@ -691,7 +723,11 @@ private fun ConfigRow(
     connected: Boolean,
     health: ConfigHealth,
     pingMs: Long?,
+    testMs: Long?,
+    tested: Boolean,
+    testing: Boolean,
     onSelect: () -> Unit,
+    onTest: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onHide: () -> Unit,
@@ -736,11 +772,24 @@ private fun ConfigRow(
             )
             Text(
                 buildString {
+                    // Which of them this is. Two configs into one gateway carry
+                    // the same name and the same address and differ only in the
+                    // credential, and without this the list offers no way to
+                    // tell the row that works from the row that does not.
+                    append("#${configTag(server)}  ·  ")
                     append("${server.profile.host}:${server.profile.port}")
-                    // A number only when one was actually measured from this
-                    // phone; there is no place here for a plausible-looking one.
-                    pingMs?.let { append("  ·  $it ms") }
-                    if (pingMs == null && health == ConfigHealth.OFFLINE) append("  ·  no answer")
+                    when {
+                        // The test speaks for the whole path and outranks the
+                        // handshake, so it is what the row says once taken.
+                        testing -> append("  ·  testing…")
+                        testMs != null -> append("  ·  $testMs ms end to end")
+                        tested -> append("  ·  test failed")
+                        // A number only when one was actually measured from this
+                        // phone; there is no place here for a plausible-looking one.
+                        pingMs != null -> append("  ·  $pingMs ms")
+                        health == ConfigHealth.OFFLINE -> append("  ·  no answer")
+                        else -> Unit
+                    }
                     // The control plane's verdict on the far half of the path.
                     // "healthy" is the ordinary case and needs no label.
                     when (server.routeState) {
@@ -750,6 +799,8 @@ private fun ConfigRow(
                     }
                 },
                 color = when {
+                    tested && testMs == null && !testing -> Bad
+                    testMs != null -> Ok
                     health == ConfigHealth.OFFLINE -> Bad
                     server.routeState == RouteState.HEALTHY || server.routeState == RouteState.UNKNOWN -> TextDim
                     else -> Pending
@@ -759,6 +810,7 @@ private fun ConfigRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        RowAction(ICON_PULSE, "Test this config", onTest, tint = if (testing) Accent else TextFaint)
         RowAction(ICON_COPY, "Copy this config", onCopy)
         RowAction(ICON_SHARE, "Share this config", onShare)
         // Hiding a config that came from a subscription is undoable: a refresh
@@ -921,6 +973,61 @@ private class ServerListState(private val session: SessionStore) {
 
     var checking by mutableStateOf(false)
         private set
+
+    /**
+     * What a real end-to-end test returned, per config line.
+     *
+     * Separate from [probes] because it answers a different question. A probe
+     * is a TCP handshake to an address: two configs into the same gateway give
+     * the same number, and neither number says whether the credential in the
+     * config is still accepted. This one goes through the config — its
+     * credential, its encryption, its gateway's onward path — and a failure
+     * here is the config being dead rather than the address being unreachable.
+     */
+    var tests by mutableStateOf<Map<String, Long?>>(emptyMap())
+        private set
+
+    /** The config line currently under test, or null. */
+    var testing by mutableStateOf<String?>(null)
+        private set
+
+    /** The end-to-end result for a config, when one has been taken. */
+    fun testOf(server: Server): Long? = tests[server.profile.uri]
+
+    fun wasTested(server: Server): Boolean = tests.containsKey(server.profile.uri)
+
+    /**
+     * Tests one config the whole way through, and records what came back.
+     *
+     * libXray builds a temporary instance per test and refuses to build one
+     * beside a running core, so this is for a tunnel that is down. The caller
+     * checks that: a button that silently did nothing while connected would be
+     * worse than one that says why.
+     */
+    suspend fun test(server: Server) {
+        if (testing != null) return
+        testing = server.profile.uri
+        try {
+            val rtt = withContext(Dispatchers.IO) {
+                runCatching {
+                    createXrayBridge({ true }, 0)
+                        .probe(listOf(XrayConfigBuilder.outboundOnly(server.profile)))
+                        .firstOrNull()
+                }.getOrNull()
+            }
+            tests = tests + (server.profile.uri to rtt)
+            // Named by its tag as well: two rows can carry the same label,
+            // and a line that says only the label would report on one of them
+            // and appear to report on both.
+            status = if (rtt == null) {
+                "${server.label} #${configTag(server)} did not answer"
+            } else {
+                "${server.label} #${configTag(server)} answered in $rtt ms"
+            }
+        } finally {
+            testing = null
+        }
+    }
 
     fun usePurpose(value: Purpose) {
         purpose = value
@@ -2129,6 +2236,27 @@ private fun ConfigsScreen(
                             connected = connected,
                             health = state.health(server),
                             pingMs = state.ping(server),
+                            testMs = state.testOf(server),
+                            tested = state.wasTested(server),
+                            testing = state.testing == profile.uri,
+                            onTest = {
+                                // The core builds a temporary instance for the
+                                // test and will not build one beside a running
+                                // tunnel, so this says why rather than failing
+                                // quietly.
+                                // Any tunnel, not only this tab's: the core
+                                // refuses a second instance whichever screen
+                                // started the first one.
+                                val tunnelUp = tunnelState == TunnelService.State.CONNECTED ||
+                                    tunnelState == TunnelService.State.CONNECTING
+                                when {
+                                    tunnelUp ->
+                                        state.status = "Turn the tunnel off to test a config"
+                                    state.testing != null ->
+                                        state.status = "One test at a time"
+                                    else -> scope.launch { state.test(server) }
+                                }
+                            },
                             onSelect = {
                                 // Choosing a row by hand is a statement:
                                 // automatic mode ends here rather than quietly
