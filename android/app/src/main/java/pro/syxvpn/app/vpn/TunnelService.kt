@@ -284,6 +284,10 @@ class TunnelService : VpnService() {
                     rememberMeasurements()
                     runtimeVersion.value = runtime.version()
                     activeServer.value = server.key
+                    // The line itself, because two configs can be the same
+                    // address and different doors into it: a key that is only
+                    // host and port cannot say which of them is carrying this.
+                    activeUri.value = server.profile.uri
                     activeLabel.value = server.label
                     activity.value = null
                     connectedAt = System.currentTimeMillis()
@@ -807,6 +811,16 @@ class TunnelService : VpnService() {
 
         /** The server the tunnel actually settled on, as host:port. */
         val activeServer = MutableStateFlow<String?>(null)
+
+        /**
+         * The same server, as the config line it came from.
+         *
+         * Two subscriptions to the same gateway are two rows in the list, the
+         * same address and different credentials. Identified by address they
+         * are one thing, and the screen lit both of them up while one was
+         * running. This says which.
+         */
+        val activeUri = MutableStateFlow<String?>(null)
         val activeLabel = MutableStateFlow<String?>(null)
 
         /** What the tunnel is doing while it is not yet connected. */

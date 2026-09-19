@@ -1237,12 +1237,17 @@ private fun ColumnScope.TunnelSwitch(
 @Composable
 private fun currentServer(state: ServerListState, choosing: Boolean): Server? {
     val activeServer by TunnelService.activeServer.collectAsState()
+    val activeUri by TunnelService.activeUri.collectAsState()
     return if (choosing) {
         // The tunnel's pick, and nothing when it has not picked yet. Falling
         // back to the last hand-picked config would put a server's name on a
         // card that is set to choose one — a promise about which server is
         // coming up that nothing has made.
-        state.visible.firstOrNull { it.key == activeServer }
+        //
+        // By the line first: two rows can carry the same address, and matching
+        // on the address alone answers with whichever of them came first.
+        state.visible.firstOrNull { it.profile.uri == activeUri }
+            ?: state.visible.firstOrNull { it.key == activeServer }
     } else {
         state.chosen
     }
@@ -1933,16 +1938,24 @@ private fun ConfigsScreen(
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
     val current = currentServer(state, choosing = state.configAutomatic)
 
-    // The config carrying the traffic sits directly under Automatic, wherever
-    // it came in the list. It is the row a person opens this tab to look at,
-    // and leaving it where the subscription happened to put it meant scrolling
-    // to find the one thing that is actually running.
+    // The row in play sits directly under Automatic, wherever it came in the
+    // list: the one this person picked, or under Automatic the one the tunnel
+    // picked for them. It is the row they opened this tab to look at, and
+    // leaving it where the subscription happened to put it meant scrolling to
+    // find it. Picking a row therefore moves it to the top, whether or not the
+    // tunnel is running — the answer to "which one is mine" should not wait
+    // for a connection.
+    //
+    // By the config line, not the address: two rows can share an address, and
+    // sorting on that raises both.
     //
     // sortedByDescending is stable, so everything else keeps the order it
     // arrived in.
-    val ordered = remember(state.visible, current?.key) {
-        val running = current?.key
-        if (running == null) state.visible else state.visible.sortedByDescending { it.key == running }
+    val chosenUri = state.chosen?.profile?.uri?.takeIf { !state.configAutomatic }
+    val leadUri = chosenUri ?: current?.profile?.uri
+    val ordered = remember(state.visible, leadUri) {
+        if (leadUri == null) state.visible
+        else state.visible.sortedByDescending { it.profile.uri == leadUri }
     }
 
     // Measured once when the list is first shown, and again on a pull. Not on a
@@ -2096,15 +2109,20 @@ private fun ConfigsScreen(
                     // is only the address would collapse them into one row.
                     items(ordered, key = { it.profile.uri }) { server ->
                         val profile = server.profile
-                        // Two different things, and only one of them is a
-                        // ring: the row in use, which under Automatic is the
-                        // tunnel's own pick, and the row this person chose.
-                        // Under Automatic nothing here is chosen — the row
-                        // above is — and the card already names what is
-                        // running, so the rows keep their health dots and the
-                        // ring stays on the choice, as on the VPN tab.
-                        val inUse = server.key == current?.key
-                        val pinned = !state.configAutomatic && inUse
+                        // The row carrying the traffic, by its own line: an
+                        // address can belong to two rows, and comparing
+                        // addresses lit up both of them while one was running.
+                        //
+                        // The ring says "this one is carrying it", so it is on
+                        // only while the tunnel is up. A row picked with the
+                        // tunnel off is already answered for by its place at
+                        // the top of the list; a ring there would be a claim
+                        // about traffic that is not moving. Under Automatic the
+                        // ring belongs to the Automatic row — the choice was
+                        // made there — so exactly one thing on this screen is
+                        // ever ringed.
+                        val inUse = server.profile.uri == current?.profile?.uri
+                        val pinned = !state.configAutomatic && inUse && (connected || connecting)
                         ConfigRow(
                             server = server,
                             selected = pinned,
