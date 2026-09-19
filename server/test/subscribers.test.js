@@ -37,6 +37,24 @@ test('subscriber lifecycle and subscription delivery', async (t) => {
     }
   });
 
+  await t.test('hands back the configs it just made, so one screen completes a sale', async () => {
+    const res = await ctx.request('POST', '/api/v1/subscribers', {
+      token, body: { name: 'Walk-in', quotaGb: 25, days: 30 },
+    });
+    assert.equal(res.status, 201);
+    const { profiles, subscriptionUrl } = res.body.data;
+    assert.ok(subscriptionUrl.includes('/sub/'), subscriptionUrl);
+    // A customer whose client app takes a config rather than a link is served
+    // from this response or not at all.
+    assert.equal(profiles.length, 1);
+    assert.equal(profiles[0].gatewayId, gateway.id);
+    assert.match(profiles[0].uri, /^(vless|trojan|ss):\/\//);
+    // The same lines the subscriber's own page reveals later: one sale, one
+    // set of configs, however the operator comes back to them.
+    const revealed = await ctx.request('GET', `/api/v1/subscribers/${res.body.data.id}/subscription`, { token });
+    assert.deepEqual(revealed.body.data.profiles.map((p) => p.uri), profiles.map((p) => p.uri));
+  });
+
   await t.test('stores only the hash of a subscription token', async () => {
     const res = await ctx.request('POST', '/api/v1/subscribers', {
       token, body: { name: 'Hashed', quotaGb: 1, days: 7 },

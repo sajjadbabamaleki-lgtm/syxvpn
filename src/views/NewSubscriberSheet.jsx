@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { invalidate } from '../lib/useResource.js';
 import { Sheet, Button, Field, CopyButton } from '../components/ui.jsx';
+import { Qr } from '../components/Qr.jsx';
 
 /**
  * Creating a subscriber returns the subscription URL exactly once — the control
@@ -46,18 +47,7 @@ export function NewSubscriberSheet({ open, onClose, onCreated }) {
   return (
     <Sheet open={open} title={result ? 'Subscriber created' : 'New subscriber'} onClose={close}>
       {result ? (
-        <div className="result">
-          <p className="result-name">{result.name}</p>
-          <p className="warn-note">
-            This URL is shown once. The control plane stores only its hash and cannot show it again —
-            rotate the token if it is lost.
-          </p>
-          <code className="token-box">{result.subscriptionUrl}</code>
-          <div className="action-row">
-            <CopyButton value={result.subscriptionUrl} label="Copy subscription URL" />
-            <Button variant="ghost" onClick={close}>Done</Button>
-          </div>
-        </div>
+        <Handover result={result} onDone={close} />
       ) : (
         <form onSubmit={submit} className="form">
           <Field label="Name or label">
@@ -76,5 +66,75 @@ export function NewSubscriberSheet({ open, onClose, onCreated }) {
         </form>
       )}
     </Sheet>
+  );
+}
+
+/**
+ * What the operator hands over, on the screen that made it.
+ *
+ * Two things leave here and they are not interchangeable. The subscription
+ * link is the one worth selling: it is read again every time the customer's
+ * app refreshes, so a gateway added or replaced later reaches them without
+ * anybody being asked to paste anything. A config line is a copy of today's
+ * gateway, frozen — but it is the only thing some client apps accept, and
+ * refusing to show it here would mean the sale finishes somewhere else.
+ *
+ * The QR is the import path that works everywhere, including apps with no URL
+ * scheme of their own, so it shows whichever of the two is selected rather
+ * than sitting under one of them.
+ */
+function Handover({ result, onDone }) {
+  const profiles = result.profiles || [];
+  const [showing, setShowing] = useState('link');
+  const current = showing === 'link' ? result.subscriptionUrl : profiles[showing]?.uri;
+
+  return (
+    <div className="result">
+      <p className="result-name">{result.name}</p>
+      <p className="warn-note">
+        This link is shown once. The control plane stores only its hash and cannot show it again —
+        rotate the token if it is lost.
+      </p>
+
+      <div className="action-row">
+        <Button
+          variant={showing === 'link' ? 'primary' : 'ghost'}
+          onClick={() => setShowing('link')}
+        >
+          Subscription link
+        </Button>
+        {profiles.map((profile, index) => (
+          <Button
+            key={profile.gatewayId}
+            variant={showing === index ? 'primary' : 'ghost'}
+            onClick={() => setShowing(index)}
+          >
+            {profile.gatewayName}
+          </Button>
+        ))}
+      </div>
+
+      {current && (
+        <div className="qr-wrap">
+          <Qr value={current} size={220} label={showing === 'link' ? 'Subscription link' : 'Config'} />
+        </div>
+      )}
+      {current && <code className="token-box">{current}</code>}
+
+      {profiles.length === 0 && (
+        <p className="warn-note">
+          No gateway can serve this subscriber yet, so there is no config to hand over — only the
+          link, which starts working the moment one comes online.
+        </p>
+      )}
+
+      <div className="action-row">
+        {current && <CopyButton value={current} label={showing === 'link' ? 'Copy link' : 'Copy config'} />}
+        {profiles.length > 1 && (
+          <CopyButton value={profiles.map((p) => p.uri).join('\n')} label="Copy all configs" />
+        )}
+        <Button variant="ghost" onClick={onDone}>Done</Button>
+      </div>
+    </div>
   );
 }

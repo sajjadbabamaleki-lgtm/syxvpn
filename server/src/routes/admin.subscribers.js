@@ -91,11 +91,27 @@ export function adminSubscriberRoutes({ db }) {
   router.post('/', validate(createSchema), (req, res) => {
     const { id, token } = createSubscriber(db, req.body);
     const sub = getSubscriber(db, id);
+    const credential = activeCredentials(db, id).find((c) => c.state === 'active');
+    // The lines this subscriber can actually use, on the screen that made
+    // them. Selling one config is: create it, hand it over. Returning only
+    // the subscription link meant the second half of that was a trip through
+    // the subscriber's page to reveal what was just generated — and a customer
+    // whose client app takes a config rather than a link cannot be served from
+    // this screen at all.
+    const profiles = credential
+      ? gatewaysFor(db, id).map(({ gateway, state }) => ({
+        gatewayId: gateway.id,
+        gatewayName: gateway.name,
+        routeState: state,
+        uri: clientProfile(gateway, credential.uuid),
+      }))
+      : [];
     // The raw token is shown exactly once; only its hash is stored.
     return created(res, {
       ...subscriberView(sub, { entitled: true, entitlementReason: 'active' }),
       subscriptionUrl: subscriptionUrl(req, token),
       subscriptionToken: token,
+      profiles,
     });
   });
 
