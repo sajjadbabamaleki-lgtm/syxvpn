@@ -50,6 +50,31 @@ lab can prove that, and no configuration can create a path that does not exist.
 The lab proves the control plane, the agent and the generated data plane behave
 correctly when a path dies — no more.
 
+## REALITY
+
+The docker scenarios above are all WebSocket. `reality-e2e.mjs` covers the
+REALITY path separately, without docker, and answers the question the other
+tests do not: does a config this control plane issues work in a **third-party**
+client? It takes the `vless://` link from `clientProfile()`, builds a client
+from only what that link carries — the way v2rayNG and NPV Tunnel build theirs —
+and runs it against the inbound `gatewayServerConfig()` produces.
+
+```sh
+node lab/reality-e2e.mjs
+XRAY_SERVER_BIN=./lab/bin/xray-26.3.27 XRAY_CLIENT_BIN=./lab/bin/xray-26.6.27 \
+  node lab/reality-e2e.mjs
+```
+
+The two binaries matter: a gateway usually runs an older core than the phone.
+Both cores are asserted against the same generated pair, and a wrong public key
+and a wrong short id must both be refused, or the run reports itself invalid.
+
+Last run: the handshake passes on 26.3.27↔26.3.27, 26.3.27↔26.6.27 (the
+deployed gateway against v2rayNG's core) and 26.6.27↔26.6.27. End-to-end
+traffic passes wherever the egress can reach the lab origin; from Xray 26.6
+`freedom` refuses to dial any special-use address, so on such a core that half
+reports itself skipped rather than failing for a reason unrelated to the config.
+
 ## Files
 
 | Path | What it is |
@@ -60,3 +85,4 @@ correctly when a path dies — no more.
 | `Dockerfile.xray` | Xray + Node, built from `lab/bin` so the build needs no network |
 | `Dockerfile.agent` | The real agent source plus the pinned Xray binary |
 | `fetch-xray.sh` | Downloads the pinned release into `lab/bin` (gitignored) |
+| `reality-e2e.mjs` | The issued REALITY link against the issued inbound, on real cores |
