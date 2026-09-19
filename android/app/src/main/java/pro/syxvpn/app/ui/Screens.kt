@@ -1087,7 +1087,7 @@ private class ServerListState(private val session: SessionStore) {
         checking = false
     }
 
-    val visible: List<Server> get() = servers.filterNot { hidden.contains(it.key) }
+    val visible: List<Server> get() = servers.filterNot { hidden.contains(it.profile.uri) }
 
     /**
      * Narrows automatic selection to one country, or opens it up again.
@@ -1113,9 +1113,9 @@ private class ServerListState(private val session: SessionStore) {
     }
 
     fun hide(server: Server) {
-        hidden = hidden + server.key
+        hidden = hidden + server.profile.uri
         session.hiddenConfigs = hidden
-        if (chosen?.key == server.key) chosen = visible.firstOrNull()
+        if (chosen?.profile?.uri == server.profile.uri) chosen = visible.firstOrNull()
     }
 
     /**
@@ -1125,16 +1125,41 @@ private class ServerListState(private val session: SessionStore) {
      * order on screen is the order in storage and a restart does not reshuffle
      * it.
      */
-    fun importPasted(pasted: String): ConfigImport.Result {
-        val result = ConfigImport.parse(pasted, session.importedLines)
+    fun importPasted(pasted: String): String {
+        // Everything already on this phone, not only what was pasted in before:
+        // a config that came with the subscription is held too, and adding a
+        // second copy of it under "imported" would put the same line in the
+        // list twice.
+        val held = session.importedLines + servers.map { it.profile.uri }
+        val result = ConfigImport.parse(pasted, held)
         session.addImported(result.added.map { it.uri })
         if (!result.isEmpty) {
             val added = result.added.map { Server(profile = it, imported = true) }
             servers = added + servers
             if (chosen == null) chosen = added.firstOrNull()
         }
-        status = result.summary()
-        return result
+        // Pasting a config back is how a person undoes hiding it, and until now
+        // it was the one thing that could not work: the line was already held,
+        // so it counted as a duplicate, and the row it referred to was hidden —
+        // "you already have that one", about something not on the screen.
+        val pastedUris = (result.added.map { it.uri } + ConfigImport.parse(pasted).added.map { it.uri }).toSet()
+        val restored = hidden.intersect(pastedUris)
+        if (restored.isNotEmpty()) {
+            hidden = hidden - restored
+            session.hiddenConfigs = hidden
+            if (chosen == null) chosen = visible.firstOrNull()
+        }
+        val message = when {
+            restored.isEmpty() -> result.summary()
+            result.added.isEmpty() && restored.size == 1 -> "That one is back in the list"
+            result.added.isEmpty() -> "${restored.size} of those are back in the list"
+            else -> "${result.summary()}, ${restored.size} back in the list"
+        }
+        status = message
+        // The sheet shows this too, and it must be the same sentence: the one
+        // it used to build for itself could not know a hidden config had just
+        // been brought back.
+        return message
     }
 
     /** Removes a config the person added. Nothing else can be removed. */
@@ -1166,17 +1191,19 @@ private class ServerListState(private val session: SessionStore) {
             val known = repository.cached(session)
             if (known.isNotEmpty()) {
                 servers = known
-                val offered = known.filterNot { hidden.contains(it.key) }
-                chosen = offered.firstOrNull { it.key == chosen?.key } ?: offered.firstOrNull()
+                val offered = known.filterNot { hidden.contains(it.profile.uri) }
+                chosen = offered.firstOrNull { it.profile.uri == chosen?.profile?.uri }
+                    ?: offered.firstOrNull()
             }
         }
         busy = true
         runCatching { repository.load(session) }
             .onSuccess { result ->
                 servers = result.servers
-                val offered = result.servers.filterNot { hidden.contains(it.key) }
+                val offered = result.servers.filterNot { hidden.contains(it.profile.uri) }
                 // Keep the current choice if it is still offered.
-                chosen = offered.firstOrNull { it.key == chosen?.key } ?: offered.firstOrNull()
+                chosen = offered.firstOrNull { it.profile.uri == chosen?.profile?.uri }
+                    ?: offered.firstOrNull()
                 status = result.error ?: if (result.stale) "Showing the last known servers" else null
             }
             .onFailure { status = it.message }
@@ -2083,7 +2110,7 @@ private fun ConfigsScreen(
         AddConfigSheet(
             onDismiss = { adding = false },
             onAdd = { pasted ->
-                val summary = state.importPasted(pasted).summary()
+                val summary = state.importPasted(pasted)
                 // New configs go in at the top. Put the list there too, so the
                 // thing that was just added is the thing now on screen: the
                 // list holds two rows, and a config added while it was scrolled

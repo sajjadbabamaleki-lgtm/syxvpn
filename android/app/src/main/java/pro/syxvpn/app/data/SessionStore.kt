@@ -71,15 +71,32 @@ class SessionStore(context: Context) {
     }
 
     /**
-     * Servers the person chose to hide, as "host:port" entries.
+     * Configs the person chose to hide, as the config lines themselves.
      *
-     * A subscription decides which servers exist, so hiding is local and
-     * sticky: a refresh brings the server back from the control plane but it
-     * stays out of the list until it is unhidden here.
+     * A subscription decides which configs exist, so hiding is local and
+     * sticky: a refresh brings one back from the control plane but it stays out
+     * of the list until it is unhidden here.
+     *
+     * By the line, not by "host:port", which is what this held before. Two
+     * configs into one gateway share an address, so hiding either of them hid
+     * both — and on a subscription whose configs all point at one gateway, that
+     * emptied the list.
+     *
+     * Stored as one string rather than a string set. The set went through
+     * `putStringSet`, whose returned instance is the one the preferences hold,
+     * and it did not reliably survive a restart; the pasted configs beside it
+     * have always been a newline-joined string and have never lost anything.
+     * The key is new, so nothing reads the old address-shaped entries: they
+     * cannot be matched against a config line, and a config hidden under the
+     * old scheme comes back once rather than staying hidden by an entry
+     * nothing can ever clear.
      */
     var hiddenConfigs: Set<String>
-        get() = prefs.getStringSet(KEY_HIDDEN, emptySet()) ?: emptySet()
-        set(value) = prefs.edit().putStringSet(KEY_HIDDEN, value).apply()
+        get() = prefs.getString(KEY_HIDDEN_LINES, null).orEmpty()
+            .split('\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        set(value) = prefs.edit()
+            .putString(KEY_HIDDEN_LINES, value.joinToString("\n").ifEmpty { null })
+            .apply()
 
     /**
      * Whether the tunnel chooses the config, rather than the person.
@@ -187,7 +204,7 @@ class SessionStore(context: Context) {
         const val KEY_EMAIL = "email"
         const val KEY_SUB_URL = "subscription_url"
         const val KEY_PROFILES = "profiles"
-        const val KEY_HIDDEN = "hidden_configs"
+        const val KEY_HIDDEN_LINES = "hidden_config_lines"
         const val KEY_IMPORTED = "imported_configs"
         const val KEY_AUTOMATIC = "automatic_server"
         const val KEY_COUNTRY = "country"
