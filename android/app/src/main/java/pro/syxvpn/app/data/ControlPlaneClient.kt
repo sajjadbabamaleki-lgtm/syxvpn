@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import pro.syxvpn.app.core.ControlPlaneEndpoints
 import pro.syxvpn.app.core.TunnelProfile
 import pro.syxvpn.app.core.XrayConfigBuilder
+import pro.syxvpn.app.vpn.TunnelService
 import java.io.IOException
 
 /**
@@ -436,16 +437,25 @@ class ControlPlaneClient(
     private fun quote(value: String) = JsonPrimitive(value).toString()
 
     /**
-     * The platform's client, with DNS-over-HTTPS behind it.
+     * The platform's client, with DNS-over-HTTPS behind it, and the tunnel
+     * behind that.
      *
-     * Every request goes out the ordinary way. Only a name the phone cannot
-     * resolve — another VPN holding the resolver, an ISP answering "no such
-     * host" for this domain — falls through to the resolver that does not need
-     * the phone's, which is the difference between an app that says it cannot
-     * reach its own control plane and one that reaches it.
+     * Every request goes out the ordinary way. A name the phone cannot resolve
+     * — another VPN holding the resolver, an ISP answering "no such host" for
+     * this domain — falls through to the resolver that does not need the
+     * phone's. A name it resolves and then cannot connect to falls through
+     * further, to the tunnel: that failure is a filter, not a resolver, and
+     * the only road past it is one that leaves the country first.
+     *
+     * The order is not arbitrary. Direct is first because it is the one road
+     * that exists before a subscription does and while no tunnel is running,
+     * and because a tunnel carrying its own control traffic cannot be how a
+     * phone learns the tunnel is gone.
      */
-    private val transport: Transport =
-        ResilientTransport(SystemTransport(), DohTransport(systemDohResolver()))
+    private val transport: Transport = EitherTransport(
+        ResilientTransport(SystemTransport(), DohTransport(systemDohResolver())),
+        TunnelTransport { TunnelService.appProxyPort.value },
+    )
 
     /**
      * The same request against each address until one answers.

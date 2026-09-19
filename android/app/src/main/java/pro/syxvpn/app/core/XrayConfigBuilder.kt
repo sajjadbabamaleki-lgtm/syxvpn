@@ -45,6 +45,9 @@ object XrayConfigBuilder {
     const val TUN_NAME = "cvpn0"
     const val MTU = 1500
 
+    /** The loopback door the app's own control-plane requests come in by. */
+    private const val APP_INBOUND = "app-in"
+
     /**
      * @param tunFd the descriptor from VpnService, already open in this process.
      * @param metricsPort loopback port for Xray's metrics server; the traffic
@@ -74,6 +77,7 @@ object XrayConfigBuilder {
         controlPlaneHosts: List<String>,
         tunFd: Int,
         metricsPort: Int,
+        appProxyPort: Int,
         dns: PrivateDns = PrivateDns.STANDARD,
         mtu: Int = MTU,
     ): String = JSONObject()
@@ -81,7 +85,7 @@ object XrayConfigBuilder {
         // Applied to the process environment as the config is built; the
         // Android TUN reads the descriptor from here.
         .put("env", JSONObject().put("xray.tun.fd", tunFd.toString()))
-        .put("inbounds", JSONArray().put(tunInbound(mtu)))
+        .put("inbounds", JSONArray().put(tunInbound(mtu)).put(appInbound(appProxyPort)))
         .put(
             "outbounds",
             JSONArray()
@@ -261,6 +265,19 @@ object XrayConfigBuilder {
         dns: PrivateDns,
     ): JSONArray {
         val rules = JSONArray()
+        // What the app hands to the loopback door goes out through the gateway,
+        // and this rule is first because the one below it names the same hosts.
+        //
+        // The app is excluded from the TUN and reaches the control plane on its
+        // own; this door is the other road, and it exists for the case that
+        // road is closed — a control-plane name filtered where the phone sits.
+        // Sending it back out "direct" would be sending it back into the block.
+        rules.put(
+            JSONObject()
+                .put("type", "field")
+                .put("inboundTag", JSONArray().put(APP_INBOUND))
+                .put("outboundTag", "proxy"),
+        )
         // The gateway and the control plane stay off the tunnel: if the tunnel
         // breaks, the app must still be able to fetch a new subscription.
         //
@@ -300,6 +317,28 @@ object XrayConfigBuilder {
         }
         return rules
     }
+
+    /**
+     * A SOCKS door on loopback for this app's own requests.
+     *
+     * Bound to 127.0.0.1, so nothing off the phone can reach it, and no
+     * authentication for the same reason. Names are resolved at the far end
+     * rather than here: what the app sends through it is a hostname, which is
+     * the point, since the resolver on this side may be the thing lying about
+     * it.
+     */
+    private fun appInbound(port: Int): JSONObject = JSONObject()
+        .put("tag", APP_INBOUND)
+        .put("listen", "127.0.0.1")
+        .put("port", port)
+        .put("protocol", "socks")
+        .put(
+            "settings",
+            JSONObject()
+                .put("auth", "noauth")
+                // TCP only: this carries HTTPS requests and nothing else.
+                .put("udp", false),
+        )
 
     private fun tunInbound(mtu: Int): JSONObject = JSONObject()
         .put("tag", "tun-in")

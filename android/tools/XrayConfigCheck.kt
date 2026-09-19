@@ -54,6 +54,7 @@ fun main(args: Array<String>) {
         controlPlaneHosts = listOf("control.example.net", "control-2.example.net"),
         tunFd = 42,
         metricsPort = 49227,
+        appProxyPort = 49228,
     )
     // The descriptor must reach Xray through the root env, as a string.
     check("\"xray.tun.fd\":\"42\"" in json.replace(" ", "")) { "tun fd missing from env" }
@@ -70,6 +71,7 @@ fun main(args: Array<String>) {
         controlPlaneHosts = listOf("control.example.net"),
         tunFd = 42,
         metricsPort = 49227,
+        appProxyPort = 49228,
         dns = PrivateDns.CLOUDFLARE,
     ).replace(" ", "")
     // Read back as JSON rather than matched as text: org.json writes an
@@ -84,7 +86,26 @@ fun main(args: Array<String>) {
         .singleOrNull { it.optString("tag") == "dns-out" }
     check(dnsOut != null && dnsOut.getString("protocol") == "dns") { "no dns outbound" }
 
+    // The app's own door onto the tunnel, and the rule that carries what comes
+    // in by it out through the gateway. The rule has to be ahead of the direct
+    // ones: they name the control plane, which is exactly what this door is
+    // for, and Xray takes the first rule that matches.
+    val inbounds = parsed.getJSONArray("inbounds")
+    val appIn = (0 until inbounds.length()).map { inbounds.getJSONObject(it) }
+        .singleOrNull { it.optString("tag") == "app-in" }
+    check(appIn != null) { "no loopback door for the app's own requests" }
+    check(appIn!!.getString("listen") == "127.0.0.1") { "the app's door is not on loopback" }
+    check(appIn.getInt("port") == 49228) { "the app's door is on the wrong port" }
+
     val rules = parsed.getJSONObject("routing").getJSONArray("rules")
+    val appRuleAt = (0 until rules.length()).singleOrNull {
+        rules.getJSONObject(it).optJSONArray("inboundTag")?.optString(0) == "app-in"
+    }
+    check(appRuleAt != null) { "nothing routes the app's own requests" }
+    check(rules.getJSONObject(appRuleAt!!).optString("outboundTag") == "proxy") {
+        "the app's own requests are not sent through the gateway"
+    }
+    check(appRuleAt == 0) { "the direct rules are ahead of the app's own" }
     val dnsRuleAt = (0 until rules.length()).singleOrNull {
         rules.getJSONObject(it).optString("outboundTag") == "dns-out"
     }

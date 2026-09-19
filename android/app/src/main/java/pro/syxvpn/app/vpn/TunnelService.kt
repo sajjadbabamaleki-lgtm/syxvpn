@@ -221,6 +221,7 @@ class TunnelService : VpnService() {
             pathEvidence = emptyMap()
             try {
                 val metricsPort = freeLoopbackPort()
+                val proxyPort = freeLoopbackPort()
                 val runtime = createXrayBridge({ fd -> protect(fd) }, metricsPort)
                 bridge = runtime
 
@@ -266,6 +267,7 @@ class TunnelService : VpnService() {
                                 controlPlaneHosts = controlPlaneHosts,
                                 tunFd = descriptor.fd,
                                 metricsPort = metricsPort,
+                                appProxyPort = proxyPort,
                                 dns = dns,
                             ),
                         )
@@ -286,6 +288,10 @@ class TunnelService : VpnService() {
                     activity.value = null
                     connectedAt = System.currentTimeMillis()
                     markTrafficBaseline()
+                    // Published only now: the door is open once the core is
+                    // running, and an address handed out before that is one the
+                    // app would try to connect to and find nothing behind.
+                    appProxyPort.value = proxyPort
                     state.value = State.CONNECTED
                     lastError.value = null
                     startStatsLoop()
@@ -631,6 +637,9 @@ class TunnelService : VpnService() {
     private fun tearDown(keepInterface: Boolean = false) {
         statsJob?.cancel()
         statsJob = null
+        // Before the core stops rather than after: the door closes with it, and
+        // a port still being advertised is one the app would wait on.
+        appProxyPort.value = null
         bridge?.let { runtime -> runCatching { runtime.stop() } }
         bridge = null
         if (keepInterface) return
@@ -781,6 +790,20 @@ class TunnelService : VpnService() {
         /** uplink to downlink bytes, cumulative for the current session. */
         val traffic = MutableStateFlow(0L to 0L)
         val uptimeSeconds = MutableStateFlow(0L)
+
+        /**
+         * The loopback port the running tunnel accepts this app's own requests
+         * on, or null when no tunnel is up.
+         *
+         * The app is kept out of its own TUN so that an account stays reachable
+         * when the tunnel is not. That reasoning holds until the control plane
+         * is what cannot be reached — a name filtered on this network, which is
+         * the ordinary case here — and then the only road left is the tunnel
+         * the phone already has. This is that road: a SOCKS door on loopback,
+         * routed to the gateway, offered to the control-plane client as a
+         * second attempt when the direct one fails.
+         */
+        val appProxyPort = MutableStateFlow<Int?>(null)
 
         /** The server the tunnel actually settled on, as host:port. */
         val activeServer = MutableStateFlow<String?>(null)
