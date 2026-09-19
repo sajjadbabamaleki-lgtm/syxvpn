@@ -64,12 +64,19 @@ android {
          *
          * Buy the spares before they are needed: a domain cannot be registered
          * from inside the situation that makes it necessary.
+         *
+         * The first entry is the one currently reachable: a name with nothing
+         * in it to match on, answering from Cloudflare's addresses rather than
+         * the origin's. The three after it are this deployment's own names and
+         * are all filtered today. They stay: a block is a decision somebody
+         * made and can be undone, and an installation older than this list has
+         * no other name to reach us by.
          */
         buildConfigField(
             "String",
             "CONTROL_PLANE_URLS",
             "\"" + (System.getenv("SYXVPN_CONTROL_PLANE_URLS")
-                ?: "https://control.syxvpn.pro,https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
+                ?: "https://api.xoft.pro,https://control.syxvpn.pro,https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
         )
 
         // Whether the Premium tab may open a USDT order inside the app.
