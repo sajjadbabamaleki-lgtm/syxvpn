@@ -105,11 +105,17 @@ function Handover({ result, onDone }) {
         </Button>
         {profiles.map((profile, index) => (
           <Button
-            key={profile.gatewayId}
+            // The line, not the gateway: a gateway can offer more than one
+            // door, and keying on its id gave two buttons the same key.
+            key={profile.uri}
             variant={showing === index ? 'primary' : 'ghost'}
             onClick={() => setShowing(index)}
           >
-            {profile.gatewayName}
+            {/* Which door, not just which server. Four buttons reading gw1,
+                gw1, gw2, gw2 are four configs a person cannot tell apart —
+                and the whole reason the second one exists is that it is the
+                one some client apps can open. */}
+            {profile.protocol ? `${profile.gatewayName} · ${profile.protocol}` : profile.gatewayName}
           </Button>
         ))}
       </div>
