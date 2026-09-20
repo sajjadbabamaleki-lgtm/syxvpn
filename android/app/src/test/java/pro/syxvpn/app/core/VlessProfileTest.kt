@@ -166,7 +166,11 @@ class VlessProfileTest {
 
     @Test
     fun `a transport this app cannot open is refused rather than misconfigured`() {
-        for (type in listOf("grpc", "http", "quic", "kcp", "xhttp")) {
+        // `xhttp` is deliberately absent: it used to belong here and now the
+        // app builds an outbound for it. A transport left in this list after it
+        // is supported rejects every config that names it, which is the whole
+        // subscription for a gateway that has moved.
+        for (type in listOf("grpc", "http", "quic", "kcp")) {
             assertNull(type, VlessProfile.parse("vless://uuid@h:443?type=$type"))
         }
     }
