@@ -17,6 +17,7 @@ import { adminBackupRoutes } from './routes/admin.backups.js';
 import { adminObservabilityRoutes } from './routes/admin.observability.js';
 import { agentRoutes } from './routes/agent.js';
 import { shopRoutes } from './routes/shop.js';
+import { guestRoutes } from './routes/guest.js';
 import { adminShopRoutes } from './routes/admin.shop.js';
 import { publicRoutes, usableGatewaysFor } from './routes/public.js';
 import { telegramRoutes, telegramSender } from './routes/telegram.js';
@@ -91,6 +92,9 @@ export function createApp({
   app.use('/api/v1/auth', authRoutes({ db }));
   // Customer-facing storefront: its own session type, never admin credentials.
   app.use('/api/v1/shop', shopRoutes({ db }));
+  // No credential of any kind: the switch works before the account does. Every
+  // bound that makes that safe lives inside the router.
+  app.use('/api/v1/guest', guestRoutes({ db }));
   app.use('/api/v1/agent', agentRoutes({ db }));
 
   const admin = express.Router();

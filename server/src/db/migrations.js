@@ -806,4 +806,38 @@ export const migrations = [
       db.exec('ALTER TABLE customers ADD COLUMN trial_granted_at INTEGER');
     },
   },
+  {
+    id: '012_guest_devices',
+    up(db) {
+      // A phone that has not made an account, and what it has already used.
+      //
+      // Keyed by the hash of an identifier the app generates for itself, never
+      // by anything Android hands out: a hardware identifier would be a
+      // tracking key this project has no business holding, and recent Android
+      // does not give a stable one anyway. What that means is written down
+      // plainly — clearing the app's data or reinstalling it produces a new
+      // identifier and a fresh allowance. This table is a speed bump for
+      // ordinary people, not a lock, and the fleet-wide daily ceiling beside
+      // it is what actually bounds what the giveaway can cost.
+      db.exec(`CREATE TABLE guest_devices (
+        id TEXT PRIMARY KEY,
+        -- The one subscription this device is served through, reused across
+        -- its sessions so a phone does not leave five dead rows behind.
+        subscriber_id TEXT REFERENCES subscribers(id) ON DELETE SET NULL,
+        sessions_used INTEGER NOT NULL DEFAULT 0,
+        first_seen_at INTEGER NOT NULL,
+        last_session_at INTEGER
+      )`);
+
+      // One row per session handed out, so "how much has the giveaway cost
+      // today" is a count rather than a guess. Pruned on write: this is a
+      // rolling window, not a ledger anybody reads later.
+      db.exec(`CREATE TABLE guest_leases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`);
+      db.exec('CREATE INDEX idx_guest_leases_created ON guest_leases(created_at)');
+    },
+  },
 ];

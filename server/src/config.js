@@ -211,6 +211,31 @@ export function loadConfig(env = process.env) {
     },
 
     /**
+     * What somebody gets for pressing the switch, with no account at all.
+     *
+     * The shortest honest answer to "does this even work from here": a few
+     * minutes of the real thing, now, with nothing typed. Everything about it
+     * is small on purpose — it is a demonstration, and the account is what
+     * comes next.
+     *
+     * The per-device count is a speed bump, not a lock: the identifier it
+     * counts against is the app's own, and clearing the app's data makes a new
+     * one. `leasesPerDay` is the number that actually bounds the cost, because
+     * it holds however many devices there are. Multiply it by `sessionMb` for
+     * the worst the giveaway can spend in a day.
+     */
+    guest: {
+      enabled: bool(env.GUEST_ENABLED, true),
+      sessionMinutes: int(env.GUEST_SESSION_MINUTES, 3),
+      sessionsPerDevice: int(env.GUEST_SESSIONS_PER_DEVICE, 5),
+      // Per session, and deliberately far above what three minutes uses: it is
+      // the ceiling that stops a session that ignores its clock, not the
+      // allowance somebody is meant to feel.
+      sessionMb: int(env.GUEST_SESSION_MB, 100),
+      leasesPerDay: int(env.GUEST_LEASES_PER_DAY, 200),
+    },
+
+    /**
      * The relay that carries sign-in codes.
      *
      * Nothing is sent until SMTP_HOST and MAIL_FROM are both set: an app that
