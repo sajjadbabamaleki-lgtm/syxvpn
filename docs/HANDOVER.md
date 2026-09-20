@@ -200,6 +200,44 @@ segments to it, so a matcher on the bare path silently drops half the transport:
 rather than fails, which is harder to diagnose. The block lives in the
 `control.cvpn.pro, api7.gamotion.pro, api.xoft.pro` site.
 
+## The spare name, and the one command that switches to it
+
+`cdn.gamotion.pro` is live and proven: a real Xray client on the German host
+reached the gateway through it and got `exit_ip=173.249.47.5`, the same as
+through the live name. It is a separate registration on separate nameservers
+(`gamotion.pro`, Cloudflare, `mitchell`/`walk`), proxied, pointing at
+`173.249.47.5`. The apex and `www` still serve Hostinger's parking page, which
+is the right camouflage: from outside, the domain is somebody's unfinished site.
+
+Caddy serves it from the same site block as the live name — one line, so the
+spare inherits the control plane, the gateway path and the APK download
+together and cannot drift from them:
+
+    control.cvpn.pro, api7.gamotion.pro, api.xoft.pro, cdn.gamotion.pro {
+
+The app already carries it, second in `CONTROL_PLANE_URLS`, which is the part
+that has to be done in advance: on the day the live name is filtered, nothing
+can be delivered to a phone, because the delivery would travel over the name
+that just stopped working.
+
+**When `api.xoft.pro` is filtered, this is the whole switch:**
+
+    cd /opt/cvpn && docker compose --env-file .env -f deploy/docker-compose.yml exec -T api node -e "import('/app/src/db/index.js').then(d=>{const db=d.openDatabase('/data/cvpn.db');db.prepare('update gateways set host=?, sni=?, config_version=config_version+1 where id=?').run('cdn.gamotion.pro','cdn.gamotion.pro','gw_LLa63NqkZTsE');console.log(JSON.stringify(db.prepare('select id,host,sni,config_version,deployed_config_version from gateways where id=?').get('gw_LLa63NqkZTsE')))})"
+
+Then set `PUBLIC_BASE_URL=https://cdn.gamotion.pro` in `/opt/cvpn/.env` and
+restart the api service, so links the console hands out point at the name that
+works. Subscriptions refresh themselves; a config line already in somebody's
+client does not, and has to be reissued.
+
+Wait for `deployed_config_version` to catch up to `config_version`, then test
+from the German host with the loop above before telling anyone it is fixed.
+
+**Buy the next spare now, not on the day.** A domain cannot be registered from
+inside the situation that makes it necessary, and an app that does not already
+know the name cannot be told it. The list in `build.gradle.kts` is where a new
+one goes, and it only reaches phones through a new APK — so the lead time is a
+build, not a command.
+
 ## Operational gotchas that cost time today
 
 - The operator works from a phone terminal that **cannot supply interactive
@@ -257,10 +295,12 @@ rather than fails, which is harder to diagnose. The block lives in the
 - Every config sold before 2026-09-20 carries the dead `edge7.gamotion.pro`
   name and cannot work. Customers holding one need a reissue — the subscription
   link fixes itself on refresh, a pasted config line does not.
-- `gw2` (REALITY, Lithuania) has not been re-checked for the same stale
-  `sni` / `ws_host` fault, and is still on the WebSocket-era assumption that a
-  REALITY handshake gets through. Print its `clientProfile` and test it with the
-  loop above.
+- `gw2` is disabled (`enabled=0`) and the container is left running. It has no
+  stale-name fault — REALITY takes its names from `reality_server_names`, not
+  `sni` — and the server is healthy: tested from Germany, `exit_ip=76.13.78.219`.
+  It simply does not reach Iran: the same config failed in v2rayNG and NPV
+  Tunnel from the operator's network. Re-enable with `enabled=1` if that
+  changes; it is one command and costs nothing to leave off.
 - `agent/Dockerfile` pins `XRAY_VERSION=latest`. Every gateway built gets
   whatever was released that day — the Lithuanian box got 26.3.27 while the
   current release is 26.9.9. Pin it.
@@ -276,6 +316,7 @@ rather than fails, which is harder to diagnose. The block lives in the
   a value that appeared in a chat transcript. Change it from the console.
 - Two-factor is off on the operator account, on a console that is now reachable
   from anywhere.
-- One proven gateway. `gw1` carries everything; `gw2` is still handed to
-  subscribers on the untested assumption that REALITY reaches Lithuania. If
-  `gw1` stops, the fleet stops.
+- One working gateway. `gw1` carries everything. The spare *name* above
+  survives a name-based block, which is what has happened every time so far,
+  but not the German host going down — that needs a second gateway, and the
+  second one has to be somewhere REALITY-on-a-bare-IP is not what reaches Iran.
