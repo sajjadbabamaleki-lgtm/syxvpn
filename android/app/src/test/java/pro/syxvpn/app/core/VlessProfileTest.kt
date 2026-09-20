@@ -1,6 +1,7 @@
 package pro.syxvpn.app.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -207,6 +208,27 @@ class VlessProfileTest {
             "vless://uuid@edge.example.net:443?type=ws&security=tls&path=%2Fws&sni=edge.example.net&fp=chrome#Edge",
         )!!
         assertEquals("chrome", profile.fingerprint)
+    }
+
+    @Test
+    fun `an xhttp line is read as xhttp, not as a websocket`() {
+        // The two configure alike and are nothing alike on the wire: an
+        // upgrade is HTTP/1.1 and is reset on sight where this app is used.
+        val profile = VlessProfile.parse(
+            "vless://uuid@edge.example.net:443?type=xhttp&mode=auto&security=tls" +
+                "&path=%2F6749e3d2af833f06&sni=edge.example.net&fp=chrome#Edge",
+        )!!
+        assertTrue(profile.xhttp)
+        assertEquals("/6749e3d2af833f06", profile.wsPath)
+        assertTrue(profile.tls)
+        assertEquals("vless · xhttp · tls", profile.protocolLabel)
+    }
+
+    @Test
+    fun `a websocket line is still a websocket`() {
+        val profile = VlessProfile.parse("vless://uuid@h:443?type=ws&security=tls&path=%2Fws")!!
+        assertFalse(profile.xhttp)
+        assertEquals("vless · ws · tls", profile.protocolLabel)
     }
 
     @Test

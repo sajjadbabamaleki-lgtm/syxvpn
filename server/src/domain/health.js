@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { EVENT, recordEvent } from './events.js';
 import { reevaluateGateway } from './routing.js';
-import { clientEndpoint, isReality, realityServerNames } from './xray.js';
+import { clientEndpoint, isReality, isXhttp, realityServerNames } from './xray.js';
 
 /**
  * Health is measured at two independent layers, because they fail
@@ -44,6 +44,54 @@ export function tcpProbe(host, port, timeoutMs = config.health.tcpTimeoutMs) {
  * A live Xray ws inbound answers 101; a reverse proxy in front of a dead
  * backend answers 502/404. This distinguishes "port open" from "service works".
  */
+/**
+ * An XHTTP door, checked the way one can be checked from outside.
+ *
+ * There is no handshake to complete here: the tunnel is ordinary HTTP
+ * requests, and the ones that carry it belong to a session this has no part
+ * in. What can be proved is that the name resolves, TLS completes against a
+ * real certificate and something is serving — which is exactly the set of
+ * failures an operator needs told about, and is what a subscriber's client
+ * meets before it starts.
+ *
+ * A request to the root, not to the tunnel's own path: asking the path for a
+ * page would open a stream meant for a client and hold it there.
+ */
+export function xhttpProbe(gateway, timeoutMs = config.health.probeTimeoutMs) {
+  const { host, port, tls } = clientEndpoint(gateway);
+  const transport = tls ? https : http;
+  const serverName = gateway.sni || gateway.ws_host || host;
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const req = transport.request({
+      host,
+      port,
+      path: '/',
+      method: 'GET',
+      servername: tls ? serverName : undefined,
+      rejectUnauthorized: true,
+      headers: { Host: serverName, 'User-Agent': 'syxvpn-control-plane/health' },
+      timeout: timeoutMs,
+    });
+    let settled = false;
+    const finish = (status, detail) => {
+      if (settled) return;
+      settled = true;
+      req.destroy();
+      resolve({ status, latencyMs: Date.now() - started, detail });
+    };
+    // Any answer at all is the proof: a 404 from a gateway that serves only a
+    // secret path is a gateway that is up.
+    req.on('response', (res) => finish(
+      res.statusCode >= 500 ? 'degraded' : 'online',
+      `http ${res.statusCode}`,
+    ));
+    req.on('timeout', () => finish('offline', `probe timeout after ${timeoutMs}ms`));
+    req.on('error', (err) => finish('offline', `probe error: ${err.code || err.message}`));
+    req.end();
+  });
+}
+
 export function wsProbe(gateway, timeoutMs = config.health.probeTimeoutMs) {
   const { host, port, tls } = clientEndpoint(gateway);
   const transport = tls ? https : http;
@@ -149,7 +197,9 @@ export async function checkGatewayIngress(db, gateway) {
   let result = tcp;
   let kind = 'tcp';
   if (tcp.status === 'online') {
-    const deeper = isReality(gateway) ? await realityProbe(gateway) : await wsProbe(gateway);
+    const deeper = isReality(gateway)
+      ? await realityProbe(gateway)
+      : isXhttp(gateway) ? await xhttpProbe(gateway) : await wsProbe(gateway);
     // TCP succeeded, so the host is reachable; the deeper result refines it.
     result = deeper.status === 'offline'
       ? { status: 'degraded', latencyMs: tcp.latencyMs, detail: `tcp ok, ${deeper.detail}` }

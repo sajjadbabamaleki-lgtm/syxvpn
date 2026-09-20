@@ -124,3 +124,41 @@ test('gateway server configuration', async (t) => {
     assert.throws(() => egressOutbound({ id: 'x', kind: 'carrier-pigeon' }), /unsupported egress kind/);
   });
 });
+
+test('an XHTTP gateway is described as HTTP, not as a WebSocket', async (t) => {
+  const xhttp = gateway({
+    transport: 'xhttp', tls_mode: 'reverse-proxy', sni: 'edge.example.net',
+    // Nothing set, so the default applies: behind a reverse proxy the core
+    // binds loopback and is reachable only through it.
+    ws_path: '/6749e3d2af833f06', listen_address: null, listen_port: 10001,
+  });
+
+  await t.test('the profile names the transport and its mode', () => {
+    const uri = clientProfile(xhttp, clients[0].uuid);
+    assert.match(uri, /type=xhttp/);
+    assert.match(uri, /mode=auto/);
+    assert.match(uri, /security=tls/);
+    assert.match(uri, /path=%2F6749e3d2af833f06/);
+    // The disguise is the client's half of the job, and a profile that does
+    // not ask for it leaves the handshake looking like Go's.
+    assert.match(uri, /fp=chrome/);
+  });
+
+  await t.test('the inbound carries xhttpSettings and no websocket', () => {
+    const config = gatewayServerConfig(xhttp, clients, [], null);
+    const stream = config.inbounds[0].streamSettings;
+    assert.equal(stream.network, 'xhttp');
+    assert.equal(stream.xhttpSettings.path, '/6749e3d2af833f06');
+    assert.equal(stream.xhttpSettings.mode, 'auto');
+    assert.equal(stream.wsSettings, undefined);
+    // TLS is the reverse proxy's, exactly as it is for the WebSocket kind:
+    // the core behind it speaks plain HTTP on loopback.
+    assert.equal(stream.security, undefined);
+    assert.deepEqual(listenEndpoint(xhttp), { address: '127.0.0.1', port: 10001 });
+  });
+
+  await t.test('vision stays off: it belongs to REALITY over TCP', () => {
+    const config = gatewayServerConfig(xhttp, clients, [], null);
+    assert.equal(config.inbounds[0].settings.clients[0].flow, undefined);
+  });
+});

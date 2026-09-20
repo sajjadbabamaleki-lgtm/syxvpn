@@ -40,6 +40,18 @@ const PRIVATE_RANGES = [
  */
 export const isReality = (gateway) => gateway.transport === 'reality';
 
+/**
+ * Does this gateway carry the tunnel as ordinary HTTP requests?
+ *
+ * XHTTP is a WebSocket's replacement, not a variation on it: the tunnel is
+ * HTTP/2 requests rather than an HTTP/1.1 upgrade, which is the difference
+ * between traffic a censor's equipment resets on sight and traffic that looks
+ * like the browser sitting beside it. Everything else about the gateway is the
+ * same — a reverse proxy in front, a certificate, a secret path — so this is
+ * asked only where the two differ.
+ */
+export const isXhttp = (gateway) => gateway.transport === 'xhttp';
+
 /** Public port a client dials, and the transport security it must use. */
 export function clientEndpoint(gateway) {
   const tls = gateway.tls_mode === 'reverse-proxy' || gateway.tls_mode === 'xray';
@@ -93,10 +105,13 @@ export function clientProfile(gateway, credentialUuid, labelSuffix = '') {
   const { host, port, tls } = clientEndpoint(gateway);
   const params = new URLSearchParams({
     encryption: 'none',
-    type: 'ws',
+    type: isXhttp(gateway) ? 'xhttp' : 'ws',
     path: gateway.ws_path || '/ws',
     host: gateway.ws_host || gateway.sni || host,
   });
+  // The mode every current client defaults to, said out loud so a profile
+  // read by an older one is not left guessing.
+  if (isXhttp(gateway)) params.set('mode', 'auto');
   params.set('security', tls ? 'tls' : 'none');
   if (tls) {
     params.set('sni', gateway.sni || gateway.ws_host || host);
@@ -185,7 +200,19 @@ export function gatewayServerConfig(gateway, clients, egresses, activeEgressId, 
       })),
       decryption: 'none',
     },
-    streamSettings: reality
+    streamSettings: isXhttp(gateway)
+      ? {
+        network: 'xhttp',
+        // The reverse proxy in front terminates TLS and speaks ordinary HTTP
+        // to this; the disguise is on the client's side of that proxy, where
+        // the censor is.
+        xhttpSettings: {
+          path: gateway.ws_path || '/ws',
+          mode: 'auto',
+          ...(gateway.ws_host ? { host: gateway.ws_host } : {}),
+        },
+      }
+      : reality
       ? {
         network: 'tcp',
         security: 'reality',

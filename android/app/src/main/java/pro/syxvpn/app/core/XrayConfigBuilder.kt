@@ -228,6 +228,19 @@ object XrayConfigBuilder {
                         .put("fingerprint", reality.fingerprint)
                         .put("show", false),
                 )
+        } else if (profile.xhttp) {
+            // The tunnel as ordinary HTTP requests. "auto" is what every
+            // current client picks for itself; naming it keeps the config the
+            // same on a core that would have chosen differently.
+            JSONObject()
+                .put("network", "xhttp")
+                .put(
+                    "xhttpSettings",
+                    JSONObject()
+                        .put("path", profile.wsPath)
+                        .put("mode", "auto")
+                        .put("host", profile.wsHost ?: profile.host),
+                )
         } else {
             JSONObject()
                 .put("network", "ws")

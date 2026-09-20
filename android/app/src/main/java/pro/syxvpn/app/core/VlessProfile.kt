@@ -20,6 +20,17 @@ data class VlessProfile(
     val wsPath: String,
     val wsHost: String?,
     /**
+     * Whether the tunnel is carried as ordinary HTTP requests rather than as a
+     * WebSocket upgrade.
+     *
+     * The two are the same shape to configure — a path, a host, a certificate
+     * in front — and nothing alike on the wire. An upgrade is HTTP/1.1, and
+     * where a censor resets that on sight the connection dies before the far
+     * end hears of it; XHTTP is the HTTP/2 traffic the browser beside it sends
+     * all day.
+     */
+    val xhttp: Boolean = false,
+    /**
      * The browser this connection's TLS handshake should imitate.
      *
      * A handshake carries a shape — cipher order, extensions, their order —
@@ -43,6 +54,8 @@ data class VlessProfile(
 
     override val protocolLabel: String get() = when {
         reality != null -> "vless · tcp · reality"
+        xhttp && tls -> "vless · xhttp · tls"
+        xhttp -> "vless · xhttp"
         tls -> "vless · ws · tls"
         else -> "vless · ws"
     }
@@ -101,9 +114,9 @@ data class VlessProfile(
                 )
             }
 
-            // Otherwise ws, which is all the control plane generated before
-            // REALITY; anything else is rejected rather than misconfigured.
-            if (type != "ws") return null
+            // Otherwise a WebSocket, or its replacement. Anything else is
+            // rejected rather than misconfigured.
+            if (type != "ws" && type != "xhttp") return null
             return VlessProfile(
                 uri = uri,
                 uuid = uuid,
@@ -114,6 +127,7 @@ data class VlessProfile(
                 sni = parsed.param("sni"),
                 wsPath = parsed.param("path") ?: "/ws",
                 wsHost = parsed.param("host"),
+                xhttp = type == "xhttp",
                 fingerprint = parsed.param("fp")?.takeIf { it.isNotBlank() },
             )
         }

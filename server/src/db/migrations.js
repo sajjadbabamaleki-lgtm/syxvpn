@@ -710,4 +710,86 @@ export const migrations = [
       db.exec('CREATE INDEX idx_email_codes_expiry ON email_codes(expires_at)');
     },
   },
+  {
+    id: '010_gateway_xhttp',
+    // WebSocket is an HTTP/1.1 upgrade, and on the networks this serves that
+    // shape is now reset on sight: the same phone's browser completes a
+    // WebSocket handshake to the same address over HTTP/2 while the tunnel's
+    // own connection is cut mid-dial, by the network rather than by either
+    // end. XHTTP carries the tunnel as ordinary HTTP/2 requests instead, which
+    // is the traffic that still passes — and is what Xray-core itself now
+    // tells operators to move to, in a warning printed on every start.
+    //
+    // A table rebuild, because SQLite cannot widen a CHECK constraint, and
+    // with foreign keys off for the same reason as 005: DROP TABLE would
+    // cascade into every egress assignment.
+    foreignKeysOff: true,
+    up(db) {
+      db.exec(`CREATE TABLE gateways_x (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        region TEXT NOT NULL,
+        host TEXT NOT NULL,
+        port INTEGER NOT NULL,
+        protocol TEXT NOT NULL DEFAULT 'vless' CHECK (protocol IN ('vless')),
+        transport TEXT NOT NULL DEFAULT 'ws' CHECK (transport IN ('ws','reality','xhttp')),
+        tls_mode TEXT NOT NULL DEFAULT 'none' CHECK (tls_mode IN ('none','reverse-proxy','xray')),
+        sni TEXT,
+        ws_path TEXT NOT NULL DEFAULT '/ws',
+        ws_host TEXT,
+        listen_address TEXT NOT NULL DEFAULT '0.0.0.0',
+        listen_port INTEGER,
+        tls_cert_path TEXT,
+        tls_key_path TEXT,
+        reality_dest TEXT,
+        reality_server_names TEXT,
+        reality_private_key TEXT,
+        reality_public_key TEXT,
+        reality_short_ids TEXT,
+        reality_fingerprint TEXT NOT NULL DEFAULT 'chrome',
+        priority INTEGER NOT NULL DEFAULT 100,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        block_private_ranges INTEGER NOT NULL DEFAULT 1,
+        agent_key_enc TEXT,
+        agent_key_hint TEXT,
+        agent_key_created_at INTEGER,
+        ingress_status TEXT NOT NULL DEFAULT 'unknown'
+          CHECK (ingress_status IN ('unknown','online','degraded','offline')),
+        ingress_latency_ms INTEGER,
+        ingress_checked_at INTEGER,
+        ingress_fail_count INTEGER NOT NULL DEFAULT 0,
+        ingress_detail TEXT,
+        agent_status TEXT NOT NULL DEFAULT 'never-seen'
+          CHECK (agent_status IN ('never-seen','online','stale')),
+        agent_version TEXT,
+        xray_version TEXT,
+        agent_last_seen_at INTEGER,
+        config_version INTEGER NOT NULL DEFAULT 1,
+        deployed_config_version INTEGER,
+        deployed_at INTEGER,
+        deploy_error TEXT,
+        active_egress_id TEXT,
+        active_egress_since INTEGER,
+        active_egress_reason TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`);
+      const columns = [
+        'id', 'name', 'region', 'host', 'port', 'protocol', 'transport', 'tls_mode', 'sni',
+        'ws_path', 'ws_host', 'listen_address', 'listen_port', 'tls_cert_path', 'tls_key_path',
+        'reality_dest', 'reality_server_names', 'reality_private_key', 'reality_public_key',
+        'reality_short_ids', 'reality_fingerprint',
+        'priority', 'enabled', 'block_private_ranges', 'agent_key_enc', 'agent_key_hint',
+        'agent_key_created_at', 'ingress_status', 'ingress_latency_ms', 'ingress_checked_at',
+        'ingress_fail_count', 'ingress_detail', 'agent_status', 'agent_version', 'xray_version',
+        'agent_last_seen_at', 'config_version', 'deployed_config_version', 'deployed_at',
+        'deploy_error', 'active_egress_id', 'active_egress_since', 'active_egress_reason',
+        'created_at', 'updated_at',
+      ].join(', ');
+      db.exec(`INSERT INTO gateways_x (${columns}) SELECT ${columns} FROM gateways`);
+      db.exec('DROP TABLE gateways');
+      db.exec('ALTER TABLE gateways_x RENAME TO gateways');
+      db.exec('CREATE INDEX idx_gateways_priority ON gateways(priority, name)');
+    },
+  },
 ];

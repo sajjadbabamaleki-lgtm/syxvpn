@@ -71,7 +71,7 @@ const baseGateway = {
   region: regionField,
   host: hostField,
   port: portField,
-  transport: z.enum(['ws', 'reality']).optional(),
+  transport: z.enum(['ws', 'reality', 'xhttp']).optional(),
   tlsMode: z.enum(tlsModes).optional(),
   // REALITY. The key pair and short IDs are issued by the control plane when
   // they are absent, which is the normal case: an operator supplies the
