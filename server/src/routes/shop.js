@@ -183,6 +183,13 @@ export function shopRoutes({ db }) {
     // Whether the sign-in form should offer to send a code. An app that offers
     // it against a deployment with no relay configured offers nothing.
     emailCodes: mailEnabled(),
+    // What a new account is given before it has paid anything, so the
+    // storefront can say so in the one place someone is deciding whether to
+    // sign up. Null when the trial is switched off, rather than zeroes a page
+    // would have to know not to print.
+    trial: config.shop.trialDays > 0
+      ? { days: config.shop.trialDays, gb: config.shop.trialGb }
+      : null,
     // Named only when there is a bot to answer and a handle to reach it by.
     // The storefront shows the linking step at all only when this is here, so
     // nobody is offered a code for a chat that does not exist.

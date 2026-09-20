@@ -9,6 +9,12 @@ const USDT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
 const shopConfig = (overrides = {}) => ({
   enabled: true,
+  // These suites are about buying, comping and settling. A free trial handed
+  // to every new account would put a subscription on customers they were
+  // written to observe arriving with none, so it is off unless a test asks
+  // for it.
+  trialDays: 0,
+  trialGb: 0,
   sessionTtlSeconds: 3600,
   payAddress: PAY_ADDRESS,
   tronApiUrl: 'https://api.trongrid.io',
@@ -53,6 +59,14 @@ test('storefront: accounts, plans and USDT orders', async (t) => {
   t.after(() => ctx.close());
   const adminToken = await ctx.login();
   await usableGateway(ctx, adminToken);
+
+  // This suite watches an account arrive with nothing and buy its way to a
+  // subscription. A free trial would hand it one on the way in, which is a
+  // different story than the one being told here.
+  const { config } = await import('../src/config.js');
+  const shopBefore = { ...config.shop };
+  Object.assign(config.shop, { trialDays: 0 });
+  t.after(() => Object.assign(config.shop, shopBefore));
 
   let plan;
   let customerToken;
@@ -462,5 +476,103 @@ test('storefront: on-chain settlement', async (t) => {
     assert.equal(res.body.data.order.settledBy, 'admin:admin');
     const events = await ctx.request('GET', '/api/v1/events', { token: adminToken });
     assert.ok(events.body.data.some((e) => e.type === 'order.settled_manually'));
+  });
+});
+
+test('storefront: the free trial', async (t) => {
+  const ctx = await startTestServer();
+  t.after(() => ctx.close());
+  const adminToken = await ctx.login();
+  await usableGateway(ctx, adminToken);
+
+  const { config } = await import('../src/config.js');
+  const originalShop = { ...config.shop };
+  Object.assign(config.shop, shopConfig({ trialDays: 3, trialGb: 1, compedEmails: [] }));
+  t.after(() => Object.assign(config.shop, originalShop));
+
+  const register = (email) => ctx.request('POST', '/api/v1/shop/register', {
+    body: { email, password: 'a-good-password' },
+  });
+
+  await t.test('a new account is connectable before it has paid anything', async () => {
+    const res = await register('tries@example.com');
+    assert.equal(res.status, 201);
+    const me = await ctx.request('GET', '/api/v1/shop/me', { token: res.body.data.token });
+    const trial = me.body.data.subscriptions.vpn;
+    assert.ok(trial, 'a new account has something to connect with');
+    assert.equal(trial.active, true);
+    // The whole point: a config, not a promise of one.
+    assert.ok(trial.profileCount > 0, 'the trial carries at least one config');
+    assert.ok(trial.subscriptionUrl, 'and a subscription URL the app can refresh');
+    assert.deepEqual(me.body.data.orders, [], 'and it bought nothing to get there');
+  });
+
+  await t.test('it is metered and dated, unlike a comped grant', async () => {
+    const row = ctx.db.prepare(
+      "SELECT s.* FROM subscribers s JOIN customers c ON c.id = s.customer_id WHERE c.email = ?",
+    ).get('tries@example.com');
+    assert.equal(row.quota_bytes, 1024 * 1024 * 1024);
+    assert.equal(row.product, 'vpn');
+    const days = Math.round((row.expires_at - Date.now()) / 86400000);
+    assert.equal(days, 3);
+  });
+
+  await t.test('signing in again does not collect a second one', async () => {
+    const before = ctx.db.prepare('SELECT COUNT(*) n FROM subscribers').get().n;
+    const again = await ctx.request('POST', '/api/v1/shop/login', {
+      body: { email: 'tries@example.com', password: 'a-good-password' },
+    });
+    assert.equal(again.status, 200);
+    assert.equal(ctx.db.prepare('SELECT COUNT(*) n FROM subscribers').get().n, before);
+  });
+
+  await t.test('and neither does letting it run out and signing in again', async () => {
+    // What a patient freeloader would do: wait for the trial to lapse, then
+    // come back. The date on the customer is what refuses them, which is why
+    // it is not read off the subscription.
+    const customer = ctx.db.prepare('SELECT id FROM customers WHERE email = ?').get('tries@example.com');
+    ctx.db.prepare('DELETE FROM subscribers WHERE customer_id = ?').run(customer.id);
+    const again = await ctx.request('POST', '/api/v1/shop/login', {
+      body: { email: 'tries@example.com', password: 'a-good-password' },
+    });
+    assert.equal(again.status, 200);
+    const me = await ctx.request('GET', '/api/v1/shop/me', { token: again.body.data.token });
+    assert.equal(me.body.data.subscriptions.vpn, null, 'a spent trial stays spent');
+  });
+
+  await t.test('an account that already holds a subscription is not given one on top', async () => {
+    const res = await register('bought@example.com');
+    const token = res.body.data.token;
+    const customer = ctx.db.prepare('SELECT id FROM customers WHERE email = ?').get('bought@example.com');
+    // Stand in for a purchase: one subscription, and the trial marker cleared
+    // as it would be for somebody who bought before ever signing in.
+    ctx.db.prepare('UPDATE customers SET trial_granted_at = NULL WHERE id = ?').run(customer.id);
+    ctx.db.prepare('DELETE FROM subscribers WHERE customer_id = ?').run(customer.id);
+    ctx.db.prepare(`INSERT INTO subscribers
+        (id,name,token_hash,token_prefix,token_enc,quota_bytes,used_bytes,expires_at,status,created_at,updated_at,customer_id,product)
+        VALUES ('sub_paid','paid','hash','prefix','enc',0,0,?,'active',?,?,?,'vpn')`)
+      .run(Date.now() + 86400000, Date.now(), Date.now(), customer.id);
+
+    const again = await ctx.request('POST', '/api/v1/shop/login', {
+      body: { email: 'bought@example.com', password: 'a-good-password' },
+    });
+    assert.equal(again.status, 200);
+    const mine = ctx.db.prepare('SELECT COUNT(*) n FROM subscribers WHERE customer_id = ?').get(customer.id).n;
+    assert.equal(mine, 1, 'the paid subscription is the only one');
+    assert.equal(token.length > 0, true);
+  });
+
+  await t.test('the storefront says what the trial is, so it can be advertised', async () => {
+    const res = await ctx.request('GET', '/api/v1/shop/config');
+    assert.deepEqual(res.body.data.trial, { days: 3, gb: 1 });
+  });
+
+  await t.test('switched off, nobody gets one and nothing says there is one', async () => {
+    Object.assign(config.shop, shopConfig({ trialDays: 0, compedEmails: [] }));
+    const res = await register('late@example.com');
+    const me = await ctx.request('GET', '/api/v1/shop/me', { token: res.body.data.token });
+    assert.equal(me.body.data.subscriptions.vpn, null);
+    const cfg = await ctx.request('GET', '/api/v1/shop/config');
+    assert.equal(cfg.body.data.trial, null);
   });
 });

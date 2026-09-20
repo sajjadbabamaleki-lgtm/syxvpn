@@ -1421,11 +1421,24 @@ private fun ColumnScope.ServerAndPlanCard(
     // once the control plane has answered, and a failed call leaves the offer's
     // ordinary wording rather than a number nobody measured.
     var subscription by remember { mutableStateOf<ControlPlaneClient.Subscription?>(null) }
+    // The free trial, for someone who has not signed in yet. It is the only
+    // thing on this screen that answers the question they are actually asking
+    // — whether the tunnel comes up at all from where they are — so it
+    // outranks the pitch.
+    var trial by remember { mutableStateOf<ControlPlaneClient.Trial?>(null) }
     LaunchedEffect(Unit) {
         // Only an account has a plan to report. Without one the card keeps the
         // plain offer, which is the truth for someone who has not bought yet.
         if (app.session.signedIn) {
             runCatching { app.api.subscription() }.onSuccess { subscription = it }
+        }
+        // Offered to nobody who has signed in, whatever their subscription
+        // looks like. The trial is granted on the way in and can only be had
+        // once, so an account with nothing to show has already spent it — and
+        // a card that offered it again would be promising what the control
+        // plane is going to refuse.
+        if (!app.session.signedIn) {
+            runCatching { app.api.shopConfig() }.onSuccess { trial = it.trial }
         }
     }
 
@@ -1501,19 +1514,28 @@ private fun ColumnScope.ServerAndPlanCard(
         ) {
             Column(Modifier.weight(1f)) {
                 val plan = subscription
+                val offer = trial
                 Text(
-                    if (plan != null && plan.quotaBytes > 0) {
-                        val left = plan.quotaBytes - plan.usedBytes.coerceAtMost(plan.quotaBytes)
-                        "${formatBytes(left)} left · ${formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10)}"
-                    } else {
-                        "Want it faster and steadier?"
+                    when {
+                        plan != null && plan.quotaBytes > 0 -> {
+                            val left = plan.quotaBytes - plan.usedBytes.coerceAtMost(plan.quotaBytes)
+                            "${formatBytes(left)} left · ${formatDaysLeft(plan.expiresAt) ?: plan.expiresAt.take(10)}"
+                        }
+                        // Said in the numbers the operator set, so the card
+                        // cannot promise more than the control plane grants.
+                        offer != null -> "Try it free · ${offer.gb} GB for ${offer.days} days"
+                        else -> "Want it faster and steadier?"
                     },
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    "More data, and no cut-off mid-month.",
+                    if (plan == null && offer != null) {
+                        "Make an account and connect. Nothing to pay."
+                    } else {
+                        "More data, and no cut-off mid-month."
+                    },
                     color = TextDim,
                     fontSize = 12.sp,
                     maxLines = 2,
@@ -1521,7 +1543,9 @@ private fun ColumnScope.ServerAndPlanCard(
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                "PLANS",
+                // "PLANS" beside "Try it free" reads as a price list, which is
+                // the opposite of what the row is offering.
+                if (subscription == null && trial != null) "START" else "PLANS",
                 color = Accent,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,

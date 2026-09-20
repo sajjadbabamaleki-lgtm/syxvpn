@@ -46,6 +46,10 @@ test('the Android client reads fields the storefront actually returns', async (t
     paymentWindowMinutes: 60,
     maxOpenOrders: 2,
     supportContact: '@syxvpnsupport',
+    // The app reads this to decide whether to offer the trial on its first
+    // screen, so the contract covers it like any other field it parses.
+    trialDays: 3,
+    trialGb: 1,
   });
   t.after(() => Object.assign(config.shop, originalShop));
 
@@ -56,6 +60,10 @@ test('the Android client reads fields the storefront actually returns', async (t
     // The Support tab shows this and turns it into a link; null means "not set",
     // which the app states rather than hiding behind a dead button.
     assert.equal(res.body.data.supportContact, '@syxvpnsupport');
+    // The first screen offers the trial from these numbers rather than from
+    // anything compiled into the build, so an operator can change the offer
+    // without shipping an APK.
+    assert.deepEqual(res.body.data.trial, { days: 3, gb: 1 });
   });
 
   await t.test('GET /shop/plans carries every field the plan card shows', async () => {
@@ -93,8 +101,13 @@ test('the Android client reads fields the storefront actually returns', async (t
     assert.equal(list.body.data.length, 1);
     has(list.body.data[0], ORDER, 'listed order');
 
+    // An unpaid order provisions nothing. Said against what the account is
+    // actually carrying rather than against "no subscription at all": this
+    // deployment hands every new account a trial, so absence stopped being
+    // the evidence and the trial's own size is.
     const me = await ctx.request('GET', '/api/v1/shop/me', { token: customerToken });
-    assert.equal(me.body.data.subscription, null, 'an unpaid order provisions nothing');
+    assert.equal(me.body.data.subscription.quotaBytes, 1024 * 1024 * 1024, 'still only the trial');
+    assert.equal(me.body.data.orders[0].status, 'pending', 'and the order is still unpaid');
   });
 
   await t.test('a subscription carries what the account and connect screens show', async () => {

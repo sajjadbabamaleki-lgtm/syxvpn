@@ -175,6 +175,25 @@ export function loadConfig(env = process.env) {
       // sign-in. Long enough that it never lapses under somebody, short enough
       // that removing an address from the list actually takes effect.
       compedDays: int(env.SHOP_COMPED_DAYS, 365),
+      /**
+       * The free trial every new account is given once, on its first sign-in.
+       *
+       * A customer on the networks this serves cannot be asked to pay before
+       * finding out whether the tunnel comes up at all — from where they are,
+       * that is a real question, and most of what they have been sold before
+       * did not work. The trial answers it with the product rather than a
+       * promise.
+       *
+       * Metered and dated, both enforced at the gateway: an exhausted or
+       * lapsed subscription drops out of `entitledCredentials` and its
+       * credential stops being deployed. Small on purpose — it is a
+       * demonstration, not a plan.
+       *
+       * SHOP_TRIAL_DAYS=0 switches it off, and no account gets one afterwards.
+       * Changing the numbers does not touch a trial already granted.
+       */
+      trialDays: int(env.SHOP_TRIAL_DAYS, 3),
+      trialGb: int(env.SHOP_TRIAL_GB, 1),
       sessionTtlSeconds: int(env.SHOP_SESSION_TTL_SECONDS, 30 * 24 * 3600),
       // TRC-20 USDT address that receives customer payments. Without it the
       // storefront still lists plans but refuses to open an order.

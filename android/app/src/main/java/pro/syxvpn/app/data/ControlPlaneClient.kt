@@ -74,7 +74,20 @@ class ControlPlaneClient(
          * fill standing between every customer and their account.
          */
         val emailCodes: Boolean,
+        /**
+         * What a new account is given before it pays, or null when this
+         * deployment gives nothing.
+         *
+         * Read from the control plane rather than written into the app,
+         * because the offer is the operator's to change: a build that had the
+         * numbers baked in would keep advertising last month's trial to every
+         * phone that has not updated.
+         */
+        val trial: Trial?,
     )
+
+    /** The free trial, as the storefront describes it. */
+    data class Trial(val days: Int, val gb: Int)
 
     data class Plan(
         val id: String,
@@ -132,6 +145,14 @@ class ControlPlaneClient(
             windowMinutes = payment?.get("windowMinutes")?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
             supportContact = data["supportContact"]?.jsonPrimitive?.contentOrNullSafe(),
             emailCodes = data["emailCodes"]?.jsonPrimitive?.content.toBoolean(),
+            trial = data["trial"].objectOrNull?.let { trial ->
+                val days = trial["days"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                val gb = trial["gb"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+                // A trial of no days is not an offer, and an older control
+                // plane sends no field at all — both land here as nothing to
+                // advertise rather than as "0 GB for 0 days".
+                if (days > 0) Trial(days = days, gb = gb) else null
+            },
         )
     }
 

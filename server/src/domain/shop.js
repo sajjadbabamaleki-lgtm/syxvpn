@@ -51,6 +51,9 @@ export function loginCustomer(db, { email, password, userAgent }) {
   db.prepare('UPDATE customers SET last_login_at = ? WHERE id = ?').run(now, customer.id);
   db.prepare('DELETE FROM customer_sessions WHERE expires_at <= ?').run(now);
   ensureCompedSubscription(db, customer.id, customer.email);
+  // After the comped grant, and only ever once: an account already carrying a
+  // subscription is not offered a trial on top of it.
+  ensureTrialSubscription(db, customer.id);
   return { token, expiresAt, customer: { id: customer.id, email: customer.email } };
 }
 
@@ -97,6 +100,58 @@ export function ensureCompedSubscription(db, customerId, email) {
   recordEvent(db, {
     type: 'subscriber.comped', targetType: 'subscriber', targetId: created.id,
     message: `Comped subscription for ${normalized}, both products`,
+  });
+  return created.id;
+}
+
+/**
+ * Gives a new account one free trial, the first time it signs in.
+ *
+ * Granted on the way in rather than at registration, for the same reason the
+ * comped grant is: every route into this deployment — register, login, and the
+ * one-field form that decides between them — ends at `loginCustomer`, so one
+ * call here covers all of them and none of them can be reached without it.
+ *
+ * Once, and provably once. The date is written on the customer, so a trial
+ * that lapses or is deleted still counts as spent; reading it off their
+ * subscriptions instead would hand a second trial to anyone patient enough to
+ * wait for the first to expire. Nothing here renews: a trial runs out, and
+ * what comes after it is a purchase.
+ *
+ * An account that already holds a VPN subscription is skipped rather than
+ * marked, so somebody who bought before ever signing in keeps their trial for
+ * a day when they might want it.
+ *
+ * The limit this does not have is one address per person. Email codes make a
+ * trial cost a working mailbox, which is the friction that fits a product
+ * whose customers are not going to be asked for identity documents; if the
+ * giveaway starts showing up in the usage numbers, SHOP_TRIAL_DAYS=0 stops it
+ * in one restart.
+ */
+export function ensureTrialSubscription(db, customerId) {
+  const { trialDays, trialGb } = config.shop;
+  if (trialDays <= 0) return null;
+
+  const customer = db.prepare('SELECT trial_granted_at FROM customers WHERE id = ?').get(customerId);
+  if (!customer || customer.trial_granted_at) return null;
+  if (subscriberForCustomer(db, customerId, 'vpn')) return null;
+
+  const now = Date.now();
+  const created = createSubscriber(db, {
+    name: `trial ${customerId}`,
+    // Metered, unlike the comped grant: the point of a trial is that it ends.
+    quotaBytes: Math.max(0, trialGb) * 1024 * 1024 * 1024,
+    expiresAt: now + trialDays * 86400000,
+    note: `trial — ${trialGb} GB for ${trialDays} days`,
+    customerId,
+    product: 'vpn',
+  });
+  db.prepare('UPDATE customers SET trial_granted_at = ?, updated_at = ? WHERE id = ?')
+    .run(now, now, customerId);
+  recordEvent(db, {
+    type: 'subscriber.trial', targetType: 'subscriber', targetId: created.id,
+    message: `Free trial: ${trialGb} GB for ${trialDays} days`,
+    data: { customerId, trialGb, trialDays },
   });
   return created.id;
 }

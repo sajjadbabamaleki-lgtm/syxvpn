@@ -21,6 +21,8 @@ async function setup(t) {
   Object.assign(config.shop, {
     ...config.shop,
     enabled: true,
+    // Off: this suite watches accounts that have bought nothing.
+    trialDays: 0,
     payAddress: 'TLabAddressForTestsOnly000000000000',
     paymentWindowMinutes: 60,
     maxOpenOrders: 5,

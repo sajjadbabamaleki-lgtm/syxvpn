@@ -792,4 +792,18 @@ export const migrations = [
       db.exec('CREATE INDEX idx_gateways_priority ON gateways(priority, name)');
     },
   },
+  {
+    id: '011_customer_trial',
+    up(db) {
+      // When this account was given its free trial, or NULL for never.
+      //
+      // The trial is recorded on the customer rather than inferred from their
+      // subscriptions, because the question it answers is "has this person
+      // already had one" and a subscription cannot answer it: a trial that
+      // lapses, or is deleted by an operator tidying up, would leave the
+      // account looking untried and collect a second one on the next sign-in.
+      // A date here is true whatever happens to the subscription afterwards.
+      db.exec('ALTER TABLE customers ADD COLUMN trial_granted_at INTEGER');
+    },
+  },
 ];
