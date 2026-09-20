@@ -67,16 +67,27 @@ android {
          *
          * The first entry is the one currently reachable: a name with nothing
          * in it to match on, answering from Cloudflare's addresses rather than
-         * the origin's. The three after it are this deployment's own names and
-         * are all filtered today. They stay: a block is a decision somebody
-         * made and can be undone, and an installation older than this list has
-         * no other name to reach us by.
+         * the origin's.
+         *
+         * The second is the spare, and it is here before it is needed. A spare
+         * is only a spare if the installed app already knows it: on the day the
+         * first name is filtered, the phone cannot be told anything — the
+         * telling would go over the name that just stopped working. It is a
+         * separate registration on separate nameservers, because the blocks
+         * this has met took a whole zone at a time (cvpn.pro went with
+         * control.cvpn.pro), so a second label under the live name would fall
+         * with it.
+         *
+         * The three after it are this deployment's own names and are all
+         * filtered today. They stay: a block is a decision somebody made and
+         * can be undone, and an installation older than this list has no other
+         * name to reach us by.
          */
         buildConfigField(
             "String",
             "CONTROL_PLANE_URLS",
             "\"" + (System.getenv("SYXVPN_CONTROL_PLANE_URLS")
-                ?: "https://api.xoft.pro,https://control.syxvpn.pro,https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
+                ?: "https://api.xoft.pro,https://cdn.gamotion.pro,https://control.syxvpn.pro,https://control.sixvpn.pro,https://control.cvpn.pro") + "\"",
         )
 
         // Whether the Premium tab may open a USDT order inside the app.
