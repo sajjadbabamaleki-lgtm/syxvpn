@@ -69,8 +69,8 @@ object XrayConfigBuilder {
      * That is the only measurement the phone can make of the *whole* path: a
      * TCP handshake to the gateway proves the first hop and nothing else.
      */
-    fun outboundOnly(profile: TunnelProfile): String =
-        JSONObject().put("outbounds", JSONArray().put(proxyOutbound(profile))).toString()
+    fun outboundOnly(profile: TunnelProfile, address: String = profile.host): String =
+        JSONObject().put("outbounds", JSONArray().put(proxyOutbound(profile, address))).toString()
 
     /**
      * @param dns which resolver the tunnel uses. On an encrypted mode the
@@ -87,6 +87,8 @@ object XrayConfigBuilder {
         appProxyPort: Int,
         dns: PrivateDns = PrivateDns.STANDARD,
         mtu: Int = MTU,
+        /** What to dial; see [proxyOutbound]. The profile's own host by default. */
+        address: String = profile.host,
     ): String = JSONObject()
         .put("log", JSONObject().put("loglevel", "warning"))
         // Applied to the process environment as the config is built; the
@@ -96,7 +98,7 @@ object XrayConfigBuilder {
         .put(
             "outbounds",
             JSONArray()
-                .put(proxyOutbound(profile))
+                .put(proxyOutbound(profile, address))
                 .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
                 .put(JSONObject().put("tag", "block").put("protocol", "blackhole"))
                 // The resolver the tunnel answers with. Present only on an
@@ -134,13 +136,23 @@ object XrayConfigBuilder {
      * not care what is behind it. Adding a protocol is adding a branch here and
      * changes nothing else in the generated configuration.
      */
-    private fun proxyOutbound(profile: TunnelProfile): JSONObject = when (profile) {
-        is VlessProfile -> vlessOutbound(profile)
-        is ShadowsocksProfile -> shadowsocksOutbound(profile)
-        is TrojanProfile -> trojanOutbound(profile)
+    /**
+     * @param address what to dial, which is the profile's host unless the app
+     *   has already resolved it. Go's resolver cannot read Android's DNS
+     *   configuration, so libXray is pointed at a fixed resolver — and where
+     *   that resolver is blocked, as 1.1.1.1 is on the networks this serves,
+     *   the core cannot turn a gateway's name into an address at all. The app
+     *   resolves it with Android's own resolver instead and passes the result
+     *   here. The name is kept everywhere it is checked: the certificate is
+     *   still verified against it, and the Host header still carries it.
+     */
+    private fun proxyOutbound(profile: TunnelProfile, address: String): JSONObject = when (profile) {
+        is VlessProfile -> vlessOutbound(profile, address)
+        is ShadowsocksProfile -> shadowsocksOutbound(profile, address)
+        is TrojanProfile -> trojanOutbound(profile, address)
     }
 
-    private fun shadowsocksOutbound(profile: ShadowsocksProfile): JSONObject = JSONObject()
+    private fun shadowsocksOutbound(profile: ShadowsocksProfile, address: String): JSONObject = JSONObject()
         .put("tag", "proxy")
         .put("protocol", "shadowsocks")
         .put(
@@ -149,7 +161,7 @@ object XrayConfigBuilder {
                 "servers",
                 JSONArray().put(
                     JSONObject()
-                        .put("address", profile.host)
+                        .put("address", address)
                         .put("port", profile.port)
                         .put("method", profile.method)
                         // For a 2022 method this is the inbound's key and this
@@ -163,7 +175,7 @@ object XrayConfigBuilder {
         // TCP, and wrapping it in something else is how a profile stops working.
         .put("streamSettings", JSONObject().put("network", "tcp"))
 
-    private fun trojanOutbound(profile: TrojanProfile): JSONObject {
+    private fun trojanOutbound(profile: TrojanProfile, address: String): JSONObject {
         val tls = JSONObject()
             .put("serverName", profile.sni)
             // Never waved past. A trojan gateway that cannot prove its name is
@@ -182,7 +194,7 @@ object XrayConfigBuilder {
                     "servers",
                     JSONArray().put(
                         JSONObject()
-                            .put("address", profile.host)
+                            .put("address", address)
                             .put("port", profile.port)
                             .put("password", profile.password)
                             .put("level", 0),
@@ -198,7 +210,7 @@ object XrayConfigBuilder {
             )
     }
 
-    private fun vlessOutbound(profile: VlessProfile): JSONObject {
+    private fun vlessOutbound(profile: VlessProfile, address: String): JSONObject {
         val reality = profile.reality
         val stream = if (reality != null) {
             // TCP, and the TLS is the borrowed site's. The fingerprint makes
@@ -255,7 +267,7 @@ object XrayConfigBuilder {
                     "vnext",
                     JSONArray().put(
                         JSONObject()
-                            .put("address", profile.host)
+                            .put("address", address)
                             .put("port", profile.port)
                             .put(
                                 "users",

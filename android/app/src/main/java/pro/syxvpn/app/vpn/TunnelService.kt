@@ -25,6 +25,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import pro.syxvpn.app.R
 import pro.syxvpn.app.core.ConnectionMemory
+import pro.syxvpn.app.core.DohResolver
+import pro.syxvpn.app.core.GatewayAddress
 import pro.syxvpn.app.core.Latency
 import pro.syxvpn.app.core.PathEvidence
 import pro.syxvpn.app.core.PrivateDns
@@ -269,6 +271,7 @@ class TunnelService : VpnService() {
                                 metricsPort = metricsPort,
                                 appProxyPort = proxyPort,
                                 dns = dns,
+                                address = dialAddress(server.profile),
                             ),
                         )
                     } catch (failure: Throwable) {
@@ -344,7 +347,7 @@ class TunnelService : VpnService() {
         } else {
             activity.value = "Testing ${shortlist.size} of them end to end…"
             val delays = runCatching {
-                runtime.probe(shortlist.map { XrayConfigBuilder.outboundOnly(it.profile) })
+                runtime.probe(shortlist.map { XrayConfigBuilder.outboundOnly(it.profile, dialAddress(it.profile)) })
             }.getOrElse { emptyList() }
             // No runtime, or a refused batch: no evidence rather than bad
             // evidence. The handshake ranking then decides on its own.
@@ -408,7 +411,7 @@ class TunnelService : VpnService() {
         activity.value = "Testing ${server.label} end to end…"
         val delays = withContext(Dispatchers.IO) {
             runCatching {
-                runtime.probe(listOf(XrayConfigBuilder.outboundOnly(server.profile)))
+                runtime.probe(listOf(XrayConfigBuilder.outboundOnly(server.profile, dialAddress(server.profile))))
             }.getOrElse { emptyList() }
         }
         if (delays.isEmpty()) return PathEvidence.UNKNOWN
@@ -492,6 +495,40 @@ class TunnelService : VpnService() {
      * the same one every program that does this accepts.
      */
     private fun freeLoopbackPort(): Int = ServerSocket(0).use { it.localPort }
+
+    /**
+     * The address to dial for a gateway, settled by the phone rather than by
+     * the core.
+     *
+     * Go cannot read Android's DNS configuration, so libXray is pointed at a
+     * fixed resolver, and on the networks this serves that resolver is blocked
+     * — a gateway addressed by name then cannot be reached at all, while the
+     * phone's own browser resolves it instantly. Resolved once here and used
+     * for every probe and every start in this attempt, so one name cannot turn
+     * into two different addresses mid-connection.
+     */
+    private fun dialAddress(profile: pro.syxvpn.app.core.TunnelProfile): String =
+        resolved.getOrPut(profile.host) { GatewayAddress.of(profile.host, doh) }
+
+    private val resolved = mutableMapOf<String, String>()
+
+    private val doh by lazy { DohResolver(fetch = { url -> fetchOverHttp(url) }) }
+
+    /** The plain fetch the DoH resolver needs; addressed by IP, so no name is involved. */
+    private fun fetchOverHttp(url: String): String {
+        val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 8_000
+            readTimeout = 8_000
+            setRequestProperty("Accept", "application/dns-json")
+        }
+        return try {
+            if (connection.responseCode !in 200..299) error("resolver answered ${connection.responseCode}")
+            connection.inputStream.bufferedReader().readText()
+        } finally {
+            connection.disconnect()
+        }
+    }
 
     /**
      * Where this process's byte counters stood when the tunnel came up.

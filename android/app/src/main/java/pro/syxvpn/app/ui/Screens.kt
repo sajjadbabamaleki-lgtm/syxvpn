@@ -77,6 +77,7 @@ import pro.syxvpn.app.core.ConfigHealth
 import pro.syxvpn.app.core.ConfigImport
 import pro.syxvpn.app.core.ConnectionMemory
 import pro.syxvpn.app.core.CountryGroup
+import pro.syxvpn.app.core.GatewayAddress
 import pro.syxvpn.app.core.countryOf
 import pro.syxvpn.app.core.groupByCountry
 import pro.syxvpn.app.core.Latency
@@ -1010,8 +1011,13 @@ private class ServerListState(private val session: SessionStore) {
         try {
             val rtt = withContext(Dispatchers.IO) {
                 runCatching {
+                    // The address the phone resolves, not the one the core
+                    // cannot: Go has no view of Android's DNS, and the fixed
+                    // resolver libXray falls back to is blocked on the networks
+                    // this app is for.
+                    val address = GatewayAddress.of(server.profile.host)
                     createXrayBridge({ true }, 0)
-                        .probe(listOf(XrayConfigBuilder.outboundOnly(server.profile)))
+                        .probe(listOf(XrayConfigBuilder.outboundOnly(server.profile, address)))
                         .firstOrNull()
                 }.getOrNull()
             }

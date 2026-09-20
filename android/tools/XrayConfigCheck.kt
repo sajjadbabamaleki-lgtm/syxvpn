@@ -145,6 +145,28 @@ fun main(args: Array<String>) {
         "the ws outbound's TLS names no browser: ${wsTls}"
     }
 
+    // What the core is told to dial can be an address the app resolved, while
+    // every place the name is checked still carries the name.
+    val dialled = JSONObject(
+        XrayConfigBuilder.build(
+            profile = wsProfile,
+            controlPlaneHosts = listOf("control.example.net"),
+            tunFd = 42,
+            metricsPort = 49227,
+            appProxyPort = 49228,
+            address = "203.0.113.9",
+        ),
+    )
+    val dialledOut = (0 until dialled.getJSONArray("outbounds").length())
+        .map { dialled.getJSONArray("outbounds").getJSONObject(it) }
+        .single { it.optString("tag") == "proxy" }
+    val vnext = dialledOut.getJSONObject("settings").getJSONArray("vnext").getJSONObject(0)
+    check(vnext.getString("address") == "203.0.113.9") { "the resolved address was not dialled" }
+    check(
+        dialledOut.getJSONObject("streamSettings")
+            .getJSONObject("tlsSettings").getString("serverName") == "edge.example.net",
+    ) { "the certificate would be checked against the address rather than the name" }
+
     // The probe config libXray's pingBatch is given: outbounds only, by design.
     val probe = XrayConfigBuilder.outboundOnly(profile)
     check("inbounds" !in probe) { "the probe config must carry no inbound" }
