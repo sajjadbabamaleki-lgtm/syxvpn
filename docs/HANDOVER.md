@@ -238,6 +238,72 @@ know the name cannot be told it. The list in `build.gradle.kts` is where a new
 one goes, and it only reaches phones through a new APK — so the lead time is a
 build, not a command.
 
+## Two ways in, before anybody pays
+
+Both were built on 2026-09-20 and both end by themselves. Neither is enforced
+by the app: an exhausted or lapsed subscriber falls out of
+`entitledCredentials`, so the gateway stops being given the credential at all.
+That is the only enforcement worth having, and it is what the tests assert
+against.
+
+### The free session — no account at all
+
+Press the switch on a fresh install and it connects. Three minutes, five times
+per installation, and then an account.
+
+- `POST /api/v1/guest/session` takes `{deviceId}` and no credential of any
+  kind. `GET /api/v1/guest/standing` says what is left without spending any.
+- Settings: `GUEST_ENABLED`, `GUEST_SESSION_MINUTES` (3),
+  `GUEST_SESSIONS_PER_DEVICE` (5), `GUEST_SESSION_MB` (100),
+  `GUEST_LEASES_PER_DAY` (200).
+- **`GUEST_LEASES_PER_DAY` is the only one that actually holds.** The
+  per-device count is a speed bump: the identifier is the app's own, made from
+  random bytes, and clearing the app's data buys a fresh allowance. That is a
+  deliberate trade — Android no longer offers a stable identifier and a
+  hardware one would be a tracking key this project has no business keeping.
+  The daily ceiling does not care how many identifiers somebody invents.
+  Multiply it by `GUEST_SESSION_MB` for the worst the giveaway can cost in a
+  day: 200 × 100 MB = 20 GB. Lower it if the graph looks wrong; do not reach
+  for a cleverer fingerprint.
+- One subscription per device, reused across its sessions, with the quota
+  growing by `GUEST_SESSION_MB` each time. Five sessions leave one row.
+- Gateways are told immediately rather than at their next two-minute poll,
+  because three minutes cannot afford the wait. The agent applies a client-list
+  change through `structureHash` without restarting Xray, so guests arriving
+  and leaving cost nobody already connected anything. This was checked before
+  the feature was built, and it is what makes the whole thing viable.
+- The per-address rate limit is deliberately loose (30/min). Iranian mobile
+  carriers put very large numbers of subscribers behind one address, so a limit
+  tight enough to stop an abuser locks out everyone sharing their carrier.
+- A config the person pasted in themselves is never touched by any of this. It
+  is not a subscription, nobody can revoke it, and the Configs tab works with
+  no account at all.
+
+### The trial — one per account
+
+A metered, dated subscription on an account's first sign-in: 1 GB for 3 days.
+
+- `SHOP_TRIAL_DAYS` (3), `SHOP_TRIAL_GB` (1); `SHOP_TRIAL_DAYS=0` ends it.
+- Granted in `loginCustomer`, beside the comped grant, because every route in
+  — register, login, and the one-field form that decides between them — ends
+  there.
+- Once, and provably once: the date is on `customers.trial_granted_at`, not
+  inferred from the account's subscriptions, so a trial that lapses or is
+  deleted still counts as spent.
+- `GET /api/v1/shop/config` carries `trial: {days, gb}` so the app advertises
+  the operator's numbers rather than numbers baked into a build.
+
+### Advertising, and why AdMob is not an option
+
+The space under the end-of-session dialog is for a sponsor's message and is
+deliberately empty. **AdMob cannot serve this deployment**: Google's
+advertising products are not available to Iranian accounts under sanctions, and
+separately AdMob does not accept an app distributed from its own website as a
+recognised channel. The practical route is an Iranian network — Tapsell,
+Adivery, Magnet — which take direct-APK distribution and pay in rial. That
+needs an account and an app key, which is the one part of this nobody but the
+operator can supply.
+
 ## Operational gotchas that cost time today
 
 - The operator works from a phone terminal that **cannot supply interactive
