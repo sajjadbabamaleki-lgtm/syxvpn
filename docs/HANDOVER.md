@@ -1,4 +1,4 @@
-# Handover — state of the deployment, 2026-09-19
+# Handover — state of the deployment, 2026-09-20
 
 Written at the end of a long session so the next one does not repeat its dead
 ends. Everything below is either **verified** (a command was run and its output
@@ -14,7 +14,7 @@ No secrets here. Passwords and keys live on the hosts.
 |---|---|---|
 | Control plane + storefront + operator console | `173.249.47.5` (Contabo, Germany) | `/opt/cvpn`, docker compose, Caddy on the host |
 | Gateway `gw2` | `76.13.78.219` (Hostinger, Lithuania) | REALITY on 443, container `cvpn-agent-gw2`, Xray 26.3.27 |
-| Gateway `gw1` | the German host | Reachable from Europe; **not** usable from Iran |
+| Gateway `gw1` | the German host, `gw_LLa63NqkZTsE` | XHTTP on `/6749e3d2af833f06`, Xray on `127.0.0.1:10001` behind Caddy, reached as `api.xoft.pro` through Cloudflare. **This is the one that works from Iran.** |
 | Egress | `eg_cthHLfB2SwM8` | kind `direct` (freedom) — no upstream proxy in the path |
 
 The control plane's own tabs in the operator's terminal app: one session is the
@@ -60,13 +60,57 @@ APK for customers: `https://api.xoft.pro/download/syxvpn.apk`, refreshed with
 GitHub is filtered in Iran, so the release link is for the server to fetch, not
 for a customer to open.
 
-## The open problem
+## Solved: configs that only worked in this project's own app
 
-**A config that works in this project's own Android app does not work in
-v2rayNG or NPV Tunnel.** The tunnel reports itself connected and no traffic
-moves. This is not cosmetic: configs are sold to people who use those apps.
+**Fixed on 2026-09-20 and verified end to end** — the same config line now
+imports and carries traffic in v2rayNG *and* NPV Tunnel, from the operator's
+Iranian network.
 
-### What was ruled out, with the evidence
+Two independent faults were stacked on top of each other, which is why every
+single-cause theory failed: fixing either one alone still left a dead tunnel.
+
+### Fault 1 — the tunnel's shape. WebSocket is reset on the way in.
+
+A WebSocket tunnel opens with an HTTP/1.1 `Upgrade` request, and from Iran that
+request was being answered with an injected RST. The proof was a pair of tests
+from one phone, on one network, against one path:
+
+- v2rayNG, ws profile: `failed to dial to api.xoft.pro:443 > read tcp … ->
+  188.114.99.0:443: read: connection reset by peer`.
+- A browser opening a WebSocket to the identical URL: `OPEN - websocket works |
+  closed 1000`.
+
+The browser succeeds because it reaches Cloudflare over HTTP/2, where there is
+no `Upgrade` line to match on. Xray's own client speaks HTTP/1.1.
+
+The fix is **XHTTP** (`type=xhttp`, `mode=auto`), Xray's transport that carries
+the tunnel inside ordinary HTTP requests. Upstream has deprecated WebSocket,
+gRPC and HTTPUpgrade in its favour; `SplitHTTPConfig` in
+`infra/conf/transport_internet.go` is the struct the wire format comes from, and
+it takes `host`, `path` and `mode` under the key `xhttpSettings`.
+
+Verified with a real Xray 26.6.27 — the same core v2rayNG ships — run on the
+German host against the live gateway through Cloudflare: `exit_ip=173.249.47.5`.
+
+### Fault 2 — the profile carried a dead name.
+
+The gateway row still held `sni` and `ws_host` = `edge7.gamotion.pro`, left over
+from an earlier attempt. So every config the operator console sold told the
+client: connect to `api.xoft.pro` (Cloudflare), but announce `edge7.gamotion.pro`
+in the TLS handshake. Cloudflare does not serve that name, so the handshake died
+before any transport mattered. **Every config sold before this date was broken
+this way**, regardless of client.
+
+The row is now `sni=api.xoft.pro`, `ws_host=NULL`. Leaving `ws_host` empty is
+deliberate: the gateway's XHTTP inbound only pins a `Host` header when that
+column is set, and a gateway behind Cloudflare should accept whatever Host
+arrives.
+
+**Check this column pair first whenever a config "connects" but moves nothing.**
+A profile whose `sni` is not a name the front door actually serves cannot work,
+and nothing in the logs says so — the connection simply ends.
+
+### What was ruled out along the way, with the evidence
 
 Do not re-test these without a reason.
 
@@ -77,7 +121,8 @@ Do not re-test these without a reason.
 2. **The client profile is malformed.** No: `sid=0bac07f5` is in the inbound's
    `shortIds`, `sni=www.cloudflare.com` is in `serverNames`, `flow` matches on
    both sides, and `xray x25519 -i <gateway private key>` derives exactly the
-   `pbk` the profile carries.
+   `pbk` the profile carries. (The `sni` fault above is a different thing: the
+   profile was well formed, it just named a host nobody serves.)
 3. **Xray version mismatch.** No — this was tested rather than argued. Local
    REALITY server/client pairs, all PASS: 26.3.27↔26.3.27, **26.3.27↔26.6.27**
    (the deployed server against v2rayNG's core), 26.6.27↔26.6.27,
@@ -88,41 +133,72 @@ Do not re-test these without a reason.
 5. **An egress that cannot carry UDP.** No: the egress is `direct`.
 6. **A clock skew on the phone.** No: the same phone runs this project's app
    against the same gateway successfully.
+7. **Buying a third server.** No — and this was the operator's call, correctly:
+   two servers that both fail a name-based block do not become one that passes.
+   The answer was the shape of the traffic, not another address.
 
-### What the evidence does point at
+### Ports, from the operator's Iranian network
 
-**Only port 443 reaches the gateway from the operator's Iranian network.**
+Only **443** reaches a gateway. Tested, each with the listener confirmed up:
 
-- 8443 — unreachable (earlier in the session).
-- 2053 — a Shadowsocks-2022 inbound was created, the port was opened with `ufw`
-  and `iptables`, `ss -ltn` showed it listening, and it answered from Germany.
-  From Iran: nothing, in this project's own app as well as in v2rayNG.
-- 80 — the same inbound was moved there, confirmed listening. The gateway's
-  Xray log showed **no** line carrying the inbound's tag while a client tried,
-  only the existing REALITY traffic on `client-in`.
+- 8443 — unreachable.
+- 2053 — a Shadowsocks-2022 inbound, `ufw` and `iptables` opened, `ss -ltn`
+  showing it listening, answering from Germany. From Iran: nothing.
+- 80 — same inbound moved there, confirmed listening. The gateway's Xray log
+  showed **no** line carrying that inbound's tag while a client tried.
 - 443 — works.
 
-The gateway's access log is the instrument that settles this: a connection that
-reaches Xray produces a line naming the inbound tag. Nothing arriving means the
-packets never got there, which is a network fact and not a configuration one.
+The gateway's access log settles this kind of question: a connection that
+reaches Xray produces a line naming the inbound tag. Nothing arriving is a
+network fact, not a configuration one.
 
-Why REALITY itself fails in v2rayNG on port 443, where the same parameters work
-from this project's app on the same phone, is **still unexplained**. The
-gateway logs nothing for those attempts — which, for REALITY, is also what a
-rejected handshake looks like, since a rejected client is forwarded to the
-borrowed site in silence.
+The Shadowsocks inbound `ib_3d5186b29a77` on `gw2` still sits on port 80 and is
+useless there. Move it or delete it.
 
-### The remaining plan
+## How to test a gateway without a phone
 
-A second door that is also on port 443, which means a second address:
+This is the loop that found the answer, and it runs entirely on the German host.
+It is worth keeping: it tells you whether a config is broken *before* anyone is
+asked to install anything.
 
-1. A second server (any provider) running Shadowsocks on 443 — this also buys
-   redundancy the fleet does not have: if Lithuania stops, every user stops.
-2. Or a second IPv4 on the Lithuanian host (Hostinger sells them), cheaper but
-   with no redundancy.
+Write a client config — a local SOCKS door on 10888, the profile under test as
+the outbound:
 
-The Shadowsocks inbound `ib_3d5186b29a77` on `gw2` currently sits on port 80 and
-is useless there. Move it or delete it.
+    printf '%s' '{"log":{"loglevel":"warning"},"inbounds":[{"port":10888,"listen":"127.0.0.1","protocol":"socks","settings":{"udp":true}}],"outbounds":[{"protocol":"vless","settings":{"vnext":[{"address":"api.xoft.pro","port":443,"users":[{"id":"<uuid>","encryption":"none"}]}]},"streamSettings":{"network":"xhttp","security":"tls","tlsSettings":{"serverName":"api.xoft.pro","fingerprint":"chrome"},"xhttpSettings":{"path":"<ws_path>","mode":"auto","host":"api.xoft.pro"}}}]}' > /tmp/c.json
+
+Run it and ask the internet who you are:
+
+    pkill -f /tmp/xray; sleep 1; nohup /tmp/xray -c /tmp/c.json >/tmp/xray.log 2>&1 & sleep 4; echo "exit_ip=$(curl -s --socks5-hostname 127.0.0.1:10888 --max-time 20 https://api.ipify.org)"; tail -n 8 /tmp/xray.log
+
+`exit_ip=173.249.47.5` means the whole path works: Cloudflare, Caddy, Xray,
+egress. An empty `exit_ip` with the log naming the step that failed is a far
+better bug report than "it does not connect".
+
+Use the binary v2rayNG uses, not the one the server runs — that is the whole
+point of the test. `/tmp/xray` on the German host is Xray 26.6.27.
+
+And print what the console would actually sell, rather than assuming:
+
+    cd /opt/cvpn && docker compose --env-file .env -f deploy/docker-compose.yml exec -T api node -e "Promise.all([import('/app/src/db/index.js'),import('/app/src/domain/xray.js')]).then(([d,x])=>{const db=d.openDatabase('/data/cvpn.db');const g=db.prepare('select * from gateways where id=?').get('<gateway id>');console.log(x.clientProfile(g,'<uuid>'))})"
+
+That command is what exposed Fault 2. The config in the database and the config
+in the operator's hand had drifted, and only printing the second one showed it.
+
+## Caddy in front of an XHTTP gateway
+
+The gateway's path needs its subpaths too — XHTTP's packet-up mode appends
+segments to it, so a matcher on the bare path silently drops half the transport:
+
+    @gw path /6749e3d2af833f06 /6749e3d2af833f06/*
+    handle @gw {
+        reverse_proxy 127.0.0.1:10001 {
+            flush_interval -1
+        }
+    }
+
+`flush_interval -1` turns off response buffering; without it the tunnel stalls
+rather than fails, which is harder to diagnose. The block lives in the
+`control.cvpn.pro, api7.gamotion.pro, api.xoft.pro` site.
 
 ## Operational gotchas that cost time today
 
@@ -139,6 +215,10 @@ is useless there. Move it or delete it.
 - `console.table` with `strftime` in SQL needs single quotes inside the SQL,
   which the shell eats; compute in JS instead.
 - Deploy: `BRANCH=claude/filter-config-broken-c863mj sh /opt/cvpn/deploy/update.sh`.
+- A gateway's `sni` / `ws_host` columns are what end up in a sold config. They
+  outlive the name that put them there, and a stale one breaks every config for
+  that gateway with no error anywhere. Print `clientProfile` output, do not
+  trust the row.
 - The admin password lives in the `admins` table, **not** in `.env`.
   `ADMIN_PASSWORD` is read once, at first boot. Changing it later does nothing;
   reset it by updating `password_hash` through the app's own `hashPassword`.
@@ -162,10 +242,25 @@ is useless there. Move it or delete it.
   configs into one gateway stop being one row; a four-character tag from the
   credential; a per-row end-to-end test; hiding one config no longer hides
   every config at that address, and survives a restart.
+- **XHTTP end to end**: a `transport='xhttp'` gateway kind (migration
+  `010_gateway_xhttp`), the inbound and the `vless://…type=xhttp&mode=auto`
+  profile the console hands over, an ingress health probe that speaks it, and
+  the same transport in the Android app's config builder.
+- The app resolves a gateway's name itself (`GatewayAddress`) and dials the
+  address, because the Go core cannot read Android's DNS settings and
+  `1.1.1.1` is blocked in Iran.
+- A uTLS fingerprint (`fp=chrome`) on every TLS path. Go's own handshake is a
+  signature a censor can match on.
 
 ## Still open
 
-- **The third-party client problem above.** This is the one that matters.
+- Every config sold before 2026-09-20 carries the dead `edge7.gamotion.pro`
+  name and cannot work. Customers holding one need a reissue — the subscription
+  link fixes itself on refresh, a pasted config line does not.
+- `gw2` (REALITY, Lithuania) has not been re-checked for the same stale
+  `sni` / `ws_host` fault, and is still on the WebSocket-era assumption that a
+  REALITY handshake gets through. Print its `clientProfile` and test it with the
+  loop above.
 - `agent/Dockerfile` pins `XRAY_VERSION=latest`. Every gateway built gets
   whatever was released that day — the Lithuanian box got 26.3.27 while the
   current release is 26.9.9. Pin it.
@@ -181,5 +276,6 @@ is useless there. Move it or delete it.
   a value that appeared in a chat transcript. Change it from the console.
 - Two-factor is off on the operator account, on a console that is now reachable
   from anywhere.
-- One live gateway. `gw1` is enabled and unusable from Iran; it is still being
-  handed to subscribers.
+- One proven gateway. `gw1` carries everything; `gw2` is still handed to
+  subscribers on the untested assumption that REALITY reaches Lithuania. If
+  `gw1` stops, the fleet stops.
