@@ -454,6 +454,78 @@ class ControlPlaneClient(
             ?: throw ApiException(reply.status, "MALFORMED", "Unexpected response")
     }
 
+    /**
+     * A free session, for somebody who has not made an account.
+     *
+     * Everything about it is short-lived and there is nothing to store: the
+     * configs stop working on their own, and the next session is another call.
+     * So none of this is written to the session store the way a subscription
+     * is — a guest has nothing to come back to.
+     */
+    data class GuestSession(
+        val profiles: List<SubscriptionServer>,
+        val secondsLeft: Int,
+        val sessionsLeft: Int,
+        val sessionMinutes: Int,
+    )
+
+    /** What is on offer and what this installation has left of it, before it asks. */
+    data class GuestStanding(
+        val sessionMinutes: Int,
+        val sessionsPerDevice: Int,
+        val sessionsLeft: Int,
+    )
+
+    suspend fun guestStanding(): GuestStanding? = withContext(Dispatchers.IO) {
+        val data = request(
+            "GET",
+            "/api/v1/guest/standing?deviceId=" + java.net.URLEncoder.encode(session.deviceId, "UTF-8"),
+            null,
+            authenticated = false,
+        )
+        data["guest"].objectOrNull?.let { guest ->
+            GuestStanding(
+                sessionMinutes = guest["sessionMinutes"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                sessionsPerDevice = guest["sessionsPerDevice"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                sessionsLeft = guest["sessionsLeft"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            )
+        }
+    }
+
+    /**
+     * Spends one of them.
+     *
+     * Throws [ApiException] when there is none left — `GUEST_SPENT` for this
+     * installation's own allowance, `GUEST_BUSY` when the deployment's day is
+     * gone — and the two are told apart on the screen, because one is
+     * permanent and the other passes.
+     */
+    suspend fun guestSession(): GuestSession = withContext(Dispatchers.IO) {
+        val data = request(
+            "POST",
+            "/api/v1/guest/session",
+            """{"deviceId":${quote(session.deviceId)}}""",
+            authenticated = false,
+        )
+        val profiles = data["profiles"].arrayOrNull.orEmpty().mapNotNull { element ->
+            val profile = element.objectOrNull ?: return@mapNotNull null
+            val uri = profile["uri"]?.jsonPrimitive?.contentOrNullSafe() ?: return@mapNotNull null
+            SubscriptionServer(
+                uri = uri,
+                routeState = profile["routeState"]?.jsonPrimitive?.contentOrNullSafe(),
+                gatewayName = profile["gatewayName"]?.jsonPrimitive?.contentOrNullSafe(),
+                region = profile["region"]?.jsonPrimitive?.contentOrNullSafe(),
+            )
+        }
+        if (profiles.isEmpty()) throw ApiException(503, "GUEST_NO_GATEWAY", "No server is free right now")
+        GuestSession(
+            profiles = profiles,
+            secondsLeft = data["secondsLeft"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            sessionsLeft = data["sessionsLeft"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+            sessionMinutes = data["sessionMinutes"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+        )
+    }
+
     /** A JSON string literal, escaped by the library rather than by hand. */
     private fun quote(value: String) = JsonPrimitive(value).toString()
 

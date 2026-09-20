@@ -32,6 +32,25 @@ class SessionStore(context: Context) {
     /** Whether there is a session at all. A fresh install has none, and that is fine. */
     val signedIn: Boolean get() = token != null
 
+    /**
+     * This installation's name for itself, for the free sessions that need no
+     * account.
+     *
+     * Made here, from random bytes, and never from anything the phone knows
+     * about itself. Android stopped handing out a stable device identifier for
+     * good reasons, and reaching for a hardware one would make this a tracking
+     * key — something worth stealing, worth subpoenaing, and worth more to an
+     * attacker than the few free minutes it guards.
+     *
+     * The honest consequence is that clearing the app's data earns a fresh
+     * allowance. That is accepted rather than fought: the control plane's daily
+     * ceiling is what actually bounds the giveaway, and it does not care how
+     * many identifiers somebody invents.
+     */
+    val deviceId: String
+        get() = prefs.getString(KEY_DEVICE, null) ?: java.util.UUID.randomUUID().toString()
+            .also { prefs.edit().putString(KEY_DEVICE, it).apply() }
+
     var email: String?
         get() = prefs.getString(KEY_EMAIL, null)
         set(value) = prefs.edit().putString(KEY_EMAIL, value).apply()
@@ -195,8 +214,14 @@ class SessionStore(context: Context) {
      */
     fun clear() {
         val keepImported = importedConfigs
+        // Signing out is not a way to earn another set of free sessions. The
+        // identifier survives it, the way it survives everything short of
+        // clearing the app's data — which is the one hole, and is the control
+        // plane's daily ceiling to catch rather than this.
+        val keepDevice = prefs.getString(KEY_DEVICE, null)
         prefs.edit().clear().apply()
         importedConfigs = keepImported
+        if (keepDevice != null) prefs.edit().putString(KEY_DEVICE, keepDevice).apply()
     }
 
     private companion object {
@@ -212,5 +237,6 @@ class SessionStore(context: Context) {
         const val KEY_MEMORY = "connection_memory"
         const val KEY_CONTROL_BASE = "control_plane_base"
         const val KEY_DNS = "dns_mode"
+        const val KEY_DEVICE = "device_id"
     }
 }

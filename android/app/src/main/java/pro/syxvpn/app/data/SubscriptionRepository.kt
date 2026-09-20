@@ -96,6 +96,26 @@ class SubscriptionRepository(private val api: ControlPlaneClient) {
     private fun unlessImported(imported: List<Server>, message: String): String? =
         if (imported.isEmpty()) message else null
 
+    /**
+     * The servers a free session is served through, for somebody with no
+     * account at all.
+     *
+     * Nothing is cached and nothing is written to the session store. These
+     * configs stop working within minutes by the control plane's own doing, and
+     * a copy left on disk would only be a list of dead servers the next time
+     * the app opened with nothing better to show.
+     */
+    suspend fun guest(): Guest {
+        val session = api.guestSession()
+        return Guest(
+            servers = convert(session.profiles),
+            secondsLeft = session.secondsLeft,
+            sessionsLeft = session.sessionsLeft,
+        )
+    }
+
+    data class Guest(val servers: List<Server>, val secondsLeft: Int, val sessionsLeft: Int)
+
     private fun convert(servers: List<ControlPlaneClient.SubscriptionServer>): List<Server> =
         servers.mapNotNull { server ->
             val profile = TunnelProfile.parse(server.uri) ?: return@mapNotNull null

@@ -1187,6 +1187,19 @@ private class ServerListState(private val session: SessionStore) {
         const val HEALTH_TIMEOUT_MS = 2000
     }
 
+    /**
+     * The servers a free session was just granted, put in front of the switch.
+     *
+     * Not merged with what is already held and not written to the session
+     * store: these stop working in minutes, and a copy of them on disk would
+     * become a list of dead servers the next time the app opened.
+     */
+    fun useGuestServers(list: List<Server>) {
+        servers = list
+        chosen = list.firstOrNull()
+        status = null
+    }
+
     suspend fun refresh(repository: SubscriptionRepository) {
         // On screen before anything is asked of the network. The control plane
         // can be slow or unreachable, and that call fails when the socket gives
@@ -1218,6 +1231,108 @@ private class ServerListState(private val session: SessionStore) {
 }
 
 /**
+ * What the free session says about itself, under the switch.
+ *
+ * Three states and nothing else: how much of it is left while it runs, what is
+ * on offer before it starts, and why it was refused. A person with an account
+ * sees none of it — the card below already tells them what their plan has
+ * left, and a second line about free sessions would be noise on a screen they
+ * are paying for.
+ */
+@Composable
+private fun ColumnScope.GuestLine(
+    standing: ControlPlaneClient.GuestStanding?,
+    secondsLeft: Int?,
+    starting: Boolean,
+    refused: String?,
+    signedIn: Boolean,
+) {
+    if (signedIn) return
+    val line = when {
+        secondsLeft != null -> "Free session · ${secondsLeft / 60}:${"%02d".format(secondsLeft % 60)} left"
+        starting -> "Opening a free session…"
+        refused != null -> refused
+        standing == null -> return
+        standing.sessionsLeft > 0 ->
+            "Press to connect free for ${standing.sessionMinutes} minutes · " +
+                "${standing.sessionsLeft} of ${standing.sessionsPerDevice} left"
+        else -> "Your free sessions are used up. An account keeps it running."
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        line,
+        // A running clock is the app doing what it promised, so it is lit; the
+        // rest is ordinary secondary text, including the refusal — nothing
+        // here is an error somebody caused.
+        color = if (secondsLeft != null) Accent else TextDim,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .padding(horizontal = 28.dp),
+    )
+}
+
+/**
+ * The moment the free session ends.
+ *
+ * This is the one screen in the app somebody reaches having just watched it
+ * work, which is the only time the offer means anything. So it says what
+ * happened, what it costs to keep it, and — while there are any left — offers
+ * another one rather than making the account the only way out of the dialog.
+ *
+ * The empty space under the buttons is where a sponsor's message goes. It is
+ * left empty rather than filled with a placeholder: an ad network that cannot
+ * serve this deployment is not worth a layout that pretends otherwise, and
+ * whatever fills it later should be sized by what it actually is.
+ */
+@Composable
+private fun GuestOverSheet(
+    sessionsLeft: Int,
+    onAgain: () -> Unit,
+    onAccount: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface,
+        title = { Text("That was the free session", color = Color.White, fontSize = 17.sp) },
+        text = {
+            Column {
+                Text(
+                    if (sessionsLeft > 0) {
+                        "It worked, and it stopped because free sessions are short. " +
+                            "You have $sessionsLeft left."
+                    } else {
+                        "That was the last free session on this phone. " +
+                            "An account keeps the tunnel up instead of counting minutes."
+                    },
+                    color = TextDim,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onAccount) {
+                Text("See the plans", color = Accent, fontSize = 14.sp)
+            }
+        },
+        dismissButton = {
+            // Offered while there are any left, so the account is not the only
+            // way out of this dialog. Somebody pushed into buying at the first
+            // refusal has not been convinced of anything.
+            if (sessionsLeft > 0) {
+                TextButton(onClick = onAgain) {
+                    Text("Another free session", color = TextDim, fontSize = 14.sp)
+                }
+            }
+        },
+    )
+}
+
+/**
  * The VPN screen: a switch, and what it is connected through.
  *
  * This is the whole app for someone who never wants to see a config. It carries
@@ -1245,6 +1360,16 @@ private fun ColumnScope.TunnelSwitch(
     source: TunnelService.Source,
     onConnect: (List<Server>, Boolean, TunnelService.Source) -> Unit,
     onDisconnect: () -> Unit,
+    /**
+     * What the switch does when there is nothing to connect with yet.
+     *
+     * Null on every screen but the VPN tab for somebody with no account, where
+     * it asks the control plane for a free session. A dead switch over an empty
+     * list is the worst first impression this app can make — the one thing a
+     * person came to do, refused, with a paragraph explaining that they should
+     * buy something first.
+     */
+    onNoServers: (() -> Unit)? = null,
 ) {
     val tunnelState by TunnelService.state.collectAsState()
     val tunnelSource by TunnelService.source.collectAsState()
@@ -1303,11 +1428,15 @@ private fun ColumnScope.TunnelSwitch(
     Box(Modifier.align(Alignment.CenterHorizontally)) {
         ConnectSwitch(
             state = shownState,
-            enabled = candidates.isNotEmpty() || connected || connecting,
+            enabled = candidates.isNotEmpty() || connected || connecting || onNoServers != null,
             onToggle = {
                 if (connected || connecting) {
                     onDisconnect()
-                } else if (candidates.isNotEmpty()) {
+                } else if (candidates.isEmpty()) {
+                    // Nothing held, but something on offer. The switch does
+                    // what it looks like it does.
+                    onNoServers?.invoke()
+                } else {
                     // One tunnel exists, so turning this on while the other
                     // section holds it moves it here rather than opening a
                     // second one — which Android does not allow in any case.
@@ -1340,7 +1469,7 @@ private fun ColumnScope.TunnelSwitch(
     // card then names the server it moved to, which is the same answer in the
     // place a person is already looking.
 
-    if (candidates.isEmpty() && !connected && !connecting && !elsewhere) {
+    if (candidates.isEmpty() && !connected && !connecting && !elsewhere && onNoServers == null) {
         Spacer(Modifier.height(8.dp))
         Text(
             if (state.visible.isEmpty()) {
@@ -1843,8 +1972,93 @@ private fun VpnScreen(
     val connected = mine && tunnelState == TunnelService.State.CONNECTED
     val connecting = mine && tunnelState == TunnelService.State.CONNECTING
 
+    val scope = rememberCoroutineScope()
+    // The free session, for somebody who has not made an account. Held here
+    // rather than in ServerListState because none of it outlives the screen:
+    // the configs stop working in minutes and there is nothing to remember.
+    var standing by remember { mutableStateOf<ControlPlaneClient.GuestStanding?>(null) }
+    var secondsLeft by remember { mutableStateOf<Int?>(null) }
+    var over by remember { mutableStateOf(false) }
+    var starting by remember { mutableStateOf(false) }
+    var refused by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(app.session.signedIn) {
+        standing = if (app.session.signedIn) null
+        else runCatching { app.api.guestStanding() }.getOrNull()
+    }
+
+    /**
+     * The clock the person sees, and the one that actually ends the session is
+     * not this: the control plane expires the credential whether the app
+     * counts or not. This exists so the tunnel closes tidily at the right
+     * moment instead of dying mid-request a little later.
+     */
+    LaunchedEffect(secondsLeft != null) {
+        if (secondsLeft == null) return@LaunchedEffect
+        // The tunnel is read here rather than taken as a key: keying on it
+        // would restart this clock every time the switch changed state, and
+        // the state it starts in is CONNECTING — which is indistinguishable
+        // from "they turned it off" until it has been up once.
+        var wasUp = false
+        while ((secondsLeft ?: 0) > 0) {
+            delay(1000)
+            val up = TunnelService.source.value == TunnelService.Source.VPN &&
+                TunnelService.state.value == TunnelService.State.CONNECTED
+            if (up) wasUp = true
+            if (wasUp && !up) {
+                // Turned off by hand. The lease is spent either way — it is
+                // already counted at the control plane — but somebody who
+                // closed it themselves does not need to be told it ended.
+                secondsLeft = null
+                state.useGuestServers(emptyList())
+                return@LaunchedEffect
+            }
+            secondsLeft = (secondsLeft ?: 0) - 1
+        }
+        secondsLeft = null
+        over = true
+        onDisconnect()
+        // The configs are dead the moment the lease is: the control plane has
+        // already stopped deploying the credential. Clearing them is what puts
+        // the offer back in front of the switch for the next session — leaving
+        // them would show a list of servers that refuse to connect.
+        state.useGuestServers(emptyList())
+        standing = runCatching { app.api.guestStanding() }.getOrNull() ?: standing
+    }
+
+    val canStart = !app.session.signedIn && state.pool.isEmpty() &&
+        (standing?.sessionsLeft ?: 0) > 0 && !starting
+    val startGuest: (() -> Unit)? = if (canStart) {
+        {
+            starting = true
+            refused = null
+            scope.launch {
+                runCatching { app.subscriptions.guest() }
+                    .onSuccess { granted ->
+                        state.useGuestServers(granted.servers)
+                        secondsLeft = granted.secondsLeft
+                        standing = standing?.copy(sessionsLeft = granted.sessionsLeft)
+                        onConnect(granted.servers, true, TunnelService.Source.VPN)
+                    }
+                    .onFailure { refused = it.message }
+                starting = false
+            }
+        }
+    } else {
+        null
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-        TunnelSwitch(state, TunnelService.Source.VPN, onConnect, onDisconnect)
+        TunnelSwitch(state, TunnelService.Source.VPN, onConnect, onDisconnect, startGuest)
+        GuestLine(standing, secondsLeft, starting, refused, signedIn = app.session.signedIn)
+        if (over) {
+            GuestOverSheet(
+                sessionsLeft = standing?.sessionsLeft ?: 0,
+                onAgain = { over = false; startGuest?.invoke() },
+                onAccount = { over = false; onOpenPremium() },
+                onDismiss = { over = false },
+            )
+        }
         ServerAndPlanCard(app, state, onOpenConfigs, onOpenPremium)
         TunnelError()
 
