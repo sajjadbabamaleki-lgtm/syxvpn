@@ -1188,15 +1188,26 @@ private class ServerListState(private val session: SessionStore) {
     }
 
     /**
-     * The servers a free session was just granted, put in front of the switch.
+     * The servers a free session was just granted, and nothing else the
+     * account has — but never at the cost of the configs this person brought.
      *
-     * Not merged with what is already held and not written to the session
-     * store: these stop working in minutes, and a copy of them on disk would
-     * become a list of dead servers the next time the app opened.
+     * A pasted config is theirs. It is not a subscription, nobody can revoke
+     * it, and it works with no account at all: the whole reason the Configs
+     * tab exists for somebody who has not signed up. So it is carried through
+     * here rather than replaced, both when a session is granted and when one
+     * ends and this is called with nothing.
+     *
+     * The granted servers themselves are not written to the session store.
+     * They stop working within minutes by the control plane's own doing, and a
+     * copy on disk would become a list of dead servers the next time the app
+     * opened with nothing better to show.
      */
     fun useGuestServers(list: List<Server>) {
-        servers = list
-        chosen = list.firstOrNull()
+        val kept = servers.filter { it.imported }
+        servers = kept + list
+        val offered = (kept + list).filterNot { hidden.contains(it.profile.uri) }
+        chosen = offered.firstOrNull { it.profile.uri == chosen?.profile?.uri }
+            ?: offered.firstOrNull()
         status = null
     }
 
@@ -1290,6 +1301,7 @@ private fun ColumnScope.GuestLine(
 @Composable
 private fun GuestOverSheet(
     sessionsLeft: Int,
+    canStartAnother: Boolean,
     onAgain: () -> Unit,
     onAccount: () -> Unit,
     onDismiss: () -> Unit,
@@ -1323,7 +1335,7 @@ private fun GuestOverSheet(
             // Offered while there are any left, so the account is not the only
             // way out of this dialog. Somebody pushed into buying at the first
             // refusal has not been convinced of anything.
-            if (sessionsLeft > 0) {
+            if (sessionsLeft > 0 && canStartAnother) {
                 TextButton(onClick = onAgain) {
                     Text("Another free session", color = TextDim, fontSize = 14.sp)
                 }
@@ -2054,6 +2066,11 @@ private fun VpnScreen(
         if (over) {
             GuestOverSheet(
                 sessionsLeft = standing?.sessionsLeft ?: 0,
+                // A button that would do nothing is worse than no button. The
+                // start action is null whenever the switch already has
+                // something to connect with — a config this person pasted in,
+                // for one — and then another free session is not the offer.
+                canStartAnother = startGuest != null,
                 onAgain = { over = false; startGuest?.invoke() },
                 onAccount = { over = false; onOpenPremium() },
                 onDismiss = { over = false },
