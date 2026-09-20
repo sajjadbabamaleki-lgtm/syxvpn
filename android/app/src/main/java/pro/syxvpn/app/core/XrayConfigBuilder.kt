@@ -49,6 +49,13 @@ object XrayConfigBuilder {
     private const val APP_INBOUND = "app-in"
 
     /**
+     * The browser a TLS handshake imitates when the profile does not say.
+     *
+     * Chrome, because it is the handshake least likely to stand out anywhere.
+     */
+    private const val DEFAULT_FINGERPRINT = "chrome"
+
+    /**
      * @param tunFd the descriptor from VpnService, already open in this process.
      * @param metricsPort loopback port for Xray's metrics server; the traffic
      *   counters the connect screen shows are read from it, so they are the
@@ -162,7 +169,10 @@ object XrayConfigBuilder {
             // Never waved past. A trojan gateway that cannot prove its name is
             // either broken or is not the gateway.
             .put("allowInsecure", false)
-        profile.fingerprint?.let { tls.put("fingerprint", it) }
+        // Chrome's shape when the profile names none: a trojan door is TLS
+        // like any other, and Go's own handshake is the one a censor can pick
+        // out of a crowd.
+        tls.put("fingerprint", profile.fingerprint ?: DEFAULT_FINGERPRINT)
         return JSONObject()
             .put("tag", "proxy")
             .put("protocol", "trojan")
@@ -225,7 +235,15 @@ object XrayConfigBuilder {
                 "tlsSettings",
                 JSONObject()
                     .put("serverName", profile.sni ?: profile.wsHost ?: profile.host)
-                    .put("allowInsecure", false),
+                    .put("allowInsecure", false)
+                    // The shape of the handshake, not just its contents. Go's
+                    // own is unlike any browser's, and a censor that matches on
+                    // it cuts the connection before the far end ever sees it —
+                    // which is a tunnel that fails on an address the same phone
+                    // can open in its browser a second earlier. REALITY has
+                    // always sent this; the WebSocket path read `fp` from the
+                    // profile and then dropped it on the floor.
+                    .put("fingerprint", profile.fingerprint ?: DEFAULT_FINGERPRINT),
             )
         }
         val proxy = JSONObject()

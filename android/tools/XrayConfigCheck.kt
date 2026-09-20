@@ -120,6 +120,31 @@ fun main(args: Array<String>) {
     check(directAt < dnsRuleAt) { "the DNS rule is ahead of the direct rules" }
     if (args.getOrNull(1) == "--dns") { print(encrypted); return }
 
+    // A WebSocket gateway's TLS handshake must name a browser. Without it the
+    // core sends Go's own, which is the shape a censor matches on.
+    val wsProfile = requireNotNull(
+        TunnelProfile.parse(
+            "vless://11111111-2222-3333-4444-555555555555@edge.example.net:443" +
+                "?type=ws&security=tls&path=%2Fws&sni=edge.example.net&fp=chrome#Edge",
+        ),
+    ) { "the ws profile did not parse" }
+    val wsConfig = JSONObject(
+        XrayConfigBuilder.build(
+            profile = wsProfile,
+            controlPlaneHosts = listOf("control.example.net"),
+            tunFd = 42,
+            metricsPort = 49227,
+            appProxyPort = 49228,
+        ),
+    )
+    val wsOut = (0 until wsConfig.getJSONArray("outbounds").length())
+        .map { wsConfig.getJSONArray("outbounds").getJSONObject(it) }
+        .single { it.optString("tag") == "proxy" }
+    val wsTls = wsOut.getJSONObject("streamSettings").getJSONObject("tlsSettings")
+    check(wsTls.optString("fingerprint") == "chrome") {
+        "the ws outbound's TLS names no browser: ${wsTls}"
+    }
+
     // The probe config libXray's pingBatch is given: outbounds only, by design.
     val probe = XrayConfigBuilder.outboundOnly(profile)
     check("inbounds" !in probe) { "the probe config must carry no inbound" }

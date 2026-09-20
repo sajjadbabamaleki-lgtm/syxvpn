@@ -198,6 +198,24 @@ class VlessProfileTest {
     }
 
     @Test
+    fun `a WebSocket profile carries the browser its handshake should imitate`() {
+        // `fp` has been in these lines since before REALITY existed, and on
+        // this path it was parsed by nobody. A censor that matches Go's own
+        // TLS handshake cuts the tunnel on an address the phone can otherwise
+        // reach, which is indistinguishable from the gateway being down.
+        val profile = VlessProfile.parse(
+            "vless://uuid@edge.example.net:443?type=ws&security=tls&path=%2Fws&sni=edge.example.net&fp=chrome#Edge",
+        )!!
+        assertEquals("chrome", profile.fingerprint)
+    }
+
+    @Test
+    fun `a line that names no browser leaves the choice to the caller`() {
+        val profile = VlessProfile.parse("vless://uuid@h:443?type=ws&security=tls&path=%2Fws")!!
+        assertEquals(null, profile.fingerprint)
+    }
+
+    @Test
     fun `a stray percent is a percent, not a swallowed character`() {
         assertEquals("100% up", UriParts.percentDecode("100% up"))
         assertEquals("%zz", UriParts.percentDecode("%zz"))

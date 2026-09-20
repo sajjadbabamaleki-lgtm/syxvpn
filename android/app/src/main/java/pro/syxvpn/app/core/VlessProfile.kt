@@ -20,6 +20,20 @@ data class VlessProfile(
     val wsPath: String,
     val wsHost: String?,
     /**
+     * The browser this connection's TLS handshake should imitate.
+     *
+     * A handshake carries a shape — cipher order, extensions, their order —
+     * and Go's default one is nothing a browser has ever sent. Where a censor
+     * matches on that shape, a WebSocket-over-TLS tunnel is cut before it
+     * reaches the far end, on an address and a name that are otherwise
+     * perfectly reachable. uTLS makes the handshake look like the named
+     * browser's instead, which is what `fp` in the profile has always asked
+     * for and what this carries to the core.
+     *
+     * Null only when the line says nothing; the caller supplies the default.
+     */
+    val fingerprint: String? = null,
+    /**
      * REALITY, when the gateway borrows a real site's TLS handshake instead of
      * serving a certificate of its own. Null on a WebSocket profile, which is
      * every profile issued before this existed.
@@ -100,6 +114,7 @@ data class VlessProfile(
                 sni = parsed.param("sni"),
                 wsPath = parsed.param("path") ?: "/ws",
                 wsHost = parsed.param("host"),
+                fingerprint = parsed.param("fp")?.takeIf { it.isNotBlank() },
             )
         }
     }
